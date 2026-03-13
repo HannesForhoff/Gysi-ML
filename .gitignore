@@ -1,0 +1,38 @@
+# --- Laufzeit & lokaler State ---
+.local/
+.env
+*.db
+*.sqlite
+
+# --- Generierte Artefakte ---
+artifacts/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# --- Virtuelle Umgebungen ---
+.venv/
+venv/
+backend/.venv/
+frontend/node_modules/
+
+# --- Datensätze ---
+data/raw/
+
+# --- IDE ---
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+
+# --- BMAD (generierte Manifests, keine Secrets) ---
+# _bmad/ und _bmad-output/ werden committed

@@ -1,0 +1,69 @@
+Auf einen datensatz begrenzen -> bike data
+
+Features unterschieldich kodieren 
+
+missing values einführen und unterschieldich imputen
+
+preprocessing:
+
+bei trees robust gegen missing values und feature Transformation
+
+
+
+history feature (geh mal 2 schritte zurück)
+welfhe festures/transformatierungen haben die stärkste Auswirkung 
+
+kategoriale Features zusammenfassen in ein feature / oder one hot enkodieren
+
+Pipeline für dataset (bike) preprocessing schonmal aufbauen und da schauen welche preprocessing schritte sinnvoll sind 
+
+data Splitting
+test ratios
+
+
+feature selection 
+	interne Selektion als nächste interation
+	manuelle Auswahl
+	Gruppierungen (zb zeitbezogen und wetterbezogene)
+	filter Methods (zb auf Basis von korrelationsmetriken)
+	feature Selektion Methoden (zb catboost feature Selektion Modell) - nachdenken ob zulassen von externen sachen (nachdenken wie man 	das umsetzt) falls das nicht klappt sklearn feature Selektion Methoden 
+
+	llm sollte in der lage sein, die sklearn doku zu lesen, die frage ist ob man innerhalb der doku den zugriff beschränkt
+
+
+Train ML Model:
+
+will man wieder alle hyperparameter zulassen oder wieder beschränken
+durschauen welche gut geeignet sind und robust laufen
+
+
+Interactions super spannend, neigen zu model Explosion
+smoothing around
+max rounds
+early stopping
+max leafs
+
+schwierig umsetzbar, aber sehr cool
+welche hyperparameter führen zu smootheren kurven. llm soll doku lesen können und geeignete hyperparameter ausgeben. Empfehlungen geben -> manche gpt modelle können das bestimmt schon
+
+limitationsdoku: llm hat zu wenig Kontext wissen um auf bestimmte hyperparameter zu kommen. doku wissen alleine reicht nicht (sachen zu smoothen kurven steht nicht in der doku) 
+
+hyperparameter Optimierung erstmal ausklammern (aber umsetzbar aber hinten angestellt)
+die und die hyperparameter sind am most promising aufgrund der doku (Methode für Umsetzung erforderlich) 
+
+ausgabe zum model:
+
+predictive Performance
+zugriff audf Training und test (overfitting) 
+feature importance (ebm und tree) (plot + liste)
+globale Erklärung über plots
+lokal Explanation (einzelne samples des datasets) (baum + ebm) 
+
+baum tree Maps
+komplexitätsreduktion über zb System prompts, nur ersten layer oder ähnliches
+
+
+
+	
+
+

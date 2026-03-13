@@ -1,0 +1,4 @@
+# Dev/Test-Abhängigkeiten
+-r requirements.txt
+pytest
+pytest-cov
