@@ -5,7 +5,8 @@
 *.sqlite
 
 # --- Generierte Artefakte ---
-artifacts/
+artifacts/*
+!artifacts/.gitkeep
 
 # --- Python ---
 __pycache__/
@@ -22,7 +23,8 @@ backend/.venv/
 frontend/node_modules/
 
 # --- Datensätze ---
-data/raw/
+data/raw/*
+!data/raw/.gitkeep
 
 # --- IDE ---
 .idea/
