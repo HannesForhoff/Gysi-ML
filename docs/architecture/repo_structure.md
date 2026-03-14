@@ -45,7 +45,7 @@ Das LLM darf später Specs ändern, aber nicht den Code.
 Beispiel:
 - `preprocessing_only_bike.yaml` reproduzierbare Preprocessing-Pipeline
 
-## src/jarvis_ml (Produktcode als Paket)
+## src/gysi_ml (Produktcode als Paket)
 
 ### api/
 FastAPI Oberfläche, keine Businesslogik.

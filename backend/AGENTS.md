@@ -8,11 +8,11 @@ Python-Backend für den gysi-ml Assistenten. FastAPI-basiert, deterministisch, m
 
 | Schicht | Ordner | Verantwortung |
 | --- | --- | --- |
-| API | `src/jarvis_ml/api/` | FastAPI – nimmt Requests an, gibt Responses zurück |
-| Orchestrierung | `src/jarvis_ml/core/` | Kontext aufbauen, LLM anfragen, Aktionen validieren, Spec verwalten |
-| Ausführung | `src/jarvis_ml/executor/` | Steps deterministisch nach Spec ausführen |
-| Fachlogik | `src/jarvis_ml/steps/` | Preprocessing, Modeling, Explainability als modulare Bausteine |
-| Persistenz | `src/jarvis_ml/persistence/` | SQLite für State/History, FS für Artefakte |
+| API | `src/gysi_ml/api/` | FastAPI – nimmt Requests an, gibt Responses zurück |
+| Orchestrierung | `src/gysi_ml/core/` | Kontext aufbauen, LLM anfragen, Aktionen validieren, Spec verwalten |
+| Ausführung | `src/gysi_ml/executor/` | Steps deterministisch nach Spec ausführen |
+| Fachlogik | `src/gysi_ml/steps/` | Preprocessing, Modeling, Explainability als modulare Bausteine |
+| Persistenz | `src/gysi_ml/persistence/` | SQLite für State/History, FS für Artefakte |
 
 ## Pipeline-Scope
 

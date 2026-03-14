@@ -31,7 +31,7 @@
 ```text
 gysi-ml/
 ├── backend/                 # Python Backend (FastAPI + ML-Pipeline)
-│   ├── src/jarvis_ml/       #   Produktcode als Paket
+│   ├── src/gysi_ml/         #   Produktcode als Paket
 │   ├── tests/               #   Unit + Integration Tests
 │   ├── configs/             #   Pipeline-Specs (YAML)
 │   ├── scripts/             #   Lokale Runner
