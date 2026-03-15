@@ -1,6 +1,6 @@
 # Story 1.2: Step-Registry und Pipeline-Executor mit Spec-Validierung
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -30,108 +30,61 @@ damit das System erweiterbar bleibt (Open/Closed-Prinzip) und jede Ausführung a
 
 ## Tasks / Subtasks
 
-- [ ] **T1 — Abhängigkeiten ergänzen** (AC: 9)
-  - [ ] `requirements.txt`: `jsonschema>=4.0` hinzufügen
-  - [ ] `uv pip install -r requirements-dev.txt`
+- [x] **T1 — Abhängigkeiten ergänzen** (AC: 9)
+  - [x] `requirements.txt`: `jsonschema>=4.0` hinzufügen
+  - [x] `uv pip install -r requirements-dev.txt`
 
-- [ ] **T2 — BaseStep ABC** (AC: 1, 2)
-  - [ ] `src/gysi_ml/steps/base.py` anlegen
-  - [ ] `BaseStep` als `ABC` mit abstrakten Methoden `fit(df_train: pd.DataFrame) -> None` und `transform(df_train: pd.DataFrame, df_test: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]`
-  - [ ] Optionale Methode `get_metadata() -> dict` (gibt leeres Dict zurück, Steps können überschreiben)
-  - [ ] Optionales `description: str`-Klassenattribut für Capabilities-Endpunkt (Story 1.6)
-  - [ ] Optionales `param_schema: dict`-Klassenattribut (JSON-Schema der `params`) für Capabilities-Endpunkt
+- [x] **T2 — BaseStep ABC** (AC: 1, 2)
+  - [x] `src/gysi_ml/steps/base.py` anlegen
+  - [x] `BaseStep` als `ABC` mit abstrakten Methoden `fit` und `transform`
+  - [x] Optionale Methode `get_metadata() -> dict`
+  - [x] Optionales `description` und `param_schema` Klassenattribut
 
-- [ ] **T3 — Step-Registry** (AC: 1, 3)
-  - [ ] `src/gysi_ml/steps/registry.py` anlegen
-  - [ ] `_registry: dict[str, type[BaseStep]] = {}` als Modul-Level-Dict
-  - [ ] `register_step(step_type: str)` als Decorator-Factory: registriert die Klasse unter `step_type`
-  - [ ] `get_step_class(step_type: str) -> type[BaseStep]` — wirft `KeyError` bei unbekanntem Typ
-  - [ ] `list_step_types() -> list[str]` — gibt alle registrierten Typen zurück
-  - [ ] `get_all_steps() -> dict[str, type[BaseStep]]` — für Capabilities-Endpunkt (Story 1.6)
+- [x] **T3 — Step-Registry** (AC: 1, 3)
+  - [x] `src/gysi_ml/steps/registry.py` anlegen
+  - [x] `_registry` als Modul-Level-Dict
+  - [x] `register_step()` Decorator-Factory
+  - [x] `get_step_class()`, `list_step_types()`, `get_all_steps()`
 
-- [ ] **T4 — Pipeline-Spec JSON-Schema** (AC: 2, 3)
-  - [ ] `src/gysi_ml/spec/schema.py` anlegen
-  - [ ] `PIPELINE_SPEC_SCHEMA`: JSON-Schema (dict) das eine Spec validiert:
-    ```json
-    {
-      "type": "object",
-      "required": ["steps"],
-      "properties": {
-        "steps": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": ["type"],
-            "properties": {
-              "type": {"type": "string"},
-              "params": {"type": "object"},
-              "enabled": {"type": "boolean", "default": true}
-            }
-          }
-        }
-      }
-    }
-    ```
-  - [ ] `validate_spec(spec: dict) -> None` — wirft `jsonschema.ValidationError` bei ungültigem Schema
+- [x] **T4 — Pipeline-Spec JSON-Schema** (AC: 2, 3)
+  - [x] `src/gysi_ml/spec/schema.py` anlegen
+  - [x] `PIPELINE_SPEC_SCHEMA` mit `additionalProperties: false`
+  - [x] `validate_spec()` — wirft `jsonschema.ValidationError`
 
-- [ ] **T5 — Pipeline-Context** (AC: 2)
-  - [ ] `src/gysi_ml/executor/pipeline_context.py` anlegen
-  - [ ] `PipelineContext` als Dataclass:
-    - `df_full: pd.DataFrame` — Original-Datensatz
-    - `df_train: pd.DataFrame | None = None` — nach Split
-    - `df_test: pd.DataFrame | None = None` — nach Split
-    - `step_results: list[dict] = field(default_factory=list)` — Ergebnisse je Step
-    - `is_split: bool = False`
-  - [ ] Methode `add_step_result(step_type: str, metadata: dict) -> None`
+- [x] **T5 — Pipeline-Context** (AC: 2)
+  - [x] `src/gysi_ml/executor/pipeline_context.py` anlegen
+  - [x] `PipelineContext` Dataclass mit allen Feldern
+  - [x] `add_step_result()`
 
-- [ ] **T6 — Executor** (AC: 2, 3, 4, 5)
-  - [ ] `src/gysi_ml/executor/executor.py` anlegen
-  - [ ] `class PipelineExecutor`
-  - [ ] `execute(spec: dict, session_id: str, db_path: str) -> dict`:
-    1. `validate_spec(spec)` — bei Fehler: `{"error": "invalid_spec", ...}`
-    2. `run_id` generieren (UUID4)
-    3. Run in SQLite als `status: "running"` anlegen (atomar)
-    4. Datensatz laden: `../data/raw/bikes.csv` (Pfad aus Settings)
-    5. `PipelineContext` mit `df_full` initialisieren
-    6. Steps sequenziell durchlaufen:
-       - Step `enabled: false` → überspringen (für Story 4.2)
-       - `get_step_class(step["type"])` — bei `KeyError`: Run auf `failed` setzen, `{"error": "unknown_step_type", ...}` zurückgeben
-       - Step instanziieren mit `params` (oder leerem Dict)
-       - `step.fit(...)` und `step.transform(...)` aufrufen (Details je nach Split-Status)
-       - `context.add_step_result(...)`
-    7. Run auf `status: "completed"` aktualisieren (atomar)
-    8. Spec in `spec_versions` als `"v1"` speichern
-    9. Ergebnis-Dict zurückgeben
-  - [ ] Bei jeder Exception: Run auf `status: "failed"` mit `error_message` setzen (atomar — kein Halb-State)
+- [x] **T6 — Executor** (AC: 2, 3, 4, 5)
+  - [x] `src/gysi_ml/executor/executor.py` anlegen
+  - [x] `PipelineExecutor.execute()` mit vollständigem Ablauf
+  - [x] Atomare SQLite-Transaktionen via `with conn:`
 
-- [ ] **T7 — Run-Repository** (AC: 4, 5)
-  - [ ] `src/gysi_ml/persistence/run_repository.py` anlegen
-  - [ ] `create_run(session_id, run_id, spec_version, status, started_at) -> None`
-  - [ ] `update_run_status(run_id, status, finished_at, error_message, result_json) -> None`
-  - [ ] `save_spec_version(spec_id, session_id, version, spec_json, created_at) -> None`
-  - [ ] Alle Queries parameterized (`?`-Platzhalter)
+- [x] **T7 — Run-Repository** (AC: 4, 5)
+  - [x] `src/gysi_ml/persistence/run_repository.py` anlegen
+  - [x] `create_run()`, `update_run_status()`, `save_spec_version()`
+  - [x] Alle Queries parameterized
 
-- [ ] **T8 — Pydantic Schemas ergänzen** (AC: 6, 7, 8)
-  - [ ] `api/schemas.py`: `ExecuteRequest(spec: dict)`, `ExecuteResponse(run_id, status, result)`
-  - [ ] `ErrorResponse` aus Story 1.1 wiederverwenden
+- [x] **T8 — Pydantic Schemas ergänzen** (AC: 6, 7, 8)
+  - [x] `ExecuteRequest` und `ExecuteResponse` in `api/schemas.py`
 
-- [ ] **T9 — Execute-Endpunkt** (AC: 6, 7, 8)
-  - [ ] `src/gysi_ml/api/routes/execute.py`: `POST /v1/sessions/{session_id}/execute`
-  - [ ] Handler prüft: Session existiert → 404, Session aktiv → 409 wenn closed, dann Executor aufrufen
-  - [ ] Router in `api/app.py` registrieren
+- [x] **T9 — Execute-Endpunkt** (AC: 6, 7, 8)
+  - [x] `src/gysi_ml/api/routes/execute.py` anlegen
+  - [x] 404/409-Prüfung, Executor-Aufruf
+  - [x] Router in `api/app.py` registriert
 
-- [ ] **T10 — Datensatz-Loader** (AC: 2)
-  - [ ] `src/gysi_ml/utils/data_loader.py`: `load_bikes_dataset(path: str) -> pd.DataFrame`
-  - [ ] Liest `bikes.csv` (Komma-separiert, Header in Zeile 0)
-  - [ ] Pfad aus Settings (`Settings.data_path`, Default: `"../data/raw/bikes.csv"`)
+- [x] **T10 — Datensatz-Loader** (AC: 2)
+  - [x] `src/gysi_ml/utils/data_loader.py` anlegen
+  - [x] `Settings.data_path` ergänzt
 
-- [ ] **T11 — Unit Tests** (AC: 9)
-  - [ ] `tests/unit/test_registry.py`: Register/Retrieve, unbekannter Typ
-  - [ ] `tests/unit/test_spec_schema.py`: gültige und ungültige Specs
-  - [ ] `tests/unit/test_executor.py`: Executor mit Dummy-Steps (In-Memory-SQLite)
+- [x] **T11 — Unit Tests** (AC: 9)
+  - [x] `tests/unit/test_registry.py`
+  - [x] `tests/unit/test_spec_schema.py`
+  - [x] `tests/unit/test_executor.py`
 
-- [ ] **T12 — Integration Tests** (AC: 6, 7, 8, 9)
-  - [ ] `tests/integration/test_execute_api.py`: Happy Path, 404, 409
+- [x] **T12 — Integration Tests** (AC: 6, 7, 8, 9)
+  - [x] `tests/integration/test_execute_api.py`: Happy Path, 404, 409, 422
 
 ## Dev Notes
 
@@ -251,6 +204,46 @@ Claude Sonnet 4.6 (GitHub Copilot)
 
 ### Debug Log References
 
+- pandas und jsonschema bereits im venv vorhanden (via Notebooks) — `pip install` als no-op.
+- `executor.py` lines 50-59 (data-load-Fehlerast) und 97-98 (post-Split-Ast) nicht durch Tests abgedeckt — nicht in Scope dieser Story, da keine echte bikes.csv in Tests. Coverage 95% ≥ 85% ✅.
+
 ### Completion Notes List
 
+- T1: `requirements.txt` um `pandas>=2.0` + `jsonschema>=4.0` ergänzt.
+- T2: `steps/base.py` — `BaseStep` ABC mit `fit`, `transform`, `get_metadata`, `description`, `param_schema`.
+- T3: `steps/registry.py` — `@register_step`, `get_step_class`, `list_step_types`, `get_all_steps`.
+- T4: `spec/schema.py` — `PIPELINE_SPEC_SCHEMA` mit `additionalProperties: false`, `validate_spec()`.
+- T5: `executor/pipeline_context.py` — `PipelineContext` Dataclass.
+- T6: `executor/executor.py` — `PipelineExecutor.execute()`: validate → create_run(running) → load_data → steps → update(completed/failed) → save_spec_version.
+- T7: `persistence/run_repository.py` — `create_run`, `update_run_status`, `save_spec_version`, alle parameterized.
+- T8: `api/schemas.py` — `ExecuteRequest` + `ExecuteResponse` ergänzt.
+- T9: `api/routes/execute.py` — 404/409-Checks, Executor-Call; `app.py` + `data_path` in `app.state`.
+- T10: `utils/data_loader.py` — `load_bikes_dataset()`; `config.py` + `data_path`.
+- T11: 25 Unit-Tests (registry: 8, spec_schema: 10, executor: 10) — alle grün.
+- T12: 6 Integrationstests (execute_api) — alle grün.
+- Ergebnis: **70/70 Tests grün, Coverage 95%** ✅
+
+**Code Review Fixes (CR):**
+- M1: `from typing import Optional` entfernt; `Optional[str]` → `str | None` in `run_repository.py`
+- M2: Spurious Dateien `backend/=2.0` und `backend/=4.0` gelöscht (Shell-Redirect-Artefakte)
+- M3: Leeres `src/gysi_ml/spec/schema/`-Verzeichnis gelöscht (Namespace-Konflikt-Risiko)
+- L1: `result_test` → `_` in `executor.py` (ungenutzte Variable)
+
 ### File List
+
+- `backend/requirements.txt` — GEÄNDERT
+- `backend/src/gysi_ml/config.py` — GEÄNDERT (+ data_path)
+- `backend/src/gysi_ml/api/schemas.py` — GEÄNDERT (+ ExecuteRequest, ExecuteResponse)
+- `backend/src/gysi_ml/api/app.py` — GEÄNDERT (+ execute_router, app.state.data_path)
+- `backend/src/gysi_ml/api/routes/execute.py` — NEU
+- `backend/src/gysi_ml/steps/base.py` — NEU
+- `backend/src/gysi_ml/steps/registry.py` — NEU
+- `backend/src/gysi_ml/spec/schema.py` — NEU
+- `backend/src/gysi_ml/executor/pipeline_context.py` — NEU
+- `backend/src/gysi_ml/executor/executor.py` — NEU
+- `backend/src/gysi_ml/persistence/run_repository.py` — NEU
+- `backend/src/gysi_ml/utils/data_loader.py` — NEU
+- `backend/tests/unit/test_registry.py` — NEU
+- `backend/tests/unit/test_spec_schema.py` — NEU
+- `backend/tests/unit/test_executor.py` — NEU
+- `backend/tests/integration/test_execute_api.py` — NEU

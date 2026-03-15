@@ -1,0 +1,31 @@
+import jsonschema
+
+PIPELINE_SPEC_SCHEMA: dict = {
+    "type": "object",
+    "required": ["steps"],
+    "properties": {
+        "steps": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["type"],
+                "properties": {
+                    "type": {"type": "string"},
+                    "params": {"type": "object"},
+                    "enabled": {"type": "boolean", "default": True},
+                },
+                "additionalProperties": False,
+            },
+        }
+    },
+    "additionalProperties": False,
+}
+
+
+def validate_spec(spec: dict) -> None:
+    """Validiert `spec` gegen PIPELINE_SPEC_SCHEMA.
+
+    Raises:
+        jsonschema.ValidationError: wenn die Spec ungültig ist.
+    """
+    jsonschema.validate(instance=spec, schema=PIPELINE_SPEC_SCHEMA)

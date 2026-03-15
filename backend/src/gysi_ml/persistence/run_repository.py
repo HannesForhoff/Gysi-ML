@@ -1,0 +1,58 @@
+from gysi_ml.persistence.database import get_connection
+
+
+def create_run(
+    session_id: str,
+    run_id: str,
+    spec_version: str,
+    status: str,
+    started_at: str,
+    db_path: str | None = None,
+) -> None:
+    conn = get_connection(db_path)
+    try:
+        with conn:
+            conn.execute(
+                "INSERT INTO runs (run_id, session_id, spec_version, status, started_at) VALUES (?, ?, ?, ?, ?)",
+                (run_id, session_id, spec_version, status, started_at),
+            )
+    finally:
+        conn.close()
+
+
+def update_run_status(
+    run_id: str,
+    status: str,
+    finished_at: str,
+    error_message: str | None = None,
+    result_json: str | None = None,
+    db_path: str | None = None,
+) -> None:
+    conn = get_connection(db_path)
+    try:
+        with conn:
+            conn.execute(
+                "UPDATE runs SET status = ?, finished_at = ?, error_message = ?, result_json = ? WHERE run_id = ?",
+                (status, finished_at, error_message, result_json, run_id),
+            )
+    finally:
+        conn.close()
+
+
+def save_spec_version(
+    spec_id: str,
+    session_id: str,
+    version: str,
+    spec_json: str,
+    created_at: str,
+    db_path: str | None = None,
+) -> None:
+    conn = get_connection(db_path)
+    try:
+        with conn:
+            conn.execute(
+                "INSERT INTO spec_versions (spec_id, session_id, version, spec_json, created_at) VALUES (?, ?, ?, ?, ?)",
+                (spec_id, session_id, version, spec_json, created_at),
+            )
+    finally:
+        conn.close()

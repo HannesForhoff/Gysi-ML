@@ -1,6 +1,6 @@
 # Story 1.3: Preprocessing Steps — Dedup, Imputation und Outlier Handling
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -167,6 +167,38 @@ Claude Sonnet 4.6 (GitHub Copilot)
 
 ### Debug Log References
 
+- scikit-learn und scipy frisch installiert (waren nicht im venv).
+- `executor.py` lines 50-59 (data-load-Fehlerast): unverändert aus Story 1.2, keine echte bikes.csv in Tests.
+- `imputation.py` line 43, `outlier_handling.py` lines 52/64: `most_frequent`-Pfad bzw. `zscore`-Sonderfall (std==0) nicht durch alle Testpfade abgedeckt → Coverage 96% ≥ 85% ✅.
+- Minimaler `SplitStep` in `steps/preprocessing/split.py` implementiert (T6/T8), wird in Story 1.5 vollständig ausgebaut.
+- `requires_split` + `is_splitter` als neue Klassen-Attribute in `BaseStep` ergänzt (kein Breaking Change zu Story 1.2).
+
 ### Completion Notes List
 
+- T1: `scikit-learn>=1.4` + `scipy>=1.12` in requirements.txt, installiert via pip.
+- T2: `dedup.py` — DeduplicationStep, `requires_split=False`, zählt entfernte Duplikate.
+- T3: `imputation.py` — ImputationStep, `requires_split=True`, median/mean/most_frequent, fit-on-train only.
+- T4: `outlier_handling.py` — OutlierHandlingStep, `requires_split=True`, IQR+Z-Score Capping.
+- T5: `steps/preprocessing/__init__.py` importiert alle 4 Step-Module; `steps/__init__.py` importiert preprocessing-Paket; `api/app.py` importiert `gysi_ml.steps` beim Start.
+- T6: BaseStep + `requires_split`/`is_splitter`; Executor prüft `requires_split` → split_required; Executor erkennt `is_splitter` → setzt context.df_train/df_test/is_split. Minimaler `SplitStep` angelegt.
+- T7: 38 neue Unit-Tests (dedup: 10, imputation: 13, outlier: 15) — alle grün.
+- T8: 7 Integrationstests (dedup-only, split_required-Fehler, vollständige Pipeline) — alle grün.
+- Ergebnis: **108/108 Tests grün, Coverage 96%** ✅
+
 ### File List
+
+- `backend/requirements.txt` — GEÄNDERT (+ scikit-learn, scipy)
+- `backend/src/gysi_ml/steps/base.py` — GEÄNDERT (+ requires_split, is_splitter)
+- `backend/src/gysi_ml/steps/__init__.py` — GEÄNDERT (+ preprocessing import)
+- `backend/src/gysi_ml/steps/preprocessing/__init__.py` — GEÄNDERT (+ alle Step-Imports)
+- `backend/src/gysi_ml/steps/preprocessing/dedup.py` — NEU
+- `backend/src/gysi_ml/steps/preprocessing/imputation.py` — NEU
+- `backend/src/gysi_ml/steps/preprocessing/outlier_handling.py` — NEU
+- `backend/src/gysi_ml/steps/preprocessing/split.py` — NEU (minimal, Story 1.5 baut aus)
+- `backend/src/gysi_ml/executor/executor.py` — GEÄNDERT (+ requires_split-Check, is_splitter-Handling)
+- `backend/src/gysi_ml/api/app.py` — GEÄNDERT (+ import gysi_ml.steps)
+- `backend/tests/unit/preprocessing/__init__.py` — NEU
+- `backend/tests/unit/preprocessing/test_dedup.py` — NEU
+- `backend/tests/unit/preprocessing/test_imputation.py` — NEU
+- `backend/tests/unit/preprocessing/test_outlier_handling.py` — NEU
+- `backend/tests/integration/test_preprocessing_pipeline.py` — NEU

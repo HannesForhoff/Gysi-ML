@@ -1,0 +1,50 @@
+import sqlite3
+
+
+def create_all_tables(db_path: str | None = None) -> None:
+    from gysi_ml.persistence.database import get_connection
+
+    conn = get_connection(db_path)
+    try:
+        cursor = conn.cursor()
+        cursor.executescript("""
+            CREATE TABLE IF NOT EXISTS sessions (
+                session_id  TEXT PRIMARY KEY,
+                name        TEXT,
+                created_at  TEXT NOT NULL,
+                status      TEXT NOT NULL DEFAULT 'active'
+            );
+
+            CREATE TABLE IF NOT EXISTS runs (
+                run_id        TEXT PRIMARY KEY,
+                session_id    TEXT NOT NULL,
+                spec_version  TEXT,
+                status        TEXT NOT NULL,
+                started_at    TEXT NOT NULL,
+                finished_at   TEXT,
+                error_message TEXT,
+                result_json   TEXT,
+                FOREIGN KEY (session_id) REFERENCES sessions(session_id)
+            );
+
+            CREATE TABLE IF NOT EXISTS artifacts (
+                artifact_id TEXT PRIMARY KEY,
+                run_id      TEXT NOT NULL,
+                type        TEXT NOT NULL,
+                file_path   TEXT NOT NULL,
+                created_at  TEXT NOT NULL,
+                FOREIGN KEY (run_id) REFERENCES runs(run_id)
+            );
+
+            CREATE TABLE IF NOT EXISTS spec_versions (
+                spec_id    TEXT PRIMARY KEY,
+                session_id TEXT NOT NULL,
+                version    TEXT NOT NULL,
+                spec_json  TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (session_id) REFERENCES sessions(session_id)
+            );
+        """)
+        conn.commit()
+    finally:
+        conn.close()

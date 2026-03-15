@@ -1,0 +1,43 @@
+from contextlib import asynccontextmanager
+from typing import Optional
+
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+
+import gysi_ml.steps  # noqa: F401 — registriert alle @register_step-Decorators beim Import
+from gysi_ml.api.routes.execute import router as execute_router
+from gysi_ml.api.routes.health import router as health_router
+from gysi_ml.api.routes.sessions import router as sessions_router
+from gysi_ml.api.schemas import ErrorResponse
+from gysi_ml.config import Settings, get_settings
+from gysi_ml.persistence.schema import create_all_tables
+
+
+def create_app(settings: Optional[Settings] = None) -> FastAPI:
+    settings = settings or get_settings()
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        create_all_tables(settings.db_path)
+        yield
+
+    app = FastAPI(title="gysi-ml", version="0.1.0", lifespan=lifespan)
+    app.state.db_path = settings.db_path
+    app.state.data_path = settings.data_path
+
+    app.include_router(health_router)
+    app.include_router(sessions_router)
+    app.include_router(execute_router)
+
+    @app.exception_handler(404)
+    async def not_found_handler(request: Request, exc: Exception) -> JSONResponse:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorResponse(
+                error="not_found",
+                detail="Die angeforderte Ressource wurde nicht gefunden.",
+                code="NOT_FOUND",
+            ).model_dump(),
+        )
+
+    return app
