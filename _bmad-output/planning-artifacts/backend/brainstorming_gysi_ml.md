@@ -424,7 +424,7 @@ Phase 5 — API-Schicht
 
 ## 6. Erkenntnisse aus Domain/Technical Research
 
-> Vollständiger Report: `_bmad-output/planning-artifacts/research/domain-technical-research-2026-03-14.md`
+> Vollständiger Report: `_bmad-output/planning-artifacts/backend/research/domain-technical-research-2026-03-14.md`
 
 ### 6.1 Architektur-relevante Erkenntnisse
 

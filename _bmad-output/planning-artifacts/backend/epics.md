@@ -1,8 +1,8 @@
 ---
 stepsCompleted: [step-01-validate-prerequisites, step-02-design-epics, step-03-create-stories, step-04-final-validation]
 inputDocuments:
-  - _bmad-output/planning-artifacts/prd.md
-  - _bmad-output/planning-artifacts/implementation-readiness-report-2026-03-14.md
+  - _bmad-output/planning-artifacts/backend/prd.md
+  - _bmad-output/planning-artifacts/backend/implementation-readiness-report-2026-03-14.md
 ---
 
 # gysi-ml - Epic Breakdown

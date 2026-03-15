@@ -1,7 +1,7 @@
 ---
 stepsCompleted: [step-01-document-discovery, step-02-prd-analysis, step-03-epic-coverage-validation, step-04-ux-alignment, step-05-epic-quality-review, step-06-final-assessment]
 documentsInventoried:
-  prd: _bmad-output/planning-artifacts/prd.md
+  prd: _bmad-output/planning-artifacts/backend/prd.md
   architecture: null
   epics: null
   ux: null
@@ -19,12 +19,12 @@ documentsInventoried:
 
 | Dokumenttyp | Datei | Status |
 |---|---|---|
-| PRD | `_bmad-output/planning-artifacts/prd.md` | ✅ Vollständig (Steps 1–11) |
+| PRD | `_bmad-output/planning-artifacts/backend/prd.md` | ✅ Vollständig (Steps 1–11) |
 | Architecture | — | ❌ Nicht vorhanden |
 | Epics & Stories | — | ❌ Nicht vorhanden |
 | UX Design | — | ❌ Nicht vorhanden (erwartet: API-only) |
-| Brainstorming | `_bmad-output/planning-artifacts/brainstorming_gysi_ml.md` | ✅ Referenz |
-| Domain Research | `_bmad-output/planning-artifacts/research/domain-technical-research-2026-03-14.md` | ✅ Referenz |
+| Brainstorming | `_bmad-output/planning-artifacts/backend/brainstorming_gysi_ml.md` | ✅ Referenz |
+| Domain Research | `_bmad-output/planning-artifacts/backend/research/domain-technical-research-2026-03-14.md` | ✅ Referenz |
 
 ---
 
