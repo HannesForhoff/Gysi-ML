@@ -1,15 +1,18 @@
 import { getFrontendEnv } from '../env'
-import type { AssistantResponse } from '../types'
+import type {
+  SendAssistantMessageInput,
+  SendAssistantMessageResult,
+} from './transportTypes'
 
 import { sendMockMessage } from './mockTransport'
 import { sendRealMessage } from './realTransport'
 
 export async function sendAssistantMessage(
-  userText: string,
-): Promise<AssistantResponse> {
+  input: SendAssistantMessageInput,
+): Promise<SendAssistantMessageResult> {
   const env = getFrontendEnv()
 
   return env.useMock
-    ? await sendMockMessage(userText)
-    : await sendRealMessage(env.backendBaseUrl, userText)
+    ? await sendMockMessage(input)
+    : await sendRealMessage(env.backendBaseUrl, input)
 }

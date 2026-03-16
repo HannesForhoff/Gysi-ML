@@ -26,6 +26,7 @@ export interface ChatState {
   ui: UiState
   messages: ChatMessage[]
   transport: TransportInfo
+  sessionId: string | null
   specSummary: SpecSummary | null
   lastRun: ResultResponse | null
   artifacts: ArtifactRef[]
@@ -37,6 +38,7 @@ export type ChatAction =
   | {
       type: 'SEND_REQUEST_SUCCEEDED'
       assistantMessage: ChatMessage
+      sessionId: string | null
       response: AssistantResponse
     }
   | {
@@ -52,6 +54,7 @@ export function createInitialChatState(): ChatState {
     ui: { type: 'idle' },
     messages: [],
     transport: { useMock: env.useMock, backendBaseUrl: env.backendBaseUrl },
+    sessionId: null,
     specSummary: null,
     lastRun: null,
     artifacts: [],
@@ -101,6 +104,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ...state,
         ui: nextUiStateForResponse(response),
         messages: [...state.messages, action.assistantMessage],
+        sessionId: action.sessionId,
         specSummary,
         artifacts,
         lastRun,

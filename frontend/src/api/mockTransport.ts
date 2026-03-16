@@ -1,4 +1,8 @@
 import type { AssistantResponse } from '../types'
+import type {
+  SendAssistantMessageInput,
+  SendAssistantMessageResult,
+} from './transportTypes'
 
 import proposalFixture from '../fixtures/proposal.json'
 import resultFixture from '../fixtures/result.json'
@@ -24,7 +28,13 @@ function pickFixture(userText: string): AssistantResponse {
   return resultFixture as AssistantResponse
 }
 
-export async function sendMockMessage(userText: string): Promise<AssistantResponse> {
+export async function sendMockMessage(
+  input: SendAssistantMessageInput,
+): Promise<SendAssistantMessageResult> {
   await sleep(MOCK_LATENCY_MS)
-  return pickFixture(userText)
+
+  return {
+    sessionId: input.sessionId ?? 'mock',
+    response: pickFixture(input.userText),
+  }
 }

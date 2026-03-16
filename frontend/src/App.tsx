@@ -69,7 +69,10 @@ function App() {
       dispatch({ type: 'SEND_REQUEST_STARTED', userMessage })
 
       try {
-        const response = await sendAssistantMessage(text)
+        const { sessionId, response } = await sendAssistantMessage({
+          userText: text,
+          sessionId: state.sessionId,
+        })
         const assistantMessage = createMessage(
           'assistant',
           formatAssistantResponse(response),
@@ -78,6 +81,7 @@ function App() {
         dispatch({
           type: 'SEND_REQUEST_SUCCEEDED',
           assistantMessage,
+          sessionId,
           response,
         })
       } catch (error) {
@@ -91,7 +95,7 @@ function App() {
         })
       }
     },
-    [state.ui.type],
+    [state.sessionId, state.ui.type],
   )
 
   return (

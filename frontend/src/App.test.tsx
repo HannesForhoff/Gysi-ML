@@ -80,7 +80,7 @@ describe('gysi-ml frontend (Story 1.1 smoke tests)', () => {
   it('Kein Doppelsenden: Send ist disabled während Request läuft', async () => {
     vi.resetModules()
 
-    const d = deferred<AssistantResponse>()
+    const d = deferred<{ sessionId: string | null; response: AssistantResponse }>()
     const sendAssistantMessageMock = vi.fn(() => d.promise)
 
     vi.doMock('./api/transport', () => ({
@@ -110,7 +110,10 @@ describe('gysi-ml frontend (Story 1.1 smoke tests)', () => {
 
     expect(userMessages).toHaveLength(1)
 
-    d.resolve({ type: 'result', message: 'ok', status: 'done' })
+    d.resolve({
+      sessionId: 'mock',
+      response: { type: 'result', message: 'ok', status: 'done' },
+    })
 
     await screen.findByText(/ok/)
   })

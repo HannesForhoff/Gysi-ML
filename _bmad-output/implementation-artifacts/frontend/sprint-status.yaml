@@ -1,5 +1,5 @@
 # generated: 2026-03-15T13:59:46.5298419+01:00
-# last_updated: 2026-03-15T14:16:17.3649646+01:00
+# last_updated: 2026-03-16T18:06:48.2869656+01:00
 # project: gysi-ml
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-03-15T13:59:46.5298419+01:00
-last_updated: 2026-03-15T14:16:17.3649646+01:00
+last_updated: 2026-03-16T18:06:48.2869656+01:00
 project: gysi-ml
 project_key: NOKEY
 tracking_system: file-system
@@ -50,10 +50,10 @@ development_status:
   epic-1: in-progress
 
   # Story 1.1 — Frontend-Scaffold und Mock-Chat UI (Single Page)
-  1-1-frontend-scaffold-und-mock-chat-ui: ready-for-dev
+  1-1-frontend-scaffold-und-mock-chat-ui: done
 
   # Story 1.2 — Backend-Integration (Session + Messages) nach /v1 Contract
-  1-2-backend-integration-session-und-messages: backlog
+  1-2-backend-integration-session-und-messages: review
 
   # Story 1.3 — Status-Panel (Backend-Health + Spec-Summary)
   1-3-status-panel-backend-health-und-spec-summary: backlog
