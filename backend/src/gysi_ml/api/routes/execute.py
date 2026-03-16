@@ -19,6 +19,10 @@ def _get_data_path(request: Request) -> str:
     return getattr(request.app.state, "data_path", get_settings().data_path)
 
 
+def _get_artifacts_path(request: Request) -> str:
+    return getattr(request.app.state, "artifacts_path", get_settings().artifacts_path)
+
+
 @router.post(
     "/sessions/{session_id}/execute",
     response_model=ExecuteResponse,
@@ -35,6 +39,7 @@ def execute_pipeline(
 ) -> Union[ExecuteResponse, JSONResponse]:
     db_path = _get_db_path(request)
     data_path = _get_data_path(request)
+    artifacts_path = _get_artifacts_path(request)
 
     # 404: Session existiert nicht
     session = session_repository.get_session(session_id=session_id, db_path=db_path)
@@ -59,7 +64,7 @@ def execute_pipeline(
             ).model_dump(),
         )
 
-    executor = PipelineExecutor(data_path=data_path)
+    executor = PipelineExecutor(data_path=data_path, artifacts_path=artifacts_path)
     result = executor.execute(spec=body.spec, session_id=session_id, db_path=db_path)
 
     if "error" in result:

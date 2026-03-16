@@ -12,10 +12,12 @@ class Settings(BaseSettings):
 
     db_path: str = "../.local/gysi_ml.db"
     data_path: str = "../data/raw/bikes.csv"
+    artifacts_path: str = "../artifacts"
     host: str = "0.0.0.0"
     port: int = 8000
     openai_api_key: str = ""
     llm_model: str = ""
+    openai_base_url: str = ""
 
 
 @lru_cache

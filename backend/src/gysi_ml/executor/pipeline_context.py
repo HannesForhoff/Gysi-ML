@@ -14,6 +14,8 @@ class PipelineContext:
     df_test: pd.DataFrame | None = None
     step_results: list[dict] = field(default_factory=list)
     is_split: bool = False
+    metrics: dict = field(default_factory=dict)
+    artifacts: list[dict] = field(default_factory=list)
 
     def add_step_result(self, step_type: str, metadata: dict) -> None:
         """Fügt das Ergebnis eines Steps zur Liste hinzu."""

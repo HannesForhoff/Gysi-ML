@@ -1,6 +1,6 @@
 # Story 1.5: Train/Test-Split als Architekturgrenze und Run-Persistenz vollständig
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -28,59 +28,60 @@ damit Experimente exakt wiederholbar sind und jede Pipeline-Ausführung vollstä
 
 ## Tasks / Subtasks
 
-- [ ] **T1 — SplitStep** (AC: 1, 3)
-  - [ ] `src/gysi_ml/steps/preprocessing/split.py` anlegen
-  - [ ] `@register_step("split")` `class SplitStep(BaseStep):`
-  - [ ] `description = "Teilt den Datensatz reproduzierbar in Train/Test auf"`
-  - [ ] `param_schema = {"test_size": {"type": "number", "default": 0.2}, "random_state": {"type": "integer", "default": 42}}`
-  - [ ] `fit(df)`: no-op (Split ist zustandsfrei)
-  - [ ] `transform(df_full, _)`:
+- [x] **T1 — SplitStep** (AC: 1, 3)
+  - [x] `src/gysi_ml/steps/preprocessing/split.py` anlegen
+  - [x] `@register_step("split")` `class SplitStep(BaseStep):`
+  - [x] `description = "Teilt den Datensatz reproduzierbar in Train/Test auf"`
+  - [x] `param_schema = {"test_size": {"type": "number", "default": 0.2}, "random_state": {"type": "integer", "default": 42}}`
+  - [x] `fit(df)`: no-op (Split ist zustandsfrei)
+  - [x] `transform(df_full, _)`:
     - Verwendet `sklearn.model_selection.train_test_split` mit `test_size` und `random_state`
     - Gibt `(df_train, df_test)` zurück
-  - [ ] Setzt `context.is_split = True` und `context.df_train`, `context.df_test`
-  - [ ] `get_metadata()`: gibt `{"train_rows": <int>, "test_rows": <int>, "test_size": <float>, "random_state": <int>}` zurück
-  - [ ] `@register_step("split")` in `steps/preprocessing/__init__.py` importieren
+  - [x] Setzt `context.is_split = True` und `context.df_train`, `context.df_test`
+  - [x] `get_metadata()`: gibt `{"train_rows": <int>, "test_rows": <int>, "test_size": <float>, "random_state": <int>}` zurück
+  - [x] `@register_step("split")` in `steps/preprocessing/__init__.py` importieren
 
-- [ ] **T2 — Spec-Order-Validierung im Executor** (AC: 2)
-  - [ ] `src/gysi_ml/executor/spec_validator.py` anlegen (oder in `schema.py` integrieren)
-  - [ ] `validate_spec_order(steps: list[dict]) -> None`:
+- [x] **T2 — Spec-Order-Validierung im Executor** (AC: 2)
+  - [x] `src/gysi_ml/executor/spec_validator.py` anlegen
+  - [x] `validate_spec_order(steps: list[dict]) -> None`:
     - `REQUIRES_SPLIT = {"impute_missing", "outlier_handling", "encode_categorical", "correlation_filter", "rare_category_bucketing"}`
     - Iteriert Steps; merkt sich ob `"split"` bereits gesehen wurde
     - Bei einem Step in `REQUIRES_SPLIT` ohne vorherigen Split → wirft `SpecOrderError`
-  - [ ] `SpecOrderError` als eigene Exception-Klasse
-  - [ ] Executor ruft `validate_spec_order()` **vor** der Ausführung auf (nach `validate_spec()`)
-  - [ ] Fehlerformat: `{"error": "invalid_spec_order", "detail": "...", "code": "INVALID_SPEC_ORDER"}`
+  - [x] `SpecOrderError` als eigene Exception-Klasse
+  - [x] Executor ruft `validate_spec_order()` **vor** der Ausführung auf (nach `validate_spec()`)
+  - [x] Fehlerformat: `{"error": "invalid_spec_order", "detail": "...", "code": "INVALID_SPEC_ORDER"}`
 
-- [ ] **T3 — Run-Repository erweitern** (AC: 4, 5, 6, 7)
-  - [ ] `persistence/run_repository.py` aus Story 1.2 erweitern:
-  - [ ] `get_runs_for_session(session_id: str) -> list[dict]` — alle Runs einer Session
-  - [ ] `get_run(run_id: str) -> dict | None` — einzelner Run mit vollständigen Daten
-  - [ ] `result_json` Feld enthält serialisiertes Ergebnis-Dict (Step-Metadaten + Metriken + Artefakte)
-  - [ ] Alle Queries parameterized
+- [x] **T3 — Run-Repository erweitern** (AC: 4, 5, 6, 7)
+  - [x] `persistence/run_repository.py` aus Story 1.2 erweitern:
+  - [x] `get_runs_for_session(session_id: str) -> list[dict]` — alle Runs einer Session
+  - [x] `get_run(run_id: str) -> dict | None` — einzelner Run mit vollständigen Daten
+  - [x] `result_json` Feld enthält serialisiertes Ergebnis-Dict (Step-Metadaten + Metriken + Artefakte)
+  - [x] Alle Queries parameterized
 
-- [ ] **T4 — Pydantic Schemas ergänzen** (AC: 4, 5, 6)
-  - [ ] `api/schemas.py` erweitern:
-  - [ ] `RunSummaryResponse`: `run_id`, `status`, `started_at`, `spec_version`
-  - [ ] `RunDetailResponse`: + `spec`, `step_results`, `metrics`, `artifacts`, `finished_at`, `error_message`
-  - [ ] `RunListResponse`: `runs: list[RunSummaryResponse]`
+- [x] **T4 — Pydantic Schemas ergänzen** (AC: 4, 5, 6)
+  - [x] `api/schemas.py` erweitern:
+  - [x] `RunSummaryResponse`: `run_id`, `status`, `started_at`, `spec_version`
+  - [x] `RunDetailResponse`: + `spec`, `step_results`, `metrics`, `artifacts`, `finished_at`, `error_message`
+  - [x] `RunListResponse`: `runs: list[RunSummaryResponse]`
 
-- [ ] **T5 — Runs-Endpunkte** (AC: 4, 5, 6, 7)
-  - [ ] `src/gysi_ml/api/routes/runs.py` anlegen
-  - [ ] `GET /v1/sessions/{session_id}/runs` → `RunListResponse`
-  - [ ] `GET /v1/sessions/{session_id}/runs/{run_id}` → `RunDetailResponse` oder HTTP 404
-  - [ ] Router in `api/app.py` registrieren
+- [x] **T5 — Runs-Endpunkte** (AC: 4, 5, 6, 7)
+  - [x] `src/gysi_ml/api/routes/runs.py` anlegen
+  - [x] `GET /v1/sessions/{session_id}/runs` → `RunListResponse`
+  - [x] `GET /v1/sessions/{session_id}/runs/{run_id}` → `RunDetailResponse` oder HTTP 404
+  - [x] Router in `api/app.py` registrieren
 
-- [ ] **T6 — Executor-Integration: context.is_split + result_json** (AC: 1, 5)
-  - [ ] Executor nach Abschluss:  `result_json = json.dumps(context.step_results)` → in `update_run_status` speichern
-  - [ ] `get_run()` deserialisiert `result_json` und gibt vollständiges Dict zurück
+- [x] **T6 — Executor-Integration: context.is_split + result_json** (AC: 1, 5)
+  - [x] Executor nach Abschluss: `result_json = json.dumps({"step_results": ..., "metrics": {}, "artifacts": []})` → in `update_run_status` speichern
+  - [x] `get_run()` deserialisiert `result_json` und gibt vollständiges Dict zurück
+  - [x] Spec wird vor Ausführung gespeichert (auch für fehlgeschlagene Runs)
 
-- [ ] **T7 — Unit Tests** (AC: 1, 2, 3, 8)
-  - [ ] `tests/unit/preprocessing/test_split.py`: Zeilenzahlen, random_state-Reproduzierbarkeit, Metadata
-  - [ ] `tests/unit/test_spec_order_validator.py`: gültige Reihenfolge, ungültige Reihenfolge → SpecOrderError
+- [x] **T7 — Unit Tests** (AC: 1, 2, 3, 8)
+  - [x] `tests/unit/preprocessing/test_split.py`: Zeilenzahlen, random_state-Reproduzierbarkeit, Metadata
+  - [x] `tests/unit/test_spec_order_validator.py`: gültige Reihenfolge, ungültige Reihenfolge → SpecOrderError
 
-- [ ] **T8 — Integration Tests** (AC: 1–7, 8)
-  - [ ] `tests/integration/test_runs_api.py`: GET /runs, GET /runs/{id}, 404, fehlgeschlagener Run
-  - [ ] `tests/integration/test_reproducibility.py`: Zwei identische Specs → identische Ergebnisse
+- [x] **T8 — Integration Tests** (AC: 1–7, 8)
+  - [x] `tests/integration/test_runs_api.py`: GET /runs, GET /runs/{id}, 404, fehlgeschlagener Run
+  - [x] `tests/integration/test_reproducibility.py`: Zwei identische Specs → identische Ergebnisse
 
 ## Dev Notes
 
@@ -180,6 +181,32 @@ Claude Sonnet 4.6 (GitHub Copilot)
 
 ### Debug Log References
 
+- Executor.py: Replaced old string required a 2-step edit (leftover orphan fragment `elif context.is_split:` removed in 2nd pass)
+- 5 existing integration tests updated: `split_required` → `invalid_spec_order` after pre-flight spec-order validation added
+- `scikit-learn>=1.0` added to `pyproject.toml` dependencies
+
 ### Completion Notes List
 
+- `schema.py`: `spec_id TEXT` in `runs` table; `import sqlite3` und überflüssiger ALTER TABLE entfernt (M1-fix)
+- `run_repository.py`: `create_run()` — `spec_id` als optionaler Parameter ans Ende verschoben (M2-fix)
+- `executor.py`: spec wird vor Ausführung gespeichert; Runtime-Fallback `requires_split`-Check nutzt jetzt einheitlich `invalid_spec_order`/`INVALID_SPEC_ORDER` (H1-fix)
+- Coverage: split.py 97%, spec_validator.py 100%, run_repository.py 100%, runs.py 100%, overall 96%
+
 ### File List
+
+- `backend/src/gysi_ml/steps/preprocessing/split.py` — rewritten (sklearn, random_state, metadata)
+- `backend/src/gysi_ml/executor/spec_validator.py` — new
+- `backend/src/gysi_ml/executor/executor.py` — updated (spec_order validation, spec saved before run, result_json format)
+- `backend/src/gysi_ml/persistence/schema.py` — updated (spec_id column + migration)
+- `backend/src/gysi_ml/persistence/run_repository.py` — extended (create_run+spec_id, get_runs_for_session, get_run)
+- `backend/src/gysi_ml/api/schemas.py` — extended (RunSummaryResponse, RunDetailResponse, RunListResponse)
+- `backend/src/gysi_ml/api/routes/runs.py` — new
+- `backend/src/gysi_ml/api/app.py` — updated (runs_router included)
+- `backend/src/gysi_ml/steps/preprocessing/__init__.py` — updated (split/encoding/correlation_filter/rare_category/time_features imports)
+- `backend/pyproject.toml` — updated (scikit-learn dependency)
+- `backend/tests/unit/preprocessing/test_split.py` — new (17 tests)
+- `backend/tests/unit/test_spec_order_validator.py` — new (15 tests)
+- `backend/tests/integration/test_runs_api.py` — new (13 tests)
+- `backend/tests/integration/test_reproducibility.py` — new (5 tests)
+- `backend/tests/integration/test_preprocessing_pipeline.py` — updated (split_required → invalid_spec_order)
+- `backend/tests/integration/test_full_preprocessing_pipeline.py` — updated (split_required → invalid_spec_order)
