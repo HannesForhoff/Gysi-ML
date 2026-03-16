@@ -1,0 +1,98 @@
+# generated: 2026-03-15T13:59:46.5298419+01:00
+# last_updated: 2026-03-15T14:16:17.3649646+01:00
+# project: gysi-ml
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: _bmad-output/implementation-artifacts/frontend
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - SM typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+
+generated: 2026-03-15T13:59:46.5298419+01:00
+last_updated: 2026-03-15T14:16:17.3649646+01:00
+project: gysi-ml
+project_key: NOKEY
+tracking_system: file-system
+story_location: "_bmad-output/implementation-artifacts/frontend"
+
+development_status:
+
+  # ─────────────────────────────────────────────────────────────────
+  # EPIC 1: Chat starten & Systemzustand nachvollziehen
+  # FRs: FR1, FR2, FR3, FR10, FR11, FR12, FR14
+  # ─────────────────────────────────────────────────────────────────
+  epic-1: in-progress
+
+  # Story 1.1 — Frontend-Scaffold und Mock-Chat UI (Single Page)
+  1-1-frontend-scaffold-und-mock-chat-ui: ready-for-dev
+
+  # Story 1.2 — Backend-Integration (Session + Messages) nach /v1 Contract
+  1-2-backend-integration-session-und-messages: backlog
+
+  # Story 1.3 — Status-Panel (Backend-Health + Spec-Summary)
+  1-3-status-panel-backend-health-und-spec-summary: backlog
+
+  # Story 1.4 — Fehlerfälle + Undo im UI sichtbar machen
+  1-4-fehlerfaelle-und-undo-im-ui-sichtbar: backlog
+
+  epic-1-retrospective: optional
+
+  # ─────────────────────────────────────────────────────────────────
+  # EPIC 2: Vorschläge prüfen und kontrolliert ausführen (Proposal → Confirm)
+  # FRs: FR4, FR5, FR6
+  # ─────────────────────────────────────────────────────────────────
+  epic-2: backlog
+
+  # Story 2.1 — Proposal-Card im Chat rendern
+  2-1-proposal-card-im-chat-rendern: backlog
+
+  # Story 2.2 — Confirm-Flow (Bestätigen & Ausführen) mit UI-Idempotenz
+  2-2-confirm-flow-bestaetigen-und-ausfuehren: backlog
+
+  # Story 2.3 — Proposal modifizieren durch neue Nachricht (kein extra Formular)
+  2-3-proposal-modifizieren-durch-neue-nachricht: backlog
+
+  epic-2-retrospective: optional
+
+  # ─────────────────────────────────────────────────────────────────
+  # EPIC 3: Runs verfolgen und Ergebnisse/Artefakte abrufen
+  # FRs: FR7, FR8, FR9, FR13
+  # ─────────────────────────────────────────────────────────────────
+  epic-3: backlog
+
+  # Story 3.1 — Run-Polling mit Backoff + Long-Run Hinweis
+  3-1-run-polling-mit-backoff-und-long-run-hinweis: backlog
+
+  # Story 3.2 — Result-Message (Status/Metriken) rendern
+  3-2-result-message-status-und-metriken-rendern: backlog
+
+  # Story 3.3 — Artefakt-Links anzeigen und öffnen
+  3-3-artefakt-links-anzeigen-und-oeffnen: backlog
+
+  epic-3-retrospective: optional

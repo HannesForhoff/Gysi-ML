@@ -1,0 +1,21 @@
+{
+  "type": "proposal",
+  "message": "Vorschlag (Mock): Ich würde die Pipeline wie folgt anpassen.",
+  "steps": [
+    { "step_type": "load_csv", "parameters_summary": "source=data/raw/bike.csv" },
+    { "step_type": "impute_missing", "parameters_summary": "strategy=median" },
+    {
+      "step_type": "train_test_split",
+      "parameters_summary": "test_size=0.2, random_state=42"
+    }
+  ],
+  "parameters_summary": "random_state=42",
+  "spec_summary": {
+    "spec_version_id": "mock-spec-001",
+    "steps": [
+      { "step_type": "load_csv", "enabled": true },
+      { "step_type": "impute_missing", "enabled": true },
+      { "step_type": "train_test_split", "enabled": true }
+    ]
+  }
+}

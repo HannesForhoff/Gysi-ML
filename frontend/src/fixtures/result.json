@@ -1,0 +1,28 @@
+{
+  "type": "result",
+  "message": "Ergebnis (Mock): Run abgeschlossen.",
+  "status": "done",
+  "metrics": { "rmse": 123.45, "r2": 0.89 },
+  "artifacts": [
+    {
+      "id": "plot-1",
+      "label": "Plot (Placeholder)",
+      "url": "/favicon.svg",
+      "media_type": "image/svg+xml"
+    },
+    {
+      "id": "metrics-1",
+      "label": "Metrics (JSON)",
+      "url": "/mock/metrics.json",
+      "media_type": "application/json"
+    }
+  ],
+  "spec_summary": {
+    "spec_version_id": "mock-spec-002",
+    "steps": [
+      { "step_type": "load_csv", "enabled": true },
+      { "step_type": "impute_missing", "enabled": true },
+      { "step_type": "train_model", "enabled": true }
+    ]
+  }
+}

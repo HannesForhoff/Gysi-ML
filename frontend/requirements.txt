@@ -1,0 +1,5 @@
+# Runtime-Abhängigkeiten (Python) für Frontend-nahe Tools/Skripte
+# (z.B. API-Client, Fixture-Generatoren, lokale Utilities)
+
+httpx>=0.27
+python-dotenv>=1.0

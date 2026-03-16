@@ -1,0 +1,145 @@
+import type { ArtifactRef, ResultResponse, SpecSummary } from '../types'
+import type { TransportInfo, UiState } from '../state/chatReducer'
+
+type StatusPanelProps = {
+  transport: TransportInfo
+  ui: UiState
+  specSummary: SpecSummary | null
+  lastRun: ResultResponse | null
+  artifacts: ArtifactRef[]
+  lastError: string | null
+}
+
+function uiLabel(ui: UiState): string {
+  switch (ui.type) {
+    case 'idle':
+      return 'idle'
+    case 'sending_message':
+      return 'sending_message'
+    case 'proposal_pending':
+      return 'proposal_pending'
+    case 'run_polling':
+      return 'run_polling'
+    case 'run_done':
+      return 'run_done'
+    case 'run_failed':
+      return 'run_failed'
+    case 'validation_error':
+      return 'validation_error'
+    case 'backend_unreachable':
+      return 'backend_unreachable'
+  }
+}
+
+function sanitizeArtifactUrl(rawUrl: string): string | null {
+  const trimmed = rawUrl.trim()
+
+  if (trimmed.length === 0) {
+    return null
+  }
+
+  if (trimmed.startsWith('/')) {
+    return trimmed
+  }
+
+  try {
+    const parsed = new URL(trimmed, 'http://localhost')
+    const isHttp = parsed.protocol === 'http:' || parsed.protocol === 'https:'
+
+    if (!isHttp) {
+      return null
+    }
+
+    const isAbsolute = /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(trimmed)
+    return isAbsolute ? parsed.toString() : trimmed
+  } catch {
+    return null
+  }
+}
+
+export function StatusPanel({
+  transport,
+  ui,
+  specSummary,
+  lastRun,
+  artifacts,
+  lastError,
+}: StatusPanelProps) {
+  return (
+    <div>
+      <div className="statusBlock">
+        <div className="statusTitle">Backend</div>
+        <div className="statusMeta">
+          {transport.useMock ? 'Mock aktiv' : 'Mock aus'}
+        </div>
+        {!transport.useMock ? (
+          <div className="statusMeta">Base URL: {transport.backendBaseUrl}</div>
+        ) : null}
+        <div className="statusMeta">UI State: {uiLabel(ui)}</div>
+        {lastError ? <div className="statusMeta">Error: {lastError}</div> : null}
+      </div>
+
+      <div className="statusBlock">
+        <div className="statusTitle">Spec Summary</div>
+        {specSummary ? (
+          <>
+            <div className="statusMeta">Version: {specSummary.spec_version_id}</div>
+            <ul className="statusList">
+              {specSummary.steps.map((step) => (
+                <li key={step.step_type}>
+                  <span className="statusMeta">
+                    {step.step_type} — {step.enabled ? 'enabled' : 'disabled'}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <div className="statusMeta">(noch keine Daten)</div>
+        )}
+      </div>
+
+      <div className="statusBlock">
+        <div className="statusTitle">Letzter Run</div>
+        {lastRun ? (
+          <>
+            <div className="statusMeta">Status: {lastRun.status}</div>
+            {lastRun.metrics ? (
+              <div className="statusMeta">
+                Metrics: {Object.entries(lastRun.metrics).length}
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <div className="statusMeta">(noch kein Run)</div>
+        )}
+      </div>
+
+      <div className="statusBlock">
+        <div className="statusTitle">Artefakte</div>
+        {artifacts.length > 0 ? (
+          <ul className="statusList">
+            {artifacts.map((artifact) => {
+              const safeUrl = sanitizeArtifactUrl(artifact.url)
+
+              return (
+                <li key={artifact.id}>
+                  {safeUrl ? (
+                    <a href={safeUrl} target="_blank" rel="noreferrer">
+                      {artifact.label}
+                    </a>
+                  ) : (
+                    <span className="statusMeta">{artifact.label} (ungueltige URL)</span>
+                  )}
+                  <div className="statusMeta">{artifact.media_type}</div>
+                </li>
+              )
+            })}
+          </ul>
+        ) : (
+          <div className="statusMeta">(keine)</div>
+        )}
+      </div>
+    </div>
+  )
+}

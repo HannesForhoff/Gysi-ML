@@ -1,0 +1,5 @@
+{
+  "type": "error",
+  "message": "Validierungsfehler (Mock): Step `unknown_step` existiert nicht.",
+  "details": "Erlaubte Steps: load_csv, impute_missing, train_test_split, train_model."
+}
