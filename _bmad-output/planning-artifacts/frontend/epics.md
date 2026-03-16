@@ -112,23 +112,175 @@ Nutzer kann nach Confirm Runs pollen, Ergebnis-Summary (Status/Metriken) sehen, 
 
 **FRs covered:** FR7, FR8, FR9, FR13
 
-<!-- Repeat for each epic in epics_list (N = 1, 2, 3...) -->
+---
 
-## Epic {{N}}: {{epic_title_N}}
+## Epic 1: Chat starten & Systemzustand nachvollziehen
 
-{{epic_goal_N}}
+Nutzer kann die Web-UI öffnen, automatisch eine Session nutzen, Nachrichten senden/sehen und jederzeit den Systemzustand verstehen (Spec-Summary, Backend-Status, verständliche Fehler, Undo-Feedback).
 
-<!-- Repeat for each story (M = 1, 2, 3...) within epic N -->
+### Story 1.1: Frontend-Scaffold und Mock-Chat UI
 
-### Story {{N}}.{{M}}: {{story_title_N_M}}
-
-As a {{user_type}},
-I want {{capability}},
-So that {{value_benefit}}.
+Als ein Nutzer (Hannes/Evaluator),
+möchte ich eine minimalistische Single-Page-UI mit Chat + Status-Panel lokal starten und mit Mock-Responses testen können,
+damit das Frontend parallel zum Backend implementierbar ist und der Proposal→Confirm→Run Ablauf später stabil integriert werden kann.
 
 **Acceptance Criteria:**
 
-**Given** {{precondition}}
-**When** {{action}}
-**Then** {{expected_outcome}}
-**And** {{additional_criteria}}
+**Given** Node.js ist installiert und das Frontend ist gescaffolded
+**When** `npm run dev` gestartet wird
+**Then** rendert die App eine Single-Page mit Chat-Bereich und Status-Panel
+
+**Given** der Composer ist fokussiert
+**When** ich Enter drücke
+**Then** wird eine User-Message gesendet und chronologisch angezeigt
+**And** während des Requests wird doppeltes Senden verhindert
+
+**Given** ich drücke Shift+Enter
+**When** ich im Composer schreibe
+**Then** wird eine neue Zeile eingefügt (kein Send)
+
+**Given** das Frontend läuft im Mock-Modus
+**When** ich eine Nachricht sende
+**Then** wird eine typisierte Assistant-Response (`proposal|result|error`) aus Fixtures gerendert
+
+**Given** Assistant-Content enthält Sonderzeichen
+**When** die Message gerendert wird
+**Then** wird Content als Text gerendert (keine HTML-Interpretation)
+
+### Story 1.2: Backend-Integration: Session und Messages
+
+Als ein Nutzer,
+möchte ich im Frontend automatisch eine Backend-Session erstellen und Chat-Messages an `/v1/sessions/{session_id}/messages` senden,
+damit die UI echte typed Responses vom Backend anzeigen kann.
+
+**Acceptance Criteria:**
+
+**Given** das Backend ist erreichbar
+**When** ich die erste Nachricht sende
+**Then** wird (falls nötig) `POST /v1/sessions` aufgerufen und `session_id` im UI-State gehalten
+**And** anschließend `POST /v1/sessions/{session_id}/messages` aufgerufen
+
+**Given** das Backend ist nicht erreichbar
+**When** ein Request fehlschlägt
+**Then** wechselt die UI in den Zustand `backend_unreachable` und blockiert nicht dauerhaft
+
+### Story 1.3: Status-Panel: Backend-Health und Spec-Summary
+
+Als ein Nutzer,
+möchte ich im Status-Panel Backend-Status sowie eine kompakte Spec-Zusammenfassung sehen,
+damit ich jederzeit weiß, ob das System erreichbar ist und welche Spec-Version aktiv ist.
+
+**Acceptance Criteria:**
+
+**Given** die App startet im Real-Backend-Modus
+**When** `GET /v1/health` fehlschlägt
+**Then** zeigt das Status-Panel `backend_unreachable`
+
+**Given** Responses enthalten Spec-Summary oder das Backend bietet `GET /v1/sessions/{session_id}/spec`
+**When** neue Daten eintreffen
+**Then** wird die Spec-Version + Step-Übersicht im Status-Panel aktualisiert
+
+### Story 1.4: Fehlerfaelle und Undo im UI sichtbar
+
+Als ein Nutzer,
+möchte ich Validation-Errors/Run-Fails verständlich sehen und nach Undo-Aktionen die aktive Spec-Version im Status-Panel aktualisiert bekommen,
+damit ich ohne Deadends iterieren kann.
+
+**Acceptance Criteria:**
+
+**Given** das Backend antwortet mit `type: "error"` oder HTTP 422
+**When** die Message gerendert wird
+**Then** sehe ich eine verständliche Fehlermeldung
+**And** ich kann sofort eine neue Nachricht senden
+
+**Given** eine Undo-Aktion wird als normale Assistant-Message angezeigt
+**When** der Zustand aktualisiert wird
+**Then** zeigt das Status-Panel die neue aktive Spec-Version
+
+---
+
+## Epic 2: Vorschläge prüfen und kontrolliert ausführen (Proposal → Confirm)
+
+Nutzer sieht Vorschläge als strukturierte Proposal-Card und entscheidet bewusst: bestätigen & ausführen oder durch neue Nachricht modifizieren.
+
+### Story 2.1: Proposal-Card im Chat rendern
+
+Als ein Nutzer,
+möchte ich `type: "proposal"` als Proposal-Card mit Steps + Parameter-Summary sehen,
+damit ich den Vorschlag vor Ausführung nachvollziehen kann.
+
+**Acceptance Criteria:**
+
+**Given** die Backend-Response ist `type: "proposal"`
+**When** die Message gerendert wird
+**Then** sehe ich ein Label „Vorschlag (noch nicht ausgeführt)“, eine Step-Liste und den CTA „Bestätigen & Ausführen“
+
+### Story 2.2: Confirm-Flow Bestaetigen und Ausfuehren
+
+Als ein Nutzer,
+möchte ich einen Proposal per Confirm auslösen und dabei kein doppeltes Confirm aus Versehen senden,
+damit Runs kontrolliert starten.
+
+**Acceptance Criteria:**
+
+**Given** ein Proposal ist pending
+**When** ich „Bestätigen & Ausführen“ klicke
+**Then** ruft die UI `POST /v1/sessions/{session_id}/confirm` auf und erhält `run_id`
+**And** der Button ist während des Requests disabled
+
+### Story 2.3: Proposal modifizieren durch neue Nachricht
+
+Als ein Nutzer,
+möchte ich vor Confirm einfach eine neue Nachricht senden können,
+damit ich den Vorschlag durch Sprache präzisieren kann.
+
+**Acceptance Criteria:**
+
+**Given** ein Proposal ist pending
+**When** ich eine neue User-Message sende
+**Then** wird der alte Proposal als „nicht bestätigt“ im Verlauf behalten
+**And** die UI verarbeitet die neue Response (neuer Proposal oder Result)
+
+---
+
+## Epic 3: Runs verfolgen und Ergebnisse/Artefakte abrufen
+
+Nutzer kann nach Confirm Runs pollen, Ergebnis-Summary (Status/Metriken) sehen, Artefakte öffnen und Fehlerfälle (`failed`) verstehen.
+
+### Story 3.1: Run-Polling mit Backoff und Long-Run Hinweis
+
+Als ein Nutzer,
+möchte ich nach Confirm den Run-Status bis terminal (`done|failed`) pollen,
+damit ich Fortschritt und Abschluss zuverlässig sehe.
+
+**Acceptance Criteria:**
+
+**Given** `run_id` ist bekannt
+**When** der Run nicht terminal ist
+**Then** pollt die UI `GET /v1/sessions/{session_id}/runs/{run_id}` mit Backoff
+**And** bei langer Laufzeit erscheint ein Hinweis („Run dauert länger – wir aktualisieren weiter.“)
+
+### Story 3.2: Result-Message Status und Metriken rendern
+
+Als ein Nutzer,
+möchte ich bei `type: "result"` oder nach terminalem Polling eine Ergebniszusammenfassung sehen,
+damit ich Status und Metriken schnell erfassen kann.
+
+**Acceptance Criteria:**
+
+**Given** der Run ist `done`
+**When** eine Result-Message gerendert wird
+**Then** sehe ich mindestens Status und (falls vorhanden) Metriken als Key/Value
+
+### Story 3.3: Artefakt-Links anzeigen und oeffnen
+
+Als ein Nutzer,
+möchte ich Artefakte als Linkliste (Label + Media-Type) öffnen können,
+damit ich Plots/Reports direkt ansehen kann.
+
+**Acceptance Criteria:**
+
+**Given** die Response enthält `artifacts[]`
+**When** ich ein Artefakt anklicke
+**Then** öffnet es sich in einem neuen Tab (oder Download startet)
+**And** Fehler beim Laden werden verständlich angezeigt
