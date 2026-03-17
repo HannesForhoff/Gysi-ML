@@ -1,12 +1,14 @@
 import './App.css'
 
-import { useCallback, useReducer } from 'react'
+import { useCallback, useEffect, useReducer } from 'react'
 
+import { fetchSpecSummary } from './api/healthApi'
 import { sendAssistantMessage } from './api/transport'
 import { ChatLayout } from './components/ChatLayout'
 import { Composer } from './components/Composer'
 import { MessageList } from './components/MessageList'
 import { StatusPanel } from './components/StatusPanel'
+import { useHealthPolling } from './hooks/useHealthPolling'
 import { chatReducer, createInitialChatState } from './state/chatReducer'
 import type { AssistantResponse, ChatMessage } from './types'
 
@@ -61,6 +63,24 @@ function App() {
   const [state, dispatch] = useReducer(chatReducer, undefined, createInitialChatState)
   const isSending = state.ui.type === 'sending_message'
 
+  useHealthPolling(dispatch, state.transport)
+
+  useEffect(() => {
+    if (state.transport.useMock) return
+    if (!state.sessionId || state.specSummary !== null) return
+
+    let cancelled = false
+    void fetchSpecSummary(state.transport.backendBaseUrl, state.sessionId).then(
+      (result) => {
+        if (!cancelled && result !== null) {
+          dispatch({ type: 'SPEC_SUMMARY_LOADED', specSummary: result })
+        }
+      },
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [state.sessionId, state.specSummary, state.transport])
   const handleSend = useCallback(
     async (text: string) => {
       if (state.ui.type === 'sending_message') return

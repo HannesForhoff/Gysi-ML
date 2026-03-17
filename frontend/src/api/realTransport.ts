@@ -107,31 +107,73 @@ function toAssistantResponse(
   payload: unknown,
   fallbackMessage: string,
 ): AssistantResponse {
-  if (isRecord(payload)) {
-    const type = payload.type
+  if (!isRecord(payload)) {
+    return { type: 'error', message: fallbackMessage }
+  }
 
-    if (type === 'proposal' || type === 'result' || type === 'error') {
-      return payload as AssistantResponse
-    }
+  const type = payload.type
 
-    const detail = toNonEmptyString(payload.detail)
-    const error = toNonEmptyString(payload.error)
-    const code = payload.code
-
-    if (detail || error || code !== undefined) {
+  // Backend proposal: { type:'proposal', steps:[{type, params}], explanation }
+  if (type === 'proposal') {
+    const message =
+      toNonEmptyString(payload.explanation) ??
+      toNonEmptyString(payload.message) ??
+      fallbackMessage
+    const rawSteps = Array.isArray(payload.steps) ? payload.steps : []
+    const steps = rawSteps.map((s) => {
+      const step = isRecord(s) ? s : {}
+      // Backend uses 'type', frontend uses 'step_type'
+      const stepType = toNonEmptyString(step.step_type ?? step.type) ?? ''
+      const params = isRecord(step.params) ? step.params : undefined
+      const paramsSummary = params
+        ? Object.entries(params)
+            .map(([k, v]) => `${k}=${String(v)}`)
+            .join(', ')
+        : (toNonEmptyString(step.parameters_summary) ?? undefined)
       return {
-        type: 'error',
-        message: detail ?? error ?? fallbackMessage,
-        details:
-          typeof code === 'string' || typeof code === 'number'
-            ? String(code)
-            : undefined,
+        step_type: stepType,
+        ...(typeof step.enabled === 'boolean' ? { enabled: step.enabled } : {}),
+        ...(paramsSummary ? { parameters_summary: paramsSummary } : {}),
       }
+    })
+    return { type: 'proposal', message, steps }
+  }
+
+  // Backend result: { type:'result', run_id, explanation } — no 'status' field
+  if (type === 'result') {
+    const message =
+      toNonEmptyString(payload.explanation) ??
+      toNonEmptyString(payload.message) ??
+      fallbackMessage
+    const status = payload.status === 'failed' ? ('failed' as const) : ('done' as const)
+    return { type: 'result', message, status }
+  }
+
+  // Backend error: { type:'error', message, error_code } — error_code → details
+  if (type === 'error') {
+    const message = toNonEmptyString(payload.message) ?? fallbackMessage
+    const details =
+      toNonEmptyString(payload.error_code) ??
+      toNonEmptyString(payload.details) ??
+      undefined
+    return { type: 'error', message, ...(details ? { details } : {}) }
+  }
+
+  // Legacy session/validation error format: { error, detail, code }
+  const detail = toNonEmptyString(payload.detail)
+  const error = toNonEmptyString(payload.error)
+  const code = payload.code
+
+  if (detail || error || code !== undefined) {
+    return {
+      type: 'error',
+      message: detail ?? error ?? fallbackMessage,
+      details:
+        typeof code === 'string' || typeof code === 'number'
+          ? String(code)
+          : undefined,
     }
   }
 
-  return {
-    type: 'error',
-    message: fallbackMessage,
-  }
+  return { type: 'error', message: fallbackMessage }
 }

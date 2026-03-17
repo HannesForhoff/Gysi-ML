@@ -46,6 +46,9 @@ export type ChatAction =
       assistantMessage: ChatMessage
       errorMessage: string
     }
+  | { type: 'HEALTH_CHECK_FAILED' }
+  | { type: 'HEALTH_CHECK_RECOVERED' }
+  | { type: 'SPEC_SUMMARY_LOADED'; specSummary: SpecSummary }
 
 export function createInitialChatState(): ChatState {
   const env = getFrontendEnv()
@@ -119,5 +122,21 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         messages: [...state.messages, action.assistantMessage],
         lastError: action.errorMessage,
       }
+
+    case 'HEALTH_CHECK_FAILED':
+      // Kein Override wenn aktiver Request läuft
+      if (state.ui.type === 'sending_message' || state.ui.type === 'backend_unreachable') {
+        return state
+      }
+      return { ...state, ui: { type: 'backend_unreachable' } }
+
+    case 'HEALTH_CHECK_RECOVERED':
+      if (state.ui.type !== 'backend_unreachable') {
+        return state
+      }
+      return { ...state, ui: { type: 'idle' } }
+
+    case 'SPEC_SUMMARY_LOADED':
+      return { ...state, specSummary: action.specSummary }
   }
 }

@@ -1,6 +1,6 @@
 # Story 1.2: Backend-Integration (Session + Messages) nach /v1 Contract
 
-Status: review
+Status: done
 
 ## Story
 
@@ -130,7 +130,7 @@ GPT-5.3-Codex
 - frontend/src/api/transportTypes.ts
 - frontend/src/api/transport.ts
 - frontend/src/api/mockTransport.ts
-- frontend/src/api/realTransport.ts
-- frontend/src/api/realTransport.test.ts
+- frontend/src/api/realTransport.ts (Backend-Response-Mapping nachgezogen: explanation→message, steps.type→step_type, error_code→details, status-Default für result)
+- frontend/src/api/realTransport.test.ts (3 neue Tests für Backend-Response-Shapes: proposal, result, error mit error_code)
 - frontend/src/App.tsx
 - frontend/src/App.test.tsx

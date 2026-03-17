@@ -119,4 +119,95 @@ describe('realTransport', () => {
       },
     })
   })
+
+  it('Backend proposal: explanation → message, steps type → step_type gemappt', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        type: 'proposal',
+        steps: [
+          { type: 'dedup' },
+          { type: 'impute_missing', params: { strategy: 'median' } },
+        ],
+        explanation: 'Ich schlage folgende Schritte vor.',
+        confirmation_required: true,
+      }),
+    )
+
+    const result = await sendRealMessage('http://localhost:8000', {
+      userText: 'mach was',
+      sessionId: 'session-abc',
+    })
+
+    expect(result).toEqual({
+      sessionId: 'session-abc',
+      response: {
+        type: 'proposal',
+        message: 'Ich schlage folgende Schritte vor.',
+        steps: [
+          { step_type: 'dedup' },
+          { step_type: 'impute_missing', parameters_summary: 'strategy=median' },
+        ],
+      },
+    })
+  })
+
+  it('Backend result: explanation → message, status standardmäßig done', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        type: 'result',
+        run_id: 'run-42',
+        explanation: 'Pipeline erfolgreich ausgeführt.',
+      }),
+    )
+
+    const result = await sendRealMessage('http://localhost:8000', {
+      userText: 'ausführen',
+      sessionId: 'session-abc',
+    })
+
+    expect(result).toEqual({
+      sessionId: 'session-abc',
+      response: {
+        type: 'result',
+        message: 'Pipeline erfolgreich ausgeführt.',
+        status: 'done',
+      },
+    })
+  })
+
+  it('Backend error (HTTP 422): error_code → details gemappt', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        {
+          type: 'error',
+          message: 'LLM-Service nicht konfiguriert.',
+          error_code: 'llm_not_configured',
+        },
+        { status: 422 },
+      ),
+    )
+
+    const result = await sendRealMessage('http://localhost:8000', {
+      userText: 'hallo',
+      sessionId: 'session-abc',
+    })
+
+    expect(result).toEqual({
+      sessionId: 'session-abc',
+      response: {
+        type: 'error',
+        message: 'LLM-Service nicht konfiguriert.',
+        details: 'llm_not_configured',
+      },
+    })
+  })
 })

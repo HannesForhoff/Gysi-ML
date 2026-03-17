@@ -67,6 +67,15 @@ export function StatusPanel({
 }: StatusPanelProps) {
   return (
     <div>
+      {ui.type === 'backend_unreachable' && (
+        <div className="statusBlock statusBlock--error">
+          <div className="statusTitle">Verbindungsfehler</div>
+          <div className="statusMeta">
+            Backend nicht erreichbar. Bitte Backend starten oder URL pr&uuml;fen.
+          </div>
+        </div>
+      )}
+
       <div className="statusBlock">
         <div className="statusTitle">Backend</div>
         <div className="statusMeta">
