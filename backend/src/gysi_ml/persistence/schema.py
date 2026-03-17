@@ -1,6 +1,3 @@
-import sqlite3
-
-
 def create_all_tables(db_path: str | None = None) -> None:
     from gysi_ml.persistence.database import get_connection
 
@@ -18,13 +15,15 @@ def create_all_tables(db_path: str | None = None) -> None:
             CREATE TABLE IF NOT EXISTS runs (
                 run_id        TEXT PRIMARY KEY,
                 session_id    TEXT NOT NULL,
+                spec_id       TEXT,
                 spec_version  TEXT,
                 status        TEXT NOT NULL,
                 started_at    TEXT NOT NULL,
                 finished_at   TEXT,
                 error_message TEXT,
                 result_json   TEXT,
-                FOREIGN KEY (session_id) REFERENCES sessions(session_id)
+                FOREIGN KEY (session_id) REFERENCES sessions(session_id),
+                FOREIGN KEY (spec_id) REFERENCES spec_versions(spec_id)
             );
 
             CREATE TABLE IF NOT EXISTS artifacts (
@@ -42,6 +41,15 @@ def create_all_tables(db_path: str | None = None) -> None:
                 version    TEXT NOT NULL,
                 spec_json  TEXT NOT NULL,
                 created_at TEXT NOT NULL,
+                FOREIGN KEY (session_id) REFERENCES sessions(session_id)
+            );
+
+            CREATE TABLE IF NOT EXISTS messages (
+                message_id  TEXT PRIMARY KEY,
+                session_id  TEXT NOT NULL,
+                role        TEXT NOT NULL,
+                content     TEXT NOT NULL,
+                created_at  TEXT NOT NULL,
                 FOREIGN KEY (session_id) REFERENCES sessions(session_id)
             );
         """)

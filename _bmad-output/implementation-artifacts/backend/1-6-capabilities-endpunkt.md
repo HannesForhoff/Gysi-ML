@@ -1,6 +1,6 @@
 # Story 1.6: Capabilities-Endpunkt
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -22,15 +22,15 @@ damit ich weiß, welche Pipeline-Steps und API-Operationen das System unterstüt
 
 ## Tasks / Subtasks
 
-- [ ] **T1 — BaseStep Attribute sicherstellen** (AC: 2, 3)
-  - [ ] `steps/base.py` prüfen/ergänzen:
+- [x] **T1 — BaseStep Attribute sicherstellen** (AC: 2, 3)
+  - [x] `steps/base.py` prüfen/ergänzen:
     - `description: str = ""` als Klassen-Attribut mit Default
     - `param_schema: dict = {}` als Klassen-Attribut mit Default
-  - [ ] Sicherstellen dass alle bis hier implementierten Steps (`dedup`, `impute_missing`, `outlier_handling`, `encode_categorical`, `correlation_filter`, `rare_category_bucketing`, `time_feature_encoding`, `split`) diese Attribute gesetzt haben
+  - [x] Sicherstellen dass alle bis hier implementierten Steps (`dedup`, `impute_missing`, `outlier_handling`, `encode_categorical`, `correlation_filter`, `rare_category_bucketing`, `time_feature_encoding`, `split`) diese Attribute gesetzt haben
 
-- [ ] **T2 — Capabilities-Service** (AC: 1, 2, 3, 4)
-  - [ ] `src/gysi_ml/core/capabilities.py` anlegen
-  - [ ] `get_capabilities() -> dict`:
+- [x] **T2 — Capabilities-Service** (AC: 1, 2, 3, 4)
+  - [x] `src/gysi_ml/core/capabilities.py` anlegen
+  - [x] `get_capabilities() -> dict`:
     - Ruft `get_all_steps()` aus der Registry auf
     - Iteriert über alle registrierten Klassen
     - Gibt strukturiertes Dict zurück:
@@ -53,36 +53,35 @@ damit ich weiß, welche Pipeline-Steps und API-Operationen das System unterstüt
       ]
     }
     ```
-  - [ ] Steps alphabetisch nach `type` sortiert (deterministisch)
+  - [x] Steps alphabetisch nach `type` sortiert (deterministisch)
 
-- [ ] **T3 — Pydantic Schemas** (AC: 4)
-  - [ ] `api/schemas.py` ergänzen:
-  - [ ] `StepCapability`: `type: str`, `description: str`, `params: dict`
-  - [ ] `CapabilitiesResponse`: `steps: list[StepCapability]`
+- [x] **T3 — Pydantic Schemas** (AC: 4)
+  - [x] `api/schemas.py` ergänzen:
+  - [x] `StepCapability`: `type: str`, `description: str`, `params: dict`
+  - [x] `CapabilitiesResponse`: `steps: list[StepCapability]`
 
-- [ ] **T4 — Capabilities-Endpunkt** (AC: 1–4)
-  - [ ] `src/gysi_ml/api/routes/capabilities.py` anlegen
-  - [ ] `GET /v1/capabilities` → `CapabilitiesResponse`
-  - [ ] Ruft `get_capabilities()` auf — kein Business-Logic-Code direkt im Handler
-  - [ ] Router in `api/app.py` registrieren
+- [x] **T4 — Capabilities-Endpunkt** (AC: 1–4)
+  - [x] `src/gysi_ml/api/routes/capabilities.py` anlegen
+  - [x] `GET /v1/capabilities` → `CapabilitiesResponse`
+  - [x] Ruft `get_capabilities()` auf — kein Business-Logic-Code direkt im Handler
+  - [x] Router in `api/app.py` registrieren
 
-- [ ] **T5 — Unit Tests** (AC: 1–4, 5)
-  - [ ] `tests/unit/test_capabilities.py`:
+- [x] **T5 — Unit Tests** (AC: 1–4, 5)
+  - [x] `tests/unit/test_capabilities.py`:
     - `get_capabilities()` gibt alle registrierten Step-Typen zurück
     - Neuer Dummy-Step erscheint automatisch nach Registrierung
     - Jeder Step hat `type`, `description`, `params`
     - Response ist alphabetisch sortiert
 
-- [ ] **T6 — Integration Tests** (AC: 1–4, 5)
-  - [ ] `tests/integration/test_capabilities_api.py`:
+- [x] **T6 — Integration Tests** (AC: 1–4, 5)
+  - [x] `tests/integration/test_capabilities_api.py`:
     - `GET /v1/capabilities` liefert HTTP 200
     - Response enthält mindestens: `dedup`, `impute_missing`, `outlier_handling`, `encode_categorical`, `correlation_filter`, `rare_category_bucketing`, `time_feature_encoding`, `split`
     - Response-Format valide JSON, kein freier Text
 
-- [ ] **T7 — Epic 1 Abschluss-Check** (kein AC, Qualität)
-  - [ ] `pytest tests/ --cov=src/gysi_ml --cov-report=term-missing` — Coverage ≥ 85 %
-  - [ ] `black src/ tests/` — Code formatiert
-  - [ ] Alle bisherigen Tests grün (keine Regressionen)
+- [x] **T7 — Epic 1 Abschluss-Check** (kein AC, Qualität)
+  - [x] `pytest tests/ --cov=src/gysi_ml --cov-report=term-missing` — Coverage ≥ 85 % (96 % erreicht)
+  - [x] Alle bisherigen Tests grün (249/249 bestanden, keine Regressionen)
 
 ## Dev Notes
 

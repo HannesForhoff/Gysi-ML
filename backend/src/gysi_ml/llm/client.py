@@ -1,0 +1,40 @@
+import openai
+
+from gysi_ml.llm.exceptions import LLMConnectionError
+
+
+def call_llm(
+    messages: list[dict],
+    model: str,
+    api_key: str,
+    base_url: str | None = None,
+) -> str:
+    """Sendet Chat-Completion-Anfrage an OpenAI-kompatiblen Endpunkt.
+
+    Args:
+        messages: OpenAI messages-Format [{"role": "...", "content": "..."}]
+        model: Modellname (z.B. "gpt-4o-mini")
+        api_key: API-Key
+        base_url: Optionaler alternativer Endpunkt (für kompatible APIs)
+
+    Returns:
+        Content-String der LLM-Antwort.
+
+    Raises:
+        LLMConnectionError: Bei Netzwerk-/API-Fehlern.
+    """
+    client_kwargs: dict = {"api_key": api_key}
+    if base_url:
+        client_kwargs["base_url"] = base_url
+    client = openai.OpenAI(**client_kwargs)
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            temperature=0.2,
+        )
+    except openai.APIConnectionError as exc:
+        raise LLMConnectionError(f"Verbindungsfehler: {exc}") from exc
+    except openai.APIError as exc:
+        raise LLMConnectionError(f"API-Fehler: {exc}") from exc
+    return response.choices[0].message.content

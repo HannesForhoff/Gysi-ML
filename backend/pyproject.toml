@@ -10,9 +10,16 @@ requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",
+    "openai>=1.0",
     "pydantic>=2.0",
     "pydantic-settings>=2.0",
     "python-dotenv>=1.0",
+    "pandas>=2.0",
+    "numpy>=1.24",
+    "jsonschema>=4.0",
+    "scikit-learn>=1.0",
+    "matplotlib>=3.8",
+    "interpret>=0.7.7",
 ]
 
 [project.optional-dependencies]
@@ -29,6 +36,8 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+addopts = "-m 'not slow'"
+markers = ["slow: Tests die einen realen Datensatz benötigen (deaktiviert per Default — aktivieren mit: pytest -m slow)"]
 
 [tool.coverage.run]
 source = ["gysi_ml"]

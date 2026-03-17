@@ -1,6 +1,6 @@
 # Story 1.4: Preprocessing Steps — Encoding, Correlation Filter, Rare Category und Time-Features
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -26,76 +26,76 @@ damit der Datensatz vollständig für baumorientierte Modelle (Decision Tree, EB
 
 ## Tasks / Subtasks
 
-- [ ] **T1 — CategoricalEncodingStep** (AC: 1, 5, 6)
-  - [ ] `src/gysi_ml/steps/preprocessing/encoding.py` anlegen
-  - [ ] `@register_step("encode_categorical")` `class CategoricalEncodingStep(BaseStep):`
-  - [ ] `description = "Encodiert kategorische Features (Label oder One-Hot)"`
-  - [ ] `param_schema = {"method": {"type": "string", "enum": ["label", "onehot"], "default": "label"}}`
-  - [ ] `fit(df_train)`:
+- [x] **T1 — CategoricalEncodingStep** (AC: 1, 5, 6)
+  - [x] `src/gysi_ml/steps/preprocessing/encoding.py` anlegen
+  - [x] `@register_step("encode_categorical")` `class CategoricalEncodingStep(BaseStep):`
+  - [x] `description = "Encodiert kategorische Features (Label oder One-Hot)"`
+  - [x] `param_schema = {"method": {"type": "string", "enum": ["label", "onehot"], "default": "label"}}`
+  - [x] `fit(df_train)`:
     - Automatisch kategorische Spalten erkennen: `df.select_dtypes(include=["object", "category"])`
     - Label: `self._label_encoders: dict[str, dict]` — Mapping `category → int` pro Spalte (aus Trainingsdaten)
     - One-Hot: `self._onehot_categories: dict[str, list]` — Liste bekannter Kategorien pro Spalte
-  - [ ] `transform(df_train, df_test)`:
+  - [x] `transform(df_train, df_test)`:
     - Label: unbekannte Kategorien → `-1` (kein Fehler)
     - One-Hot: nur für bekannte Kategorien Spalten anlegen; unbekannte Kategorien → Zeile erhält alle 0
     - **Kein** `sklearn.LabelEncoder` — eigene dict-basierte Implementierung (kein externer State der serialisiert werden müsste, einfacher testbar)
-  - [ ] `get_metadata()`: gibt `{"encoded_columns": [..."]}` zurück
+  - [x] `get_metadata()`: gibt `{"encoded_columns": [..."]}` zurück
 
-- [ ] **T2 — CorrelationFilterStep** (AC: 2, 5, 6)
-  - [ ] `src/gysi_ml/steps/preprocessing/correlation_filter.py` anlegen
-  - [ ] `@register_step("correlation_filter")` `class CorrelationFilterStep(BaseStep):`
-  - [ ] `description = "Entfernt hochkorrelierte numerische Features (Pearson)"`
-  - [ ] `param_schema = {"threshold": {"type": "number", "default": 0.9}}`
-  - [ ] `fit(df_train)`:
+- [x] **T2 — CorrelationFilterStep** (AC: 2, 5, 6)
+  - [x] `src/gysi_ml/steps/preprocessing/correlation_filter.py` anlegen
+  - [x] `@register_step("correlation_filter")` `class CorrelationFilterStep(BaseStep):`
+  - [x] `description = "Entfernt hochkorrelierte numerische Features (Pearson)"`
+  - [x] `param_schema = {"threshold": {"type": "number", "default": 0.9}}`
+  - [x] `fit(df_train)`:
     - Berechnet Pearson-Korrelationsmatrix auf `df_train` (nur numerische Spalten)
     - Identifiziert Paare mit `|corr| >= threshold`
     - Wählt für jedes Paar ein Feature zum Entfernen (das zweite im Paar — deterministisch)
     - Speichert `self._features_to_drop: list[str]`
-  - [ ] `transform(df_train, df_test)`: entfernt `_features_to_drop` aus beiden Splits (`.drop(columns=...)`)
-  - [ ] `get_metadata()`: gibt `{"dropped_features": [...]}` zurück
+  - [x] `transform(df_train, df_test)`: entfernt `_features_to_drop` aus beiden Splits (`.drop(columns=...)`)
+  - [x] `get_metadata()`: gibt `{"dropped_features": [...]}` zurück
 
-- [ ] **T3 — RareCategoryBucketingStep** (AC: 3, 5, 6)
-  - [ ] `src/gysi_ml/steps/preprocessing/rare_category.py` anlegen
-  - [ ] `@register_step("rare_category_bucketing")` `class RareCategoryBucketingStep(BaseStep):`
-  - [ ] `description = "Bündelt seltene Kategorien zu '__rare__'"`
-  - [ ] `param_schema = {"min_frequency": {"type": "number", "default": 0.01}}`
-  - [ ] `fit(df_train)`:
+- [x] **T3 — RareCategoryBucketingStep** (AC: 3, 5, 6)
+  - [x] `src/gysi_ml/steps/preprocessing/rare_category.py` anlegen
+  - [x] `@register_step("rare_category_bucketing")` `class RareCategoryBucketingStep(BaseStep):`
+  - [x] `description = "Bündelt seltene Kategorien zu '__rare__'"`
+  - [x] `param_schema = {"min_frequency": {"type": "number", "default": 0.01}}`
+  - [x] `fit(df_train)`:
     - Pro kategorischer Spalte: relative Häufigkeiten berechnen (auf df_train)
     - Speichert `self._rare_categories: dict[str, set[str]]` — Kategorien unter min_frequency
-  - [ ] `transform(df_train, df_test)`: ersetzt seltene Kategorien durch `"__rare__"` in beiden Splits
-  - [ ] `get_metadata()`: gibt `{"rare_categories_per_column": {"col": count, ...}}` zurück
+  - [x] `transform(df_train, df_test)`: ersetzt seltene Kategorien durch `"__rare__"` in beiden Splits
+  - [x] `get_metadata()`: gibt `{"rare_categories_per_column": {"col": count, ...}}` zurück
 
-- [ ] **T4 — TimeFeatureEncodingStep** (AC: 4, 6)
-  - [ ] `src/gysi_ml/steps/preprocessing/time_features.py` anlegen
-  - [ ] `@register_step("time_feature_encoding")` `class TimeFeatureEncodingStep(BaseStep):`
-  - [ ] `description = "Leitet Wochentag und Monat aus Datumsspalte ab"`
-  - [ ] `param_schema = {"column": {"type": "string", "default": "dteday"}}`
-  - [ ] `fit(df_train)`: kein State zu lernen — speichert nur `self._column`
-  - [ ] `transform(df_train, df_test)`:
+- [x] **T4 — TimeFeatureEncodingStep** (AC: 4, 6)
+  - [x] `src/gysi_ml/steps/preprocessing/time_features.py` anlegen
+  - [x] `@register_step("time_feature_encoding")` `class TimeFeatureEncodingStep(BaseStep):`
+  - [x] `description = "Leitet Wochentag und Monat aus Datumsspalte ab"`
+  - [x] `param_schema = {"column": {"type": "string", "default": "dteday"}}`
+  - [x] `fit(df_train)`: kein State zu lernen — speichert nur `self._column`
+  - [x] `transform(df_train, df_test)`:
     - Liest `params["column"]` (Default: `"dteday"`)
     - Konvertiert Spalte zu `pd.Timestamp` via `pd.to_datetime`
     - Erzeugt `weekday` (0=Montag, `.dt.dayofweek`) und `month` (1–12, `.dt.month`)
     - Entfernt Original-Spalte (`dteday`) aus beiden Splits
-  - [ ] `get_metadata()`: gibt `{"derived_features": ["weekday", "month"], "dropped_column": "dteday"}` zurück
-  - [ ] Hinweis: `TimeFeatureEncodingStep` kann **vor** dem Split ausgeführt werden (kein `fit`-State nötig) — Executor behandelt ihn wie `DeduplicationStep`
+  - [x] `get_metadata()`: gibt `{"derived_features": ["weekday", "month"], "dropped_column": "dteday"}` zurück
+  - [x] Hinweis: `TimeFeatureEncodingStep` kann **vor** dem Split ausgeführt werden (kein `fit`-State nötig) — Executor behandelt ihn wie `DeduplicationStep`
 
-- [ ] **T5 — Preprocessing-Paket erweitern** (AC: 6)
-  - [ ] `src/gysi_ml/steps/preprocessing/__init__.py`: neue Modules importieren
+- [x] **T5 — Preprocessing-Paket erweitern** (AC: 6)
+  - [x] `src/gysi_ml/steps/preprocessing/__init__.py`: neue Modules importieren
     ```python
     from . import dedup, imputation, outlier_handling  # aus Story 1.3
     from . import encoding, correlation_filter, rare_category, time_features  # NEU
     ```
 
-- [ ] **T6 — Unit Tests** (AC: 1–6, 7)
-  - [ ] `tests/unit/preprocessing/test_encoding.py`: Label + One-Hot, unbekannte Kategorien, fit-nur-auf-Train
-  - [ ] `tests/unit/preprocessing/test_correlation_filter.py`: hochkorrelierte Features werden entfernt, Threshold-Grenzwerte
-  - [ ] `tests/unit/preprocessing/test_rare_category.py`: seltene Kategorien → `"__rare__"`, Frequenzgrenze
-  - [ ] `tests/unit/preprocessing/test_time_features.py`: Wochentag/Monat korrekt, `dteday` entfernt
+- [x] **T6 — Unit Tests** (AC: 1–6, 7)
+  - [x] `tests/unit/preprocessing/test_encoding.py`: Label + One-Hot, unbekannte Kategorien, fit-nur-auf-Train
+  - [x] `tests/unit/preprocessing/test_correlation_filter.py`: hochkorrelierte Features werden entfernt, Threshold-Grenzwerte
+  - [x] `tests/unit/preprocessing/test_rare_category.py`: seltene Kategorien → `"__rare__"`, Frequenzgrenze
+  - [x] `tests/unit/preprocessing/test_time_features.py`: Wochentag/Monat korrekt, `dteday` entfernt
 
-- [ ] **T7 — Integration Test** (AC: 1–6, 7)
-  - [ ] `tests/integration/test_full_preprocessing_pipeline.py`
-  - [ ] Vollständige Spec auf bikes.csv: `[dedup, time_feature_encoding, split, impute_missing, outlier_handling, rare_category_bucketing, correlation_filter, encode_categorical]`
-  - [ ] Prüft: Run `completed`, alle Step-Metadaten vorhanden, `dteday` nicht mehr im df_train
+- [x] **T7 — Integration Test** (AC: 1–6, 7)
+  - [x] `tests/integration/test_full_preprocessing_pipeline.py`
+  - [x] Vollständige Spec auf bikes.csv: `[dedup, time_feature_encoding, split, impute_missing, outlier_handling, rare_category_bucketing, correlation_filter, encode_categorical]`
+  - [x] Prüft: Run `completed`, alle Step-Metadaten vorhanden, `dteday` nicht mehr im df_train
 
 ## Dev Notes
 
@@ -182,6 +182,34 @@ Claude Sonnet 4.6 (GitHub Copilot)
 
 ### Debug Log References
 
+Keine Blocker. Alle 4 Steps wurden ohne Abweichungen von der Story-Spec implementiert.
+
 ### Completion Notes List
 
+- **T1 CategoricalEncodingStep**: Eigene dict-Implementierung (kein sklearn). Label: sortiertes Alphabet-Mapping, unbekannt → -1. One-Hot: `pd.get_dummies` + `reindex` für konsistente Spaltenreihenfolge. 18 Unit-Tests: 95% Coverage.
+- **T2 CorrelationFilterStep**: Pearson-Korrelationsmatrix aus Trainingsdaten, oberes Dreieck iteriert. Deterministisch: `max(col_a, col_b)` = alphabetisch späteres Feature wird entfernt. 14 Unit-Tests: 94% Coverage.
+- **T3 RareCategoryBucketingStep**: `value_counts(normalize=True)` auf Trainingsdaten. Kategorien < `min_frequency` → `__rare__`. Unbekannte Test-Kategorien bleiben unverändert. 14 Unit-Tests: 100% Coverage.
+- **T4 TimeFeatureEncodingStep**: Stateless (`fit` ist No-Op). Läuft vor Split auf `df_full`. `pd.to_datetime` + `.dt.dayofweek` (0=Montag) + `.dt.month`. Graceful handling wenn Spalte fehlt. 17 Unit-Tests: 100% Coverage.
+- **T5**: `__init__.py` mit allen 4 neuen Modulen erweitert.
+- **T6**: 63 Unit-Tests — alle grün.
+- **T7**: 9 Integration-Tests inkl. `split_required`-Prüfungen für T1–T3, `dteday`-Entfernung via Metadaten, Korrelations-Drop von `cnt_dup`.
+- Vollständige Regressionssuite: **180/180 Tests grün**.
+
 ### File List
+
+- `src/gysi_ml/steps/preprocessing/encoding.py` (neu)
+- `src/gysi_ml/steps/preprocessing/correlation_filter.py` (neu)
+- `src/gysi_ml/steps/preprocessing/rare_category.py` (neu)
+- `src/gysi_ml/steps/preprocessing/time_features.py` (neu)
+- `src/gysi_ml/steps/preprocessing/__init__.py` (geändert)
+- `tests/unit/preprocessing/test_encoding.py` (neu)
+- `tests/unit/preprocessing/test_correlation_filter.py` (neu)
+- `tests/unit/preprocessing/test_rare_category.py` (neu)
+- `tests/unit/preprocessing/test_time_features.py` (neu)
+- `tests/integration/test_full_preprocessing_pipeline.py` (neu)
+- `tests/unit/preprocessing/test_encoding.py` (aktualisiert — int-Dtype-Test)
+
+## Change Log
+
+- 2026-03-15: Story implementiert (Amelia / Claude Sonnet 4.6) — CategoricalEncodingStep, CorrelationFilterStep, RareCategoryBucketingStep, TimeFeatureEncodingStep, Preprocessing-Paket aktualisiert, 63 Unit-Tests + 9 Integration-Tests. 180/180 Tests grün. Status: ready-for-dev → review.
+- 2026-03-15: Code Review abgeschlossen — H1 (Lambda late-binding defensive fix), M1 (One-Hot dtype=int explizit), L1 (Pandas4Warning behoben: select_dtypes auf ["object","category","string"] erweitert). 181/181 Tests grün. Status: review → done.

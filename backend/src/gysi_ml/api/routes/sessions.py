@@ -5,11 +5,12 @@ from fastapi.responses import JSONResponse
 
 from gysi_ml.api.schemas import (
     ErrorResponse,
+    MessageSummary,
     SessionCreateRequest,
     SessionListResponse,
     SessionResponse,
 )
-from gysi_ml.persistence import session_repository
+from gysi_ml.persistence import message_repository, session_repository
 
 router = APIRouter(prefix="/v1")
 
@@ -53,7 +54,10 @@ def get_session(session_id: str, request: Request) -> Union[SessionResponse, JSO
                 code="SESSION_NOT_FOUND",
             ).model_dump(),
         )
-    return SessionResponse(**row)
+    messages = message_repository.get_messages_for_session(
+        session_id=session_id, db_path=db_path
+    )
+    return SessionResponse(**row, messages=[MessageSummary(**m) for m in messages])
 
 
 @router.delete(

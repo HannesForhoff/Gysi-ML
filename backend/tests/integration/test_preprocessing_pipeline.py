@@ -79,7 +79,7 @@ def test_dedup_removes_expected_duplicates(client):
 
 
 # ---------------------------------------------------------------------------
-# split_required-Fehler ohne vorherigen Split
+# invalid_spec_order-Fehler ohne vorherigen Split (Story 1.5: Pre-Flight-Prüfung)
 # ---------------------------------------------------------------------------
 
 
@@ -91,8 +91,8 @@ def test_impute_without_split_returns_split_required(client):
     )
     assert resp.status_code == 422
     body = resp.json()
-    assert body["error"] == "split_required"
-    assert body["code"] == "SPLIT_REQUIRED"
+    assert body["error"] == "invalid_spec_order"
+    assert body["code"] == "INVALID_SPEC_ORDER"
 
 
 def test_outlier_without_split_returns_split_required(client):
@@ -103,7 +103,7 @@ def test_outlier_without_split_returns_split_required(client):
     )
     assert resp.status_code == 422
     body = resp.json()
-    assert body["error"] == "split_required"
+    assert body["error"] == "invalid_spec_order"
 
 
 # ---------------------------------------------------------------------------
