@@ -1,0 +1,61 @@
+import pandas as pd
+from catboost import CatBoostRegressor
+
+from gysi_ml.steps.base import BaseStep
+from gysi_ml.steps.registry import register_step
+
+
+@register_step("catboost_feature_selection")
+class CatBoostFeatureSelectionStep(BaseStep):
+    """Selektiert die wichtigsten Features mittels CatBoost Feature Importance."""
+
+    description = "Selektiert die wichtigsten Features mittels CatBoost Feature Importance"
+    param_schema = {
+        "top_n": {"type": "integer", "default": 8},
+        "random_state": {"type": "integer", "default": 42},
+    }
+    requires_split = True
+    is_splitter = False
+    TARGET_COL: str = "cnt"
+
+    def __init__(self, params: dict | None = None) -> None:
+        super().__init__(params=params)
+        self._selected_features: list[str] = []
+        self._removed_features: list[str] = []
+
+    def fit(self, df_train: pd.DataFrame) -> None:
+        top_n = int(self.params.get("top_n", 8))
+        random_state = int(self.params.get("random_state", 42))
+
+        X_train = df_train.drop(columns=[self.TARGET_COL])
+        y_train = df_train[self.TARGET_COL]
+
+        model = CatBoostRegressor(random_seed=random_state, verbose=0)
+        model.fit(X_train, y_train)
+
+        importances = model.get_feature_importance()
+        feature_names = list(X_train.columns)
+        sorted_features = sorted(
+            zip(feature_names, importances),
+            key=lambda x: x[1],
+            reverse=True,
+        )
+        self._selected_features = [f[0] for f in sorted_features[:top_n]]
+        self._removed_features = [
+            f for f in feature_names if f not in set(self._selected_features)
+        ]
+
+    def transform(
+        self, df_train: pd.DataFrame, df_test: pd.DataFrame
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        keep_cols = self._selected_features + [self.TARGET_COL]
+        return df_train[keep_cols], df_test[keep_cols]
+
+    def get_metadata(self) -> dict:
+        return {
+            "selected_features": self._selected_features,
+            "removed_features": self._removed_features,
+        }
+
+    def generate_artifact(self, artifacts_path: str, run_id: str) -> dict | None:
+        return None

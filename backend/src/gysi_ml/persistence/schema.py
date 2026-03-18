@@ -52,6 +52,16 @@ def create_all_tables(db_path: str | None = None) -> None:
                 created_at  TEXT NOT NULL,
                 FOREIGN KEY (session_id) REFERENCES sessions(session_id)
             );
+
+            CREATE TABLE IF NOT EXISTS proposals (
+                proposal_id  TEXT PRIMARY KEY,
+                session_id   TEXT NOT NULL,
+                spec_json    TEXT NOT NULL,
+                explanation  TEXT NOT NULL,
+                status       TEXT NOT NULL DEFAULT 'pending',
+                created_at   TEXT NOT NULL,
+                FOREIGN KEY (session_id) REFERENCES sessions(session_id)
+            );
         """)
         conn.commit()
     finally:

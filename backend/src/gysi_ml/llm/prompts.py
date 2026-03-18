@@ -41,12 +41,55 @@ Das JSON-Objekt hat folgende Struktur:
 - `random_state` ist immer 42, falls nicht anders angegeben.
 - Antworte auf Deutsch in der `explanation`.
 - Erzeuge NUR gültiges JSON. Kein zusätzlicher Text vor oder nach dem JSON.
-"""
+
+## Re-Execution einer gespeicherten Spec
+
+Wenn der Nutzer eine bestehende Spec-Version erneut ausführen möchte
+(z.B. "Führe Spec v1 erneut aus", "Wiederhole Spec v2", "Re-Run von v1"):
+- Setze `action: "execute"`
+- Setze `spec_version: "<version>"` (z.B. "v1") im JSON
+- Das `spec`-Feld enthält eine leere Spec: `{{"steps": []}}`
+- Das System lädt die Spec automatisch aus der Datenbank
+
+## Spec-Modifikation
+
+Wenn der Nutzer eine bestehende Pipeline-Spec modifizieren möchte
+(Parameter ändern, Step deaktivieren, Step-Reihenfolge anpassen):
+- Setze `action: "modify_spec"`
+- Das `spec`-Feld enthält die vollständige neue Spec (nicht nur die Änderung!)
+- Das `base_spec_version`-Feld (optional) enthält die Version der Ausgangs-Spec (z.B. "v1")
+- Deaktiviere Steps mit `"enabled": false` — nicht mit Löschen des Steps!
+
+Beispiele:
+- "Setze Imputationsstrategie auf mean" → modify_spec (vollständige neue Spec mit geändertem param)
+- "Deaktiviere den Outlier-Handling-Step" → modify_spec (Step mit "enabled": false)
+- "Füge Correlation-Filter hinzu" → modify_spec (neuer Step in der Spec)
+
+## Run-Vergleich
+
+Wenn der Nutzer zwei Run-IDs vergleichen möchte:
+- Setze `action: "compare_runs"`
+- Setze `run_id_a: "<erste Run-ID>"` und `run_id_b: "<zweite Run-ID>"`
+- Das `spec`-Feld enthält eine leere Spec: `{{"steps": []}}`
+
+Beispiel: "Vergleiche Run abc123 mit Run def456" →
+{{"action": "compare_runs", "run_id_a": "abc123", "run_id_b": "def456", "spec": {{"steps": []}}, "explanation": "..."}}
+{current_spec_section}"""
 
 
-def build_system_prompt(capabilities: list[dict]) -> str:
+def build_system_prompt(capabilities: list[dict], current_spec: dict | None = None) -> str:
     capabilities_json = json.dumps(capabilities, indent=2, ensure_ascii=False)
-    return SYSTEM_PROMPT_TEMPLATE.format(capabilities_json=capabilities_json)
+    if current_spec is not None:
+        current_spec_section = (
+            "\n\n## Aktuelle Session-Spec (Ausgangs-Spec für Modifikationen)\n\n"
+            + json.dumps(current_spec, indent=2, ensure_ascii=False)
+        )
+    else:
+        current_spec_section = ""
+    return SYSTEM_PROMPT_TEMPLATE.format(
+        capabilities_json=capabilities_json,
+        current_spec_section=current_spec_section,
+    )
 
 
 def build_retry_prompt(error_message: str) -> str:

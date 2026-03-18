@@ -194,3 +194,21 @@ def test_execute_step_exception_marks_run_failed(executor, db):
     conn.close()
     assert row["status"] == "failed"
     assert "Absichtlicher Fehler" in row["error_message"]
+
+
+# ---------------------------------------------------------------------------
+# execute_with_spec_id (Story 4.1)
+# ---------------------------------------------------------------------------
+
+
+def test_execute_with_spec_id_invalid_order_returns_error(executor, db):
+    """execute_with_spec_id mit ungültiger Step-Reihenfolge → error."""
+    spec = {"steps": [
+        {"type": "train_decision_tree", "params": {}},
+        {"type": "split", "params": {"test_size": 0.2}},
+    ]}
+    result = executor.execute_with_spec_id(
+        spec=spec, spec_id="spec-1", session_id="s1", db_path=db,
+    )
+    assert result["error"] == "invalid_spec_order"
+    assert result["code"] == "INVALID_SPEC_ORDER"

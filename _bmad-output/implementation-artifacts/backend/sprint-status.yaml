@@ -36,7 +36,7 @@
 # - random_state=42 is the project standard for all non-deterministic operations
 
 generated: 2026-03-15
-last_updated: 2026-03-15  # Story 3.2 review
+last_updated: 2026-03-18  # Story 4.3 review
 project: gysi-ml
 project_key: NOKEY
 tracking_system: file-system
@@ -131,7 +131,7 @@ development_status:
   # Scope: proposal-Response bei vagen Eingaben, direkte Ausführung bei eindeutigen Eingaben,
   #        POST /v1/sessions/{id}/confirm (Proposal-Bestätigung),
   #        implizite Ablehnung bei neuer Nachricht, 409 ohne offenen Proposal
-  3-3-vagheitserkennung-proposal-mode-und-bestaetigung: ready-for-dev
+  3-3-vagheitserkennung-proposal-mode-und-bestaetigung: done
 
   epic-3-retrospective: optional
 
@@ -140,24 +140,24 @@ development_status:
   #         und erweiterte ML-Features nutzen
   # FRs: FR13-FR16, FR27, FR29
   # ─────────────────────────────────────────────────────────────────
-  epic-4: backlog
+  epic-4: in-progress
 
   # Story 4.1 — Spec-Abruf und Re-Execution
   # Scope: GET /v1/sessions/{id}/spec, GET /v1/sessions/{id}/spec/{version},
   #        Re-Execution über LLM-Spracheingabe, 404 bei unbekannter Version,
   #        neuer Run referenziert originale spec_version
-  4-1-spec-abruf-und-re-execution: backlog
+  4-1-spec-abruf-und-re-execution: review
 
   # Story 4.2 — Parameter-Anpassung per Sprache und Step-Deaktivierung
   # Scope: Neue Spec-Version via LLM-Spracheingabe (v1 → v2),
   #        "enabled": false für deaktivierte Steps, Executor überspringt disabled Steps,
   #        Audit-Trail (alte Versionen bleiben erhalten), Fehler bei invalidem Spec-Zustand
-  4-2-parameter-anpassung-per-sprache-und-step-deaktivierung: backlog
+  4-2-parameter-anpassung-per-sprache-und-step-deaktivierung: done
 
   # Story 4.3 — Modellvergleich und CatBoost Feature Selection
   # Scope: Metriken-Vergleich zweier Runs (RMSE/MAE/R² nebeneinander, bestes R² kennzeichnen),
   #        catboost_feature_selection-Step (top_n Features, @register_step, random_state=42),
   #        automatisch in /capabilities sichtbar
-  4-3-modellvergleich-und-catboost-feature-selection: backlog
+  4-3-modellvergleich-und-catboost-feature-selection: review
 
   epic-4-retrospective: optional

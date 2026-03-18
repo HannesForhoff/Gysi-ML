@@ -1,6 +1,6 @@
 # Story 3.3: Vagheits-Erkennung, Proposal-Mode und Bestätigungs-Endpunkt
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -37,8 +37,8 @@ damit ich immer Entscheider bleibe und das System keine stillen "Best-Guess"-Akt
 
 ## Tasks / Subtasks
 
-- [ ] **T1 — SQLite-Schema erweitern: `proposals`-Tabelle** (AC: 1)
-  - [ ] `src/gysi_ml/persistence/schema.py` ergänzen — nach `messages`-Tabelle:
+- [x] **T1 — SQLite-Schema erweitern: `proposals`-Tabelle** (AC: 1)
+  - [x] `src/gysi_ml/persistence/schema.py` ergänzen — nach `messages`-Tabelle:
     ```sql
     CREATE TABLE IF NOT EXISTS proposals (
         proposal_id  TEXT PRIMARY KEY,
@@ -51,8 +51,8 @@ damit ich immer Entscheider bleibe und das System keine stillen "Best-Guess"-Akt
     );
     ```
 
-- [ ] **T2 — `persistence/proposal_repository.py` anlegen** (AC: 1, 2, 4, 5, 6, 7)
-  - [ ] `src/gysi_ml/persistence/proposal_repository.py` erstellen:
+- [x] **T2 — `persistence/proposal_repository.py` anlegen** (AC: 1, 2, 4, 5, 6, 7)
+  - [x] `src/gysi_ml/persistence/proposal_repository.py` erstellen:
     - `create_proposal(session_id: str, spec_json: str, explanation: str, db_path: str | None = None) -> dict`
       - Generiert `proposal_id = str(uuid.uuid4())`
       - `created_at = datetime.now(timezone.utc).isoformat()`
@@ -70,18 +70,18 @@ damit ich immer Entscheider bleibe und das System keine stillen "Best-Guess"-Akt
     - `reject_pending_proposals(session_id: str, db_path: str | None = None) -> int`
       - UPDATE alle pending Proposals der Session auf `status: "rejected"`
       - Gibt Anzahl aktualisierter Rows zurück
-  - [ ] Muster identisch zu `session_repository.py`: `get_connection(db_path)`, Parameterized Queries
+  - [x] Muster identisch zu `session_repository.py`: `get_connection(db_path)`, Parameterized Queries
 
-- [ ] **T3 — Pydantic-Schemas erweitern** (AC: 2, 4, 5)
-  - [ ] `src/gysi_ml/api/schemas.py` ergänzen:
+- [x] **T3 — Pydantic-Schemas erweitern** (AC: 2, 4, 5)
+  - [x] `src/gysi_ml/api/schemas.py` ergänzen:
     ```python
     class ConfirmRequest(BaseModel):
         proposal_id: str
     ```
-  - [ ] `MessageResponse` benötigt keine Änderung — `proposal_id`-Feld ist bereits optional vorhanden (aus Story 3.1)
+  - [x] `MessageResponse` benötigt keine Änderung — `proposal_id`-Feld ist bereits optional vorhanden (aus Story 3.1)
 
-- [ ] **T4 — `services/message_service.py` erweitern** (AC: 2, 3, 6)
-  - [ ] `handle_message()` um Proposal-Logik ergänzen:
+- [x] **T4 — `services/message_service.py` erweitern** (AC: 2, 3, 6)
+  - [x] `handle_message()` um Proposal-Logik ergänzen:
     ```python
     from gysi_ml.persistence import proposal_repository
     import json
@@ -135,8 +135,8 @@ damit ich immer Entscheider bleibe und das System keine stillen "Best-Guess"-Akt
         }
     ```
 
-- [ ] **T5 — `services/proposal_service.py` anlegen** (AC: 4, 5, 7, 8, 9)
-  - [ ] `src/gysi_ml/services/proposal_service.py` erstellen:
+- [x] **T5 — `services/proposal_service.py` anlegen** (AC: 4, 5, 7, 8, 9)
+  - [x] `src/gysi_ml/services/proposal_service.py` erstellen:
     ```python
     import json
     from gysi_ml.config import get_settings
@@ -194,8 +194,8 @@ damit ich immer Entscheider bleibe und das System keine stillen "Best-Guess"-Akt
         }
     ```
 
-- [ ] **T6 — `api/routes/confirm.py` anlegen** (AC: 4, 5, 7, 8, 9)
-  - [ ] `src/gysi_ml/api/routes/confirm.py` erstellen:
+- [x] **T6 — `api/routes/confirm.py` anlegen** (AC: 4, 5, 7, 8, 9)
+  - [x] `src/gysi_ml/api/routes/confirm.py` erstellen:
     ```python
     import json
     from typing import Union
@@ -273,16 +273,16 @@ damit ich immer Entscheider bleibe und das System keine stillen "Best-Guess"-Akt
         return MessageResponse(**result)
     ```
 
-- [ ] **T7 — Router registrieren** (AC: 4)
-  - [ ] `src/gysi_ml/api/app.py` erweitern:
+- [x] **T7 — Router registrieren** (AC: 4)
+  - [x] `src/gysi_ml/api/app.py` erweitern:
     ```python
     from gysi_ml.api.routes.confirm import router as confirm_router
     # ...
     app.include_router(confirm_router)
     ```
 
-- [ ] **T8 — Unit Tests** (AC: 1, 2, 4, 5, 6, 7, 11)
-  - [ ] `tests/unit/test_proposal_repository.py` anlegen:
+- [x] **T8 — Unit Tests** (AC: 1, 2, 4, 5, 6, 7, 11)
+  - [x] `tests/unit/test_proposal_repository.py` anlegen (13 Tests, alle grün):
     - `test_create_proposal_returns_dict()`: Rückgabe enthält `proposal_id`, `status: "pending"`
     - `test_get_pending_proposal()`: Nach Create → `get_pending_proposal()` gibt den Proposal zurück
     - `test_get_pending_proposal_none()`: Keine Proposals → `None`
@@ -293,19 +293,19 @@ damit ich immer Entscheider bleibe und das System keine stillen "Best-Guess"-Akt
     - `test_reject_pending_proposals()`: 2 pending Proposals → beide rejected, Rückgabe `2`
     - `test_reject_pending_proposals_no_effect_on_confirmed()`: confirmed Proposal bleibt confirmed
     - `test_isolation_between_sessions()`: Proposal Session A nicht sichtbar für Session B
-  - [ ] `tests/unit/test_proposal_service.py` anlegen:
+  - [x] `tests/unit/test_proposal_service.py` anlegen (5 Tests, alle grün):
     - `test_confirm_proposal_success(monkeypatch)`: Gültiger Proposal → `type: "result"` mit `run_id`
     - `test_confirm_proposal_not_found()`: Unbekannter Proposal → `error: "proposal_not_found"`
     - `test_confirm_proposal_wrong_session()`: Proposal gehört anderer Session → `error: "proposal_not_found"`
     - `test_confirm_proposal_already_confirmed()`: Bereits bestätigter Proposal → `error: "no_pending_proposal"`
     - `test_confirm_proposal_executor_error(monkeypatch)`: Executor gibt Fehler zurück → `type: "error"`
-  - [ ] `tests/unit/test_message_service.py` erweitern:
+  - [x] `tests/unit/test_message_service.py` erweitern (3 neue Tests, autouse-Fixture):
     - `test_handle_message_propose_creates_proposal(monkeypatch)`: Mock LLM → propose → Proposal in DB vorhanden
     - `test_handle_message_implicit_rejection(monkeypatch)`: Offener Proposal → neue Nachricht → Proposal rejected
     - `test_handle_message_execute_no_proposal(monkeypatch)`: Execute-Aktion → kein Proposal in DB
 
-- [ ] **T9 — Integration Tests** (AC: 2, 3, 4, 5, 6, 7, 8, 10, 11)
-  - [ ] `tests/integration/test_proposal_api.py` anlegen:
+- [x] **T9 — Integration Tests** (AC: 2, 3, 4, 5, 6, 7, 8, 10, 11)
+  - [x] `tests/integration/test_proposal_api.py` anlegen (11 Tests, alle grün):
     - **Hinweis**: LLM-Aufrufe werden gemockt.
     - `test_propose_flow(monkeypatch)`: POST /messages (vage) → Mock LLM propose → Response `type: "proposal"` mit `proposal_id`
     - `test_confirm_proposal(monkeypatch)`: Proposal erstellen → POST /confirm → `type: "result"` mit `run_id`
@@ -418,8 +418,38 @@ uv run pytest tests/ --cov=src/gysi_ml --cov-report=term-missing
 
 ### Agent Model Used
 
+Claude Sonnet 4.6 (GitHub Copilot)
+
 ### Debug Log References
+
+Keine externen Debug-Logs.
 
 ### Completion Notes List
 
+- T8/T9: autouse-Fixture-Pattern notwendig, da `reject_pending_proposals` in `message_service.py` existierende Tests (db_path=None) brechen würde. Modul-Level `_REAL_*`-Caches lösen das Problem mit der Fixture-Reihenfolge.
+- Integration-Test `test_assistant_messages_persisted`: `_mock_propose` überschreibt `message_repository.get_messages_for_session` global (Python-Modul-Aliasing). Gelöst durch eigene `client_with_db`-Fixture die den `db_path` exponiert und direkte DB-Abfrage statt API-Abfrage.
+- Gesamt: 375 Tests bestanden, 97% Coverage.
+
 ### File List
+
+**Neu:**
+- `backend/src/gysi_ml/persistence/proposal_repository.py`
+- `backend/src/gysi_ml/services/proposal_service.py`
+- `backend/src/gysi_ml/api/routes/confirm.py`
+- `backend/tests/unit/test_proposal_repository.py`
+- `backend/tests/unit/test_proposal_service.py`
+- `backend/tests/integration/test_proposal_api.py`
+
+**Geändert:**
+- `backend/src/gysi_ml/persistence/schema.py`
+- `backend/src/gysi_ml/services/message_service.py`
+- `backend/src/gysi_ml/api/schemas.py`
+- `backend/src/gysi_ml/api/app.py`
+- `backend/tests/unit/test_message_service.py`
+
+## Change Log
+
+| Datum | Version | Beschreibung | Autor |
+| --- | --- | --- | --- |
+| 2025-06-17 | 1.0 | Story implementiert, alle Tests grün, 97% Coverage | Dev Agent |
+| 2026-03-18 | 1.1 | Code Review: M1–M4 + L1 gefixt, 377 Tests, 100% Coverage auf neuen Modulen | Dev Agent |

@@ -6,7 +6,8 @@ import jsonschema
 
 from gysi_ml.executor.pipeline_context import PipelineContext
 from gysi_ml.executor.spec_validator import SpecOrderError, validate_spec_order
-from gysi_ml.persistence import artifact_repository, run_repository
+from gysi_ml.persistence import artifact_repository, run_repository, spec_repository
+from gysi_ml.persistence.database import get_connection
 from gysi_ml.spec.schema import validate_spec
 from gysi_ml.steps.registry import get_step_class
 from gysi_ml.utils.data_loader import load_bikes_dataset
@@ -44,25 +45,74 @@ class PipelineExecutor:
             }
 
         run_id = str(uuid.uuid4())
-        spec_id = str(uuid.uuid4())
         started_at = _utc_now()
 
-        # 3. Spec-Version speichern (vor Ausführung, damit auch fehlgeschlagene Runs eine Spec haben)
-        run_repository.save_spec_version(
-            spec_id=spec_id,
-            session_id=session_id,
-            version="v1",
-            spec_json=json.dumps(spec),
-            created_at=started_at,
-            db_path=db_path,
+        # 3. Spec-Version speichern (automatische Versionsnummer)
+        spec_entry = spec_repository.create_spec_version(
+            session_id=session_id, spec=spec, db_path=db_path,
         )
+        spec_id = spec_entry["spec_id"]
+        spec_version = spec_entry["version"]
+
+        return self._run_pipeline(
+            spec=spec, run_id=run_id, spec_id=spec_id,
+            spec_version=spec_version,
+            session_id=session_id, started_at=started_at, db_path=db_path,
+        )
+
+    def execute_with_spec_id(
+        self, spec: dict, spec_id: str, session_id: str, db_path: str | None = None
+    ) -> dict:
+        """Re-Execute mit einer bestehenden spec_id (kein neuer spec_versions-Eintrag)."""
+        steps = spec.get("steps", [])
+        try:
+            validate_spec_order(steps)
+        except SpecOrderError as exc:
+            return {
+                "error": "invalid_spec_order",
+                "detail": str(exc),
+                "code": "INVALID_SPEC_ORDER",
+            }
+
+        run_id = str(uuid.uuid4())
+        started_at = _utc_now()
+
+        return self._run_pipeline(
+            spec=spec, run_id=run_id, spec_id=spec_id,
+            spec_version=None,
+            session_id=session_id, started_at=started_at, db_path=db_path,
+        )
+
+    def _run_pipeline(
+        self,
+        spec: dict,
+        run_id: str,
+        spec_id: str,
+        spec_version: str | None,
+        session_id: str,
+        started_at: str,
+        db_path: str | None = None,
+    ) -> dict:
+        steps = spec.get("steps", [])
+
+        # Resolve spec_version from DB if not provided (re-execution)
+        if spec_version is None:
+            conn = get_connection(db_path)
+            try:
+                row = conn.execute(
+                    "SELECT version FROM spec_versions WHERE spec_id = ?",
+                    (spec_id,),
+                ).fetchone()
+                spec_version = row["version"] if row else "v1"
+            finally:
+                conn.close()
 
         # 4. Run anlegen (running)
         run_repository.create_run(
             session_id=session_id,
             run_id=run_id,
             spec_id=spec_id,
-            spec_version="v1",
+            spec_version=spec_version,
             status="running",
             started_at=started_at,
             db_path=db_path,

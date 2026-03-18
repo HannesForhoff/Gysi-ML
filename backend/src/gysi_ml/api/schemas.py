@@ -91,16 +91,28 @@ class CapabilitiesResponse(BaseModel):
     steps: list[StepCapability]
 
 
+class SpecVersionResponse(BaseModel):
+    spec_id: str
+    session_id: str
+    version: str
+    spec: dict
+    created_at: str
+
+
 class MessageRequest(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     text: str = Field(..., min_length=1)
 
 
+class ConfirmRequest(BaseModel):
+    proposal_id: str
+
+
 class MessageResponse(BaseModel):
     """Typisierte Response fuer POST /messages."""
 
-    type: str  # "proposal" | "result" | "error"
+    type: str  # "proposal" | "result" | "error" | "spec_updated" | "comparison"
     run_id: Optional[str] = None
     message: Optional[str] = None
     error_code: Optional[str] = None
@@ -108,3 +120,8 @@ class MessageResponse(BaseModel):
     explanation: Optional[str] = None
     confirmation_required: Optional[bool] = None
     proposal_id: Optional[str] = None
+    spec_id: Optional[str] = None
+    version: Optional[str] = None
+    spec: Optional[dict] = None
+    runs: Optional[list[dict]] = None
+    better_run_id: Optional[str] = None

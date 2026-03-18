@@ -42,25 +42,6 @@ def update_run_status(
         conn.close()
 
 
-def save_spec_version(
-    spec_id: str,
-    session_id: str,
-    version: str,
-    spec_json: str,
-    created_at: str,
-    db_path: str | None = None,
-) -> None:
-    conn = get_connection(db_path)
-    try:
-        with conn:
-            conn.execute(
-                "INSERT INTO spec_versions (spec_id, session_id, version, spec_json, created_at) VALUES (?, ?, ?, ?, ?)",
-                (spec_id, session_id, version, spec_json, created_at),
-            )
-    finally:
-        conn.close()
-
-
 def get_runs_for_session(session_id: str, db_path: str | None = None) -> list[dict]:
     """Gibt alle Runs einer Session zurück (Summary-Felder)."""
     conn = get_connection(db_path)
@@ -105,3 +86,6 @@ def get_run(run_id: str, db_path: str | None = None) -> dict | None:
         return data
     finally:
         conn.close()
+
+
+

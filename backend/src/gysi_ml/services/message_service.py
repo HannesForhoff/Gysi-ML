@@ -1,11 +1,17 @@
+import json
+
+import jsonschema
+
 from gysi_ml.config import get_settings
 from gysi_ml.core.capabilities import get_capabilities
 from gysi_ml.executor.executor import PipelineExecutor
+from gysi_ml.executor.spec_validator import SpecOrderError, validate_spec_order
 from gysi_ml.llm.client import call_llm
 from gysi_ml.llm.exceptions import LLMConnectionError, LLMResponseValidationError
 from gysi_ml.llm.prompts import build_retry_prompt, build_system_prompt
 from gysi_ml.llm.response_schema import validate_llm_response
-from gysi_ml.persistence import message_repository
+from gysi_ml.persistence import message_repository, proposal_repository, spec_repository
+from gysi_ml.spec.schema import validate_spec
 
 LLM_NOT_CONFIGURED = "llm_not_configured"
 
@@ -37,7 +43,11 @@ def handle_message(
 
     # 2. Capabilities laden und System-Prompt bauen
     capabilities = get_capabilities()["steps"]
-    system_prompt = build_system_prompt(capabilities)
+    current_spec_entry = spec_repository.get_latest_spec(
+        session_id=session_id, db_path=db_path
+    )
+    current_spec = current_spec_entry["spec"] if current_spec_entry else None
+    system_prompt = build_system_prompt(capabilities, current_spec=current_spec)
 
     # 3. Gesprächshistorie laden und messages-Array aufbauen
     history = message_repository.get_messages_for_session(
@@ -46,6 +56,9 @@ def handle_message(
     messages: list[dict] = [{"role": "system", "content": system_prompt}]
     for msg in history:
         messages.append({"role": msg["role"], "content": msg["content"]})
+
+    # 3b. Offene Proposals vor dem LLM-Aufruf implizit ablehnen
+    proposal_repository.reject_pending_proposals(session_id=session_id, db_path=db_path)
 
     # 4. LLM aufrufen
     try:
@@ -86,20 +99,108 @@ def handle_message(
     action = parsed["action"]
     spec = parsed["spec"]
     explanation = parsed["explanation"]
+    spec_version_ref = parsed.get("spec_version")
+
+    if action == "compare_runs":
+        run_id_a = parsed.get("run_id_a")
+        run_id_b = parsed.get("run_id_b")
+        if not run_id_a or not run_id_b:
+            return {"type": "error", "message": "Zwei Run-IDs für den Vergleich erforderlich."}
+
+        from gysi_ml.persistence import run_repository
+
+        run_a = run_repository.get_run(run_id_a, db_path=db_path)
+        run_b = run_repository.get_run(run_id_b, db_path=db_path)
+
+        if run_a is None or run_a.get("session_id") != session_id:
+            return {"type": "error", "message": f"Run '{run_id_a}' nicht gefunden."}
+        if run_b is None or run_b.get("session_id") != session_id:
+            return {"type": "error", "message": f"Run '{run_id_b}' nicht gefunden."}
+
+        def _extract_metrics(run: dict) -> dict | None:
+            result = run.get("result") or {}
+            return result.get("metrics") or None
+
+        metrics_a = _extract_metrics(run_a)
+        metrics_b = _extract_metrics(run_b)
+
+        better_run_id = None
+        if metrics_a and metrics_b:
+            r2_a = metrics_a.get("r2", float("-inf"))
+            r2_b = metrics_b.get("r2", float("-inf"))
+            better_run_id = run_id_a if r2_a >= r2_b else run_id_b
+
+        return {
+            "type": "comparison",
+            "runs": [
+                {"run_id": run_id_a, "status": run_a["status"], "metrics": metrics_a},
+                {"run_id": run_id_b, "status": run_b["status"], "metrics": metrics_b},
+            ],
+            "better_run_id": better_run_id,
+            "explanation": explanation,
+        }
+
+    if action == "modify_spec":
+        # Neue Spec validieren
+        try:
+            validate_spec(spec)
+        except jsonschema.ValidationError as exc:
+            return {"type": "error", "message": f"Ungültige Spec: {exc.message}"}
+        # Spec-Reihenfolge validieren
+        try:
+            validate_spec_order(spec.get("steps", []))
+        except SpecOrderError as exc:
+            return {"type": "error", "message": str(exc)}
+        # Neue Spec-Version anlegen
+        spec_entry = spec_repository.create_spec_version(
+            session_id=session_id, spec=spec, db_path=db_path
+        )
+        return {
+            "type": "spec_updated",
+            "spec_id": spec_entry["spec_id"],
+            "version": spec_entry["version"],
+            "spec": spec_entry["spec"],
+            "explanation": explanation,
+        }
 
     if action == "execute":
         executor = PipelineExecutor(
             data_path=data_path or settings.data_path,
             artifacts_path=artifacts_path or settings.artifacts_path,
         )
-        result = executor.execute(spec=spec, session_id=session_id, db_path=db_path)
+
+        if spec_version_ref:
+            existing_spec = spec_repository.get_spec_by_version(
+                session_id=session_id, version=spec_version_ref, db_path=db_path
+            )
+            if existing_spec is None:
+                return {
+                    "type": "error",
+                    "message": f"Spec-Version '{spec_version_ref}' nicht gefunden.",
+                }
+            result = executor.execute_with_spec_id(
+                spec=existing_spec["spec"],
+                spec_id=existing_spec["spec_id"],
+                session_id=session_id,
+                db_path=db_path,
+            )
+        else:
+            result = executor.execute(spec=spec, session_id=session_id, db_path=db_path)
+
         if "error" in result:
             return {"type": "error", "message": result.get("detail", result.get("error"))}
         return {"type": "result", "run_id": result["run_id"], "explanation": explanation}
 
     # action == "propose"
+    proposal = proposal_repository.create_proposal(
+        session_id=session_id,
+        spec_json=json.dumps(spec),
+        explanation=explanation,
+        db_path=db_path,
+    )
     return {
         "type": "proposal",
+        "proposal_id": proposal["proposal_id"],
         "steps": spec.get("steps", []),
         "explanation": explanation,
         "confirmation_required": True,

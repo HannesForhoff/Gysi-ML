@@ -129,3 +129,84 @@ def test_additional_properties_rejected():
     )
     with pytest.raises(LLMResponseValidationError):
         validate_llm_response(payload)
+
+
+# ---------------------------------------------------------------------------
+# Tests für modify_spec Action (Story 4.2 / T8)
+# ---------------------------------------------------------------------------
+
+
+def test_modify_spec_action_is_valid():
+    """action: 'modify_spec' passiert Schema-Validierung."""
+    payload = json.dumps(
+        {
+            "action": "modify_spec",
+            "spec": {"steps": [{"type": "dedup", "params": {}}]},
+            "explanation": "Imputationsstrategie geändert.",
+        }
+    )
+    result = validate_llm_response(payload)
+    assert result["action"] == "modify_spec"
+
+
+# ---------------------------------------------------------------------------
+# Tests für compare_runs Action (Story 4.3 / T10)
+# ---------------------------------------------------------------------------
+
+
+def test_compare_runs_action_is_valid():
+    """action: 'compare_runs' mit run_id_a und run_id_b passiert Validierung."""
+    payload = json.dumps(
+        {
+            "action": "compare_runs",
+            "spec": {"steps": []},
+            "explanation": "Vergleiche zwei Runs.",
+            "run_id_a": "run-aaa",
+            "run_id_b": "run-bbb",
+        }
+    )
+    result = validate_llm_response(payload)
+    assert result["action"] == "compare_runs"
+    assert result["run_id_a"] == "run-aaa"
+    assert result["run_id_b"] == "run-bbb"
+
+
+def test_compare_runs_without_run_ids_is_valid():
+    """Schema erlaubt fehlende run_id_a/b (optional)."""
+    payload = json.dumps(
+        {
+            "action": "compare_runs",
+            "spec": {"steps": []},
+            "explanation": "Vergleich ohne IDs.",
+        }
+    )
+    result = validate_llm_response(payload)
+    assert result["action"] == "compare_runs"
+    assert "run_id_a" not in result
+
+
+def test_modify_spec_with_base_spec_version():
+    """Optionales Feld base_spec_version erlaubt."""
+    payload = json.dumps(
+        {
+            "action": "modify_spec",
+            "spec": {"steps": [{"type": "dedup"}]},
+            "explanation": "Test",
+            "base_spec_version": "v1",
+        }
+    )
+    result = validate_llm_response(payload)
+    assert result["base_spec_version"] == "v1"
+
+
+def test_invalid_action_still_rejected():
+    """Ungültige Action (nicht execute/propose/modify_spec) schlägt fehl."""
+    payload = json.dumps(
+        {
+            "action": "delete_everything",
+            "spec": {"steps": [{"type": "dedup"}]},
+            "explanation": "Test",
+        }
+    )
+    with pytest.raises(LLMResponseValidationError):
+        validate_llm_response(payload)
