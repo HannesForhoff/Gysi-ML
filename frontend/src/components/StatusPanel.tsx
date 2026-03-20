@@ -71,7 +71,7 @@ export function StatusPanel({
         <div className="statusBlock statusBlock--error">
           <div className="statusTitle">Verbindungsfehler</div>
           <div className="statusMeta">
-            Backend nicht erreichbar. Bitte Backend starten oder URL pr&uuml;fen.
+            Backend nicht erreichbar. Bitte Backend starten oder URL prüfen.
           </div>
         </div>
       )}

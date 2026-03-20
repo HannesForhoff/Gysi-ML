@@ -103,7 +103,7 @@ damit ich jederzeit weiß, ob das System erreichbar ist und welche Spec-Version 
   - [x] Unit-Tests für Reducer (`src/state/chatReducer.health.test.ts`)
   - [x] Smoke-Test für StatusPanel (`src/components/StatusPanel.test.tsx`)
   - [x] Alle bestehenden 18 Tests aus Story 1.1+1.2 weiterhin grün
-  - [ ] Bestehende Tests aus Story 1.1 und 1.2 dürfen nicht brechen
+  - [x] Bestehende Tests aus Story 1.1 und 1.2 dürfen nicht brechen
 
 ## Dev Notes
 
@@ -207,6 +207,7 @@ Claude Sonnet 4.6 (GitHub Copilot Developer Agent)
 
 - `frontend/src/state/chatReducer.ts` (T1: neue Actions + Reducer-Handler)
 - `frontend/src/api/healthApi.ts` (T2 + T3: fetchHealth + fetchSpecSummary)
+- `frontend/src/api/healthApi.test.ts` (T8: API-Unit-Tests)
 - `frontend/src/hooks/useHealthPolling.ts` (T4: Hook)
 - `frontend/src/App.tsx` (T5 + T7: useSpecSummaryFetch-Effect + useHealthPolling eingebunden)
 - `frontend/src/components/StatusPanel.tsx` (T6: backend_unreachable UX)

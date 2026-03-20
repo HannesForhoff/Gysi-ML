@@ -81,7 +81,7 @@ describe('useHealthPolling', () => {
     expect(dispatch).toHaveBeenCalledWith({ type: 'HEALTH_CHECK_RECOVERED' })
   })
 
-  it('Kein HEALTH_CHECK_RECOVERED wenn bisher kein Fehler', async () => {
+  it('Dauerhaft healthy → HEALTH_CHECK_RECOVERED wird bei jedem Tick dispatched (Reducer bleibt idempotent)', async () => {
     const { useHealthPolling } = await import('./useHealthPolling')
     vi.mocked(fetchHealth).mockResolvedValue(true)
     const dispatch = vi.fn() as unknown as Dispatch<ChatAction>
@@ -91,6 +91,25 @@ describe('useHealthPolling', () => {
     await vi.advanceTimersByTimeAsync(30_000)
 
     const calls = vi.mocked(dispatch).mock.calls.map((c) => c[0])
-    expect(calls.some((a) => a.type === 'HEALTH_CHECK_RECOVERED')).toBe(false)
+    expect(calls.every((a) => a.type === 'HEALTH_CHECK_RECOVERED')).toBe(true)
+    expect(calls.length).toBe(3) // 3 Ticks in 30s
+  })
+
+  it('[H-1 Regression] Recovery nach SEND_REQUEST_FAILED (kein Hook-Fehler vorher) → HEALTH_CHECK_RECOVERED dispatched', async () => {
+    // Szenario: SEND_REQUEST_FAILED setzt ui=backend_unreachable ohne dass der
+    // Poller jemals HEALTH_CHECK_FAILED dispatched hat. Vor dem Fix blieb die
+    // UI permanent in backend_unreachable, da hasFailed.current==false war.
+    const { useHealthPolling } = await import('./useHealthPolling')
+    vi.mocked(fetchHealth).mockResolvedValue(true)
+    const dispatch = vi.fn() as unknown as Dispatch<ChatAction>
+
+    renderHook(() => useHealthPolling(dispatch, REAL_TRANSPORT))
+
+    await vi.advanceTimersByTimeAsync(10_000)
+
+    const recoveryDispatched = vi.mocked(dispatch).mock.calls
+      .map((c) => c[0])
+      .some((a) => a.type === 'HEALTH_CHECK_RECOVERED')
+    expect(recoveryDispatched).toBe(true)
   })
 })

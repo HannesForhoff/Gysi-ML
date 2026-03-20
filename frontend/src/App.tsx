@@ -80,7 +80,7 @@ function App() {
     return () => {
       cancelled = true
     }
-  }, [state.sessionId, state.specSummary, state.transport])
+  }, [state.sessionId, state.specSummary, state.transport.useMock, state.transport.backendBaseUrl])
   const handleSend = useCallback(
     async (text: string) => {
       if (state.ui.type === 'sending_message') return

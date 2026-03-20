@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import type { Dispatch } from 'react'
 
 import { fetchHealth } from '../api/healthApi'
@@ -10,8 +10,6 @@ export function useHealthPolling(
   dispatch: Dispatch<ChatAction>,
   transport: TransportInfo,
 ): void {
-  const hasFailed = useRef(false)
-
   useEffect(() => {
     if (transport.useMock) return
 
@@ -22,11 +20,11 @@ export function useHealthPolling(
 
       const healthy = await fetchHealth(baseUrl)
 
+      // Immer dispatchen: der Reducer ignoriert RECOVERED wenn nicht backend_unreachable
+      // (idempotent), verhindert aber Stuck-State nach SEND_REQUEST_FAILED
       if (!healthy) {
-        hasFailed.current = true
         dispatch({ type: 'HEALTH_CHECK_FAILED' })
-      } else if (hasFailed.current) {
-        hasFailed.current = false
+      } else {
         dispatch({ type: 'HEALTH_CHECK_RECOVERED' })
       }
     }
