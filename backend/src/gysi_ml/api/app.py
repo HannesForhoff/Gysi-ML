@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from typing import Optional
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 import gysi_ml.steps  # noqa: F401 — registriert alle @register_step-Decorators beim Import
@@ -28,6 +29,15 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         yield
 
     app = FastAPI(title="gysi-ml", version="0.1.0", lifespan=lifespan)
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:5173"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
     app.state.db_path = settings.db_path
     app.state.data_path = settings.data_path
     app.state.artifacts_path = settings.artifacts_path
