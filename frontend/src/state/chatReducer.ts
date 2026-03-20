@@ -4,6 +4,7 @@ import type {
   AssistantResponse,
   ChatMessage,
   ResultResponse,
+  RunStatus,
   SpecSummary,
 } from '../types'
 
@@ -34,6 +35,7 @@ export interface ChatState {
   pendingProposalId: string | null
   runId: string | null
   isConfirming: boolean
+  isLongRunning: boolean
 }
 
 export type ChatAction =
@@ -55,6 +57,16 @@ export type ChatAction =
   | { type: 'CONFIRM_STARTED' }
   | { type: 'CONFIRM_SUCCEEDED'; runId: string }
   | { type: 'CONFIRM_FAILED'; errorMessage: string }
+  | {
+      type: 'RUN_POLL_SUCCEEDED'
+      status: RunStatus
+      metrics?: Record<string, number | string>
+      artifacts?: ArtifactRef[]
+      errorMessage?: string
+      assistantMessage?: ChatMessage
+    }
+  | { type: 'RUN_POLL_NETWORK_ERROR'; errorMessage: string }
+  | { type: 'RUN_LONG_RUNNING' }
 
 export function createInitialChatState(): ChatState {
   const env = getFrontendEnv()
@@ -71,6 +83,7 @@ export function createInitialChatState(): ChatState {
     pendingProposalId: null,
     runId: null,
     isConfirming: false,
+    isLongRunning: false,
   }
 }
 
@@ -180,5 +193,64 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         lastError: action.errorMessage,
         ui: { type: 'validation_error' },
       }
+
+    case 'RUN_POLL_SUCCEEDED': {
+      if (action.status === 'done') {
+        const lastRun: ResultResponse = {
+          type: 'result',
+          message: 'Run abgeschlossen',
+          status: 'done',
+          metrics: action.metrics,
+          artifacts: action.artifacts,
+        }
+        return {
+          ...state,
+          ui: { type: 'run_done' },
+          lastRun,
+          artifacts: action.artifacts ?? state.artifacts,
+          runId: null,
+          isLongRunning: false,
+          ...(action.assistantMessage
+            ? { messages: [...state.messages, action.assistantMessage] }
+            : {}),
+        }
+      }
+
+      if (action.status === 'failed') {
+        const errorMsg = action.errorMessage ?? 'Run fehlgeschlagen'
+        const lastRun: ResultResponse = {
+          type: 'result',
+          message: errorMsg,
+          status: 'failed',
+        }
+        return {
+          ...state,
+          ui: { type: 'run_failed' },
+          lastRun,
+          lastError: errorMsg,
+          runId: null,
+          isLongRunning: false,
+          ...(action.assistantMessage
+            ? { messages: [...state.messages, action.assistantMessage] }
+            : {}),
+        }
+      }
+
+      // running | queued → keep polling
+      return state
+    }
+
+    case 'RUN_POLL_NETWORK_ERROR':
+      return {
+        ...state,
+        ui: { type: 'backend_unreachable' },
+        lastError: action.errorMessage,
+        runId: null,
+        isLongRunning: false,
+      }
+
+    case 'RUN_LONG_RUNNING':
+      if (state.ui.type !== 'run_polling') return state
+      return { ...state, isLongRunning: true }
   }
 }

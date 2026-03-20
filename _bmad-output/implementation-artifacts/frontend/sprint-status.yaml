@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-03-15T13:59:46.5298419+01:00
-last_updated: 2026-03-20T13:35:00.0000000+01:00
+last_updated: 2026-03-20T14:00:00.0000000+01:00
 project: gysi-ml
 project_key: NOKEY
 tracking_system: file-system
@@ -93,11 +93,11 @@ development_status:
   # FRs: FR7, FR8, FR9, FR13
   # DEPENDS ON: Epic 2 (Story 2.2 liefert immer run_id)
   # ─────────────────────────────────────────────────────────────────
-  epic-3: backlog
+  epic-3: in-progress
 
   # Story 3.1 — Run-Polling mit Backoff + Long-Run Hinweis
   # DEPENDS ON: 2-2 (run_id kommt immer aus Confirm)
-  3-1-run-polling-mit-backoff-und-long-run-hinweis: backlog
+  3-1-run-polling-mit-backoff-und-long-run-hinweis: done
 
   # Story 3.2 — Result-Message (Status/Metriken) rendern
   # DATENQUELLE: ausschließlich terminales Polling-Ergebnis (kein direkter result-Typ aus /messages nach Confirm)

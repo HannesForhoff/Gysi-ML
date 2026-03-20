@@ -9,6 +9,7 @@ import { Composer } from './components/Composer'
 import { MessageList } from './components/MessageList'
 import { StatusPanel } from './components/StatusPanel'
 import { useHealthPolling } from './hooks/useHealthPolling'
+import { useRunPolling } from './hooks/useRunPolling'
 import { chatReducer, createInitialChatState } from './state/chatReducer'
 import type { AssistantResponse, ChatMessage } from './types'
 
@@ -67,6 +68,7 @@ function App() {
   const isSending = state.ui.type === 'sending_message'
 
   useHealthPolling(dispatch, state.transport)
+  useRunPolling(dispatch, state)
 
   useEffect(() => {
     if (state.transport.useMock) return
@@ -174,6 +176,7 @@ function App() {
               lastRun={state.lastRun}
               artifacts={state.artifacts}
               lastError={state.lastError}
+              isLongRunning={state.isLongRunning}
             />
           }
         >

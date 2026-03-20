@@ -8,6 +8,7 @@ type StatusPanelProps = {
   lastRun: ResultResponse | null
   artifacts: ArtifactRef[]
   lastError: string | null
+  isLongRunning: boolean
 }
 
 function uiLabel(ui: UiState): string {
@@ -64,6 +65,7 @@ export function StatusPanel({
   lastRun,
   artifacts,
   lastError,
+  isLongRunning,
 }: StatusPanelProps) {
   return (
     <div>
@@ -82,6 +84,15 @@ export function StatusPanel({
           <div className="statusMeta">
             Validierungsfehler aufgetreten. Sieh dir die Fehlermeldung im Chat an
             und sende eine neue Nachricht.
+          </div>
+        </div>
+      )}
+
+      {isLongRunning && ui.type === 'run_polling' && (
+        <div className="statusBlock statusBlock--info">
+          <div className="statusTitle">Hinweis</div>
+          <div className="statusMeta">
+            Run dauert länger – wir aktualisieren weiter.
           </div>
         </div>
       )}

@@ -63,3 +63,12 @@ export interface SpecUpdatedResponse {
 }
 
 export type AssistantResponse = ProposalResponse | ResultResponse | ErrorResponse | SpecUpdatedResponse
+
+export type RunStatus = 'queued' | 'running' | 'done' | 'failed'
+
+export interface RunStatusResponse {
+  status: RunStatus
+  metrics?: Record<string, number | string>
+  artifacts?: ArtifactRef[]
+  error_message?: string
+}

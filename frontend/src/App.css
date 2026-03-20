@@ -258,6 +258,11 @@
   background: #fffff0;
 }
 
+.statusBlock--info {
+  border-color: #3182ce;
+  background: #ebf8ff;
+}
+
 .proposalCard {
   display: flex;
   flex-direction: column;
