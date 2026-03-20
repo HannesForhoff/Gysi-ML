@@ -1,0 +1,3 @@
+- chat innerhlab des chatfensters skrollbar und nicht ganze webpage skrollen
+- wie kompliziert wäre es sich dynamisch die daten links neben dem chat anzeigen zu lassen
+- Interface anpassen (vor allem Überschrift)

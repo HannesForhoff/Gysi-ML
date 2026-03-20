@@ -93,7 +93,7 @@ development_status:
   # FRs: FR7, FR8, FR9, FR13
   # DEPENDS ON: Epic 2 (Story 2.2 liefert immer run_id)
   # ─────────────────────────────────────────────────────────────────
-  epic-3: in-progress
+  epic-3: done
 
   # Story 3.1 — Run-Polling mit Backoff + Long-Run Hinweis
   # DEPENDS ON: 2-2 (run_id kommt immer aus Confirm)
@@ -104,6 +104,6 @@ development_status:
   3-2-result-message-status-und-metriken-rendern: done
 
   # Story 3.3 — Artefakt-Links anzeigen und öffnen
-  3-3-artefakt-links-anzeigen-und-oeffnen: ready-for-dev
+  3-3-artefakt-links-anzeigen-und-oeffnen: done
 
   epic-3-retrospective: optional
