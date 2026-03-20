@@ -81,10 +81,10 @@ development_status:
 
   # Story 2.2 — Confirm-Flow (Bestätigen & Ausführen) mit UI-Idempotenz
   # CONTRACT: POST /confirm gibt IMMER run_id zurück → direkt Trigger für Epic 3 Polling
-  2-2-confirm-flow-bestaetigen-und-ausfuehren: ready-for-dev
+  2-2-confirm-flow-bestaetigen-und-ausfuehren: done
 
   # Story 2.3 — Proposal modifizieren durch neue Nachricht (kein extra Formular)
-  2-3-proposal-modifizieren-durch-neue-nachricht: backlog
+  2-3-proposal-modifizieren-durch-neue-nachricht: done
 
   epic-2-retrospective: optional
 

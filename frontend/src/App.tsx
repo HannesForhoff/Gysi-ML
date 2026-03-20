@@ -181,6 +181,7 @@ function App() {
             messages={state.messages}
             onConfirm={handleConfirm}
             confirmDisabled={state.isConfirming || state.ui.type !== 'proposal_pending'}
+            activePendingProposalId={state.pendingProposalId}
           />
           <Composer disabled={isSending} onSend={handleSend} />
         </ChatLayout>

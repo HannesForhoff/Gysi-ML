@@ -97,6 +97,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ui: { type: 'sending_message' },
         messages: [...state.messages, action.userMessage],
         lastError: null,
+        // Sofortiges visuelles Feedback: alter Proposal wird als "nicht bestätigt" markiert,
+        // sobald der Nutzer eine neue Nachricht sendet.
+        pendingProposalId: state.ui.type === 'proposal_pending' ? null : state.pendingProposalId,
       }
 
     case 'SEND_REQUEST_SUCCEEDED': {

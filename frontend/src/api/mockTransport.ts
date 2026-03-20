@@ -22,7 +22,10 @@ function pickFixture(userText: string): AssistantResponse {
   if (text.includes('undo') || text.includes('rückgängig') || text.includes('revert')) {
     return specUpdatedFixture as AssistantResponse
   }
-
+  // NEU: Modifizierungs-Keywords → neuer Proposal (simuliert Modify-Flow)
+  if (text.includes('ändern') || text.includes('modifizieren') || text.includes('modify')) {
+    return proposalFixture as AssistantResponse
+  }
   if (text.includes('proposal') || text.includes('vorschlag')) {
     return proposalFixture as AssistantResponse
   }

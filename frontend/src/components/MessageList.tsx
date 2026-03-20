@@ -5,9 +5,10 @@ type MessageListProps = {
   messages: ChatMessage[]
   onConfirm: (proposalId: string) => void
   confirmDisabled: boolean
+  activePendingProposalId: string | null
 }
 
-export function MessageList({ messages, onConfirm, confirmDisabled }: MessageListProps) {
+export function MessageList({ messages, onConfirm, confirmDisabled, activePendingProposalId }: MessageListProps) {
   return (
     <ol className="messageList" aria-label="Chat messages">
       {messages.map((message) => (
@@ -31,7 +32,15 @@ export function MessageList({ messages, onConfirm, confirmDisabled }: MessageLis
                 <span className="messageTs">{message.ts}</span>
               </div>
               {message.response?.type === 'proposal' ? (
-                <ProposalCard proposal={message.response} onConfirm={onConfirm} disabled={confirmDisabled} />
+                <ProposalCard
+                  proposal={message.response}
+                  onConfirm={onConfirm}
+                  disabled={confirmDisabled}
+                  isActive={
+                    activePendingProposalId !== null &&
+                    message.response.proposal_id === activePendingProposalId
+                  }
+                />
               ) : (
                 <div className="messageContent">{message.content}</div>
               )}

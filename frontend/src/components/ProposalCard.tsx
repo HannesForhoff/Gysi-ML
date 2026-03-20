@@ -4,12 +4,15 @@ type ProposalCardProps = {
   proposal: ProposalResponse
   onConfirm: (proposalId: string) => void
   disabled?: boolean
+  isActive?: boolean
 }
 
-export function ProposalCard({ proposal, onConfirm, disabled }: ProposalCardProps) {
+export function ProposalCard({ proposal, onConfirm, disabled, isActive = true }: ProposalCardProps) {
   return (
-    <div className="proposalCard">
-      <div className="proposalLabel">Vorschlag (noch nicht ausgeführt)</div>
+    <div className={`proposalCard${!isActive ? ' proposalCard--superseded' : ''}`}>
+      <div className="proposalLabel">
+        {isActive ? 'Vorschlag (noch nicht ausgeführt)' : 'Vorschlag (nicht bestätigt)'}
+      </div>
       {proposal.message && (
         <div className="proposalMessage">{proposal.message}</div>
       )}
@@ -25,15 +28,17 @@ export function ProposalCard({ proposal, onConfirm, disabled }: ProposalCardProp
           </li>
         ))}
       </ul>
-      <button
-        type="button"
-        className="proposalConfirmButton"
-        onClick={() => onConfirm(proposal.proposal_id ?? '')}
-        disabled={disabled}
-        aria-disabled={disabled}
-      >
-        Bestätigen &amp; Ausführen
-      </button>
+      {isActive && (
+        <button
+          type="button"
+          className="proposalConfirmButton"
+          onClick={() => onConfirm(proposal.proposal_id ?? '')}
+          disabled={disabled}
+          aria-disabled={disabled}
+        >
+          Bestätigen &amp; Ausführen
+        </button>
+      )}
     </div>
   )
 }

@@ -128,3 +128,65 @@ describe('ProposalCard', () => {
     expect(onConfirm).not.toHaveBeenCalled()
   })
 })
+
+describe('ProposalCard — isActive=false (superseded)', () => {
+  const supersededProps = {
+    proposal: {
+      type: 'proposal' as const,
+      proposal_id: 'mock-proposal-001',
+      message: 'Vorschlag-Text',
+      steps: [{ step_type: 'load_csv', parameters_summary: 'source=bike.csv' }],
+    },
+    onConfirm: vi.fn(),
+    disabled: false,
+    isActive: false,
+  }
+
+  it('zeigt "Vorschlag (nicht bestätigt)" als Label', () => {
+    render(<ProposalCard {...supersededProps} />)
+    expect(screen.getByText('Vorschlag (nicht bestätigt)')).toBeInTheDocument()
+  })
+
+  it('rendert keinen Confirm-Button', () => {
+    render(<ProposalCard {...supersededProps} />)
+    expect(screen.queryByRole('button', { name: /bestätigen/i })).not.toBeInTheDocument()
+  })
+
+  it('zeigt weiterhin die Step-Liste', () => {
+    render(<ProposalCard {...supersededProps} />)
+    expect(screen.getByText('load_csv')).toBeInTheDocument()
+  })
+
+  it('hat CSS-Klasse proposalCard--superseded', () => {
+    const { container } = render(<ProposalCard {...supersededProps} />)
+    expect(container.firstChild).toHaveClass('proposalCard--superseded')
+  })
+})
+
+describe('ProposalCard — isActive=true (Standard / Regression)', () => {
+  const activeProps = {
+    proposal: {
+      type: 'proposal' as const,
+      proposal_id: 'mock-proposal-001',
+      message: 'Vorschlag-Text',
+      steps: [{ step_type: 'load_csv', parameters_summary: 'source=bike.csv' }],
+    },
+    onConfirm: vi.fn(),
+    disabled: false,
+  }
+
+  it('zeigt "Vorschlag (noch nicht ausgeführt)" als Label (Default)', () => {
+    render(<ProposalCard {...activeProps} />)
+    expect(screen.getByText('Vorschlag (noch nicht ausgeführt)')).toBeInTheDocument()
+  })
+
+  it('zeigt den Confirm-Button', () => {
+    render(<ProposalCard {...activeProps} />)
+    expect(screen.getByRole('button', { name: /bestätigen/i })).toBeInTheDocument()
+  })
+
+  it('hat keine CSS-Klasse proposalCard--superseded', () => {
+    const { container } = render(<ProposalCard {...activeProps} />)
+    expect(container.firstChild).not.toHaveClass('proposalCard--superseded')
+  })
+})
