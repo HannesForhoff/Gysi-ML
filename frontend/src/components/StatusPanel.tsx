@@ -13,21 +13,21 @@ type StatusPanelProps = {
 function uiLabel(ui: UiState): string {
   switch (ui.type) {
     case 'idle':
-      return 'idle'
+      return 'Bereit'
     case 'sending_message':
-      return 'sending_message'
+      return 'Sendet…'
     case 'proposal_pending':
-      return 'proposal_pending'
+      return 'Vorschlag ausstehend'
     case 'run_polling':
-      return 'run_polling'
+      return 'Run läuft…'
     case 'run_done':
-      return 'run_done'
+      return 'Run abgeschlossen'
     case 'run_failed':
-      return 'run_failed'
+      return 'Run fehlgeschlagen'
     case 'validation_error':
-      return 'validation_error'
+      return 'Validierungsfehler'
     case 'backend_unreachable':
-      return 'backend_unreachable'
+      return 'Backend nicht erreichbar'
   }
 }
 
@@ -72,6 +72,16 @@ export function StatusPanel({
           <div className="statusTitle">Verbindungsfehler</div>
           <div className="statusMeta">
             Backend nicht erreichbar. Bitte Backend starten oder URL prüfen.
+          </div>
+        </div>
+      )}
+
+      {ui.type === 'validation_error' && (
+        <div className="statusBlock statusBlock--warning">
+          <div className="statusTitle">Hinweis</div>
+          <div className="statusMeta">
+            Validierungsfehler aufgetreten. Sieh dir die Fehlermeldung im Chat an
+            und sende eine neue Nachricht.
           </div>
         </div>
       )}

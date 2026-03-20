@@ -31,6 +31,9 @@ export interface ChatState {
   lastRun: ResultResponse | null
   artifacts: ArtifactRef[]
   lastError: string | null
+  pendingProposalId: string | null
+  runId: string | null
+  isConfirming: boolean
 }
 
 export type ChatAction =
@@ -49,6 +52,9 @@ export type ChatAction =
   | { type: 'HEALTH_CHECK_FAILED' }
   | { type: 'HEALTH_CHECK_RECOVERED' }
   | { type: 'SPEC_SUMMARY_LOADED'; specSummary: SpecSummary }
+  | { type: 'CONFIRM_STARTED' }
+  | { type: 'CONFIRM_SUCCEEDED'; runId: string }
+  | { type: 'CONFIRM_FAILED'; errorMessage: string }
 
 export function createInitialChatState(): ChatState {
   const env = getFrontendEnv()
@@ -62,6 +68,9 @@ export function createInitialChatState(): ChatState {
     lastRun: null,
     artifacts: [],
     lastError: null,
+    pendingProposalId: null,
+    runId: null,
+    isConfirming: false,
   }
 }
 
@@ -75,6 +84,8 @@ function nextUiStateForResponse(response: AssistantResponse): UiState {
         : { type: 'run_failed' }
     case 'error':
       return { type: 'validation_error' }
+    case 'spec_updated':
+      return { type: 'idle' }
   }
 }
 
@@ -94,7 +105,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       const specSummary =
         response.type === 'proposal' || response.type === 'result'
           ? response.spec_summary ?? state.specSummary
-          : state.specSummary
+          : response.type === 'spec_updated'
+            ? response.spec_summary
+            : state.specSummary
 
       const artifacts =
         response.type === 'result' && response.artifacts
@@ -102,6 +115,11 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           : state.artifacts
 
       const lastRun = response.type === 'result' ? response : state.lastRun
+
+      const pendingProposalId =
+        response.type === 'proposal'
+          ? (response.proposal_id ?? null)
+          : null
 
       return {
         ...state,
@@ -112,6 +130,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         artifacts,
         lastRun,
         lastError: null,
+        pendingProposalId,
       }
     }
 
@@ -138,5 +157,25 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
 
     case 'SPEC_SUMMARY_LOADED':
       return { ...state, specSummary: action.specSummary }
+
+    case 'CONFIRM_STARTED':
+      return { ...state, isConfirming: true }
+
+    case 'CONFIRM_SUCCEEDED':
+      return {
+        ...state,
+        isConfirming: false,
+        runId: action.runId,
+        pendingProposalId: null,
+        ui: { type: 'run_polling' },
+      }
+
+    case 'CONFIRM_FAILED':
+      return {
+        ...state,
+        isConfirming: false,
+        lastError: action.errorMessage,
+        ui: { type: 'validation_error' },
+      }
   }
 }

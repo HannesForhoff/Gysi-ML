@@ -5,6 +5,7 @@ export interface ChatMessage {
   role: ChatRole
   content: string
   ts: string
+  response?: AssistantResponse
 }
 
 export interface SpecStepSummary {
@@ -37,6 +38,7 @@ export interface ProposalResponse {
   steps: ProposalStep[]
   parameters_summary?: string
   spec_summary?: SpecSummary
+  proposal_id?: string
 }
 
 export interface ResultResponse {
@@ -54,4 +56,10 @@ export interface ErrorResponse {
   details?: string
 }
 
-export type AssistantResponse = ProposalResponse | ResultResponse | ErrorResponse
+export interface SpecUpdatedResponse {
+  type: 'spec_updated'
+  message: string
+  spec_summary: SpecSummary
+}
+
+export type AssistantResponse = ProposalResponse | ResultResponse | ErrorResponse | SpecUpdatedResponse

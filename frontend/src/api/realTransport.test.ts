@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { sendRealMessage } from './realTransport'
+import { sendRealConfirm, sendRealMessage } from './realTransport'
 
 function jsonResponse(body: unknown, init?: ResponseInit): Response {
   return new Response(JSON.stringify(body), {
@@ -209,5 +209,67 @@ describe('realTransport', () => {
         details: 'llm_not_configured',
       },
     })
+  })
+})
+
+describe('sendRealConfirm', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+  })
+
+  it('Erfolgsfall: run_id wird aus Response extrahiert', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        type: 'result',
+        run_id: 'run-42',
+        explanation: 'Pipeline abgeschlossen.',
+      }),
+    )
+
+    const result = await sendRealConfirm('http://localhost:8000', 'session-abc', 'proposal-xyz')
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:8000/v1/sessions/session-abc/confirm',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ proposal_id: 'proposal-xyz' }),
+      }),
+    )
+    expect(result).toEqual({ runId: 'run-42' })
+  })
+
+  it('HTTP-4xx: runId null und error enthält detail-Text', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        { error: 'proposal_not_found', detail: 'Proposal wurde nicht gefunden.', code: 'E404' },
+        { status: 404 },
+      ),
+    )
+
+    const result = await sendRealConfirm('http://localhost:8000', 'session-abc', 'proposal-xyz')
+
+    expect(result.runId).toBeNull()
+    expect(result.error).toBe('Proposal wurde nicht gefunden.')
+  })
+
+  it('Response ohne run_id: runId null und error gesetzt', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ type: 'result', explanation: 'kein run_id hier' }),
+    )
+
+    const result = await sendRealConfirm('http://localhost:8000', 'session-abc', 'proposal-xyz')
+
+    expect(result.runId).toBeNull()
+    expect(result.error).toContain('run_id')
   })
 })

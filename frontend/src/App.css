@@ -247,3 +247,78 @@
 .statusPane a:hover {
   text-decoration: underline;
 }
+
+.statusBlock--error {
+  border-color: #e53e3e;
+  background: #fff5f5;
+}
+
+.statusBlock--warning {
+  border-color: #d69e2e;
+  background: #fffff0;
+}
+
+.proposalCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.proposalLabel {
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.7;
+}
+
+.proposalMessage {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.proposalSteps {
+  margin: 0;
+  padding: 0 0 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.proposalStep {
+  font-size: 14px;
+}
+
+.proposalStepType {
+  font-family: var(--mono);
+  font-weight: 500;
+}
+
+.proposalStepParams {
+  opacity: 0.8;
+}
+
+.proposalConfirmButton {
+  align-self: flex-start;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--accent-bg);
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.proposalConfirmButton:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.proposalConfirmButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

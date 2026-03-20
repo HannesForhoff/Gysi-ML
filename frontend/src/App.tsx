@@ -3,7 +3,7 @@ import './App.css'
 import { useCallback, useEffect, useReducer } from 'react'
 
 import { fetchSpecSummary } from './api/healthApi'
-import { sendAssistantMessage } from './api/transport'
+import { confirmProposal, sendAssistantMessage } from './api/transport'
 import { ChatLayout } from './components/ChatLayout'
 import { Composer } from './components/Composer'
 import { MessageList } from './components/MessageList'
@@ -56,6 +56,9 @@ function formatAssistantResponse(response: AssistantResponse): string {
 
     case 'error':
       return response.details ? `${response.message}\n\n${response.details}` : response.message
+
+    case 'spec_updated':
+      return response.message
   }
 }
 
@@ -93,10 +96,10 @@ function App() {
           userText: text,
           sessionId: state.sessionId,
         })
-        const assistantMessage = createMessage(
-          'assistant',
-          formatAssistantResponse(response),
-        )
+        const assistantMessage: ChatMessage = {
+          ...createMessage('assistant', formatAssistantResponse(response)),
+          response,
+        }
 
         dispatch({
           type: 'SEND_REQUEST_SUCCEEDED',
@@ -116,6 +119,40 @@ function App() {
       }
     },
     [state.sessionId, state.ui.type],
+  )
+
+  const handleConfirm = useCallback(
+    async (proposalId: string) => {
+      if (state.isConfirming || state.ui.type !== 'proposal_pending') return
+
+      if (!state.sessionId) {
+        dispatch({ type: 'CONFIRM_FAILED', errorMessage: 'Keine Session-ID vorhanden.' })
+        return
+      }
+
+      dispatch({ type: 'CONFIRM_STARTED' })
+
+      try {
+        const result = await confirmProposal({
+          proposalId,
+          sessionId: state.sessionId,
+        })
+
+        if (result.error || !result.runId) {
+          dispatch({
+            type: 'CONFIRM_FAILED',
+            errorMessage: result.error ?? 'Confirm fehlgeschlagen.',
+          })
+          return
+        }
+
+        dispatch({ type: 'CONFIRM_SUCCEEDED', runId: result.runId })
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unbekannter Fehler'
+        dispatch({ type: 'CONFIRM_FAILED', errorMessage })
+      }
+    },
+    [state.isConfirming, state.ui.type, state.sessionId],
   )
 
   return (
@@ -140,7 +177,11 @@ function App() {
             />
           }
         >
-          <MessageList messages={state.messages} />
+          <MessageList
+            messages={state.messages}
+            onConfirm={handleConfirm}
+            confirmDisabled={state.isConfirming || state.ui.type !== 'proposal_pending'}
+          />
           <Composer disabled={isSending} onSend={handleSend} />
         </ChatLayout>
       </div>

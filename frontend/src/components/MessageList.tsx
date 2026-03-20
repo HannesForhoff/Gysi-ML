@@ -1,10 +1,13 @@
 import type { ChatMessage } from '../types'
+import { ProposalCard } from './ProposalCard'
 
 type MessageListProps = {
   messages: ChatMessage[]
+  onConfirm: (proposalId: string) => void
+  confirmDisabled: boolean
 }
 
-export function MessageList({ messages }: MessageListProps) {
+export function MessageList({ messages, onConfirm, confirmDisabled }: MessageListProps) {
   return (
     <ol className="messageList" aria-label="Chat messages">
       {messages.map((message) => (
@@ -27,7 +30,11 @@ export function MessageList({ messages }: MessageListProps) {
                 <span className="messageRole">{message.role}</span>
                 <span className="messageTs">{message.ts}</span>
               </div>
-              <div className="messageContent">{message.content}</div>
+              {message.response?.type === 'proposal' ? (
+                <ProposalCard proposal={message.response} onConfirm={onConfirm} disabled={confirmDisabled} />
+              ) : (
+                <div className="messageContent">{message.content}</div>
+              )}
             </div>
           </div>
         </li>

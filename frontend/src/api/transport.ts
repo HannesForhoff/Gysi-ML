@@ -1,11 +1,13 @@
 import { getFrontendEnv } from '../env'
 import type {
+  ConfirmInput,
+  ConfirmResult,
   SendAssistantMessageInput,
   SendAssistantMessageResult,
 } from './transportTypes'
 
-import { sendMockMessage } from './mockTransport'
-import { sendRealMessage } from './realTransport'
+import { sendMockConfirm, sendMockMessage } from './mockTransport'
+import { sendRealConfirm, sendRealMessage } from './realTransport'
 
 export async function sendAssistantMessage(
   input: SendAssistantMessageInput,
@@ -15,4 +17,11 @@ export async function sendAssistantMessage(
   return env.useMock
     ? await sendMockMessage(input)
     : await sendRealMessage(env.backendBaseUrl, input)
+}
+
+export async function confirmProposal(input: ConfirmInput): Promise<ConfirmResult> {
+  const env = getFrontendEnv()
+  return env.useMock
+    ? await sendMockConfirm(input.proposalId)
+    : await sendRealConfirm(env.backendBaseUrl, input.sessionId, input.proposalId)
 }

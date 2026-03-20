@@ -1,5 +1,6 @@
-import type { AssistantResponse } from '../types'
+import type { AssistantResponse, SpecSummary } from '../types'
 import type {
+  ConfirmResult,
   SendAssistantMessageInput,
   SendAssistantMessageResult,
 } from './transportTypes'
@@ -136,7 +137,13 @@ function toAssistantResponse(
         ...(paramsSummary ? { parameters_summary: paramsSummary } : {}),
       }
     })
-    return { type: 'proposal', message, steps }
+    const proposalId = toNonEmptyString(payload.proposal_id) ?? undefined
+    return {
+      type: 'proposal',
+      message,
+      steps,
+      ...(proposalId ? { proposal_id: proposalId } : {}),
+    }
   }
 
   // Backend result: { type:'result', run_id, explanation } — no 'status' field
@@ -147,6 +154,28 @@ function toAssistantResponse(
       fallbackMessage
     const status = payload.status === 'failed' ? ('failed' as const) : ('done' as const)
     return { type: 'result', message, status }
+  }
+
+  // Backend spec_updated: { type:'spec_updated', version, spec, explanation }
+  if (type === 'spec_updated') {
+    const message =
+      toNonEmptyString(payload.explanation) ??
+      toNonEmptyString(payload.message) ??
+      fallbackMessage
+    const version = toNonEmptyString(payload.version) ?? 'unknown'
+    const rawSpec = isRecord(payload.spec) ? payload.spec : {}
+    const rawSteps = Array.isArray(rawSpec.steps) ? rawSpec.steps : []
+    const spec_summary: SpecSummary = {
+      spec_version_id: version,
+      steps: rawSteps.map((s) => {
+        const step = isRecord(s) ? s : {}
+        return {
+          step_type: toNonEmptyString(step.step_type ?? step.type) ?? 'unknown',
+          enabled: typeof step.enabled === 'boolean' ? step.enabled : true,
+        }
+      }),
+    }
+    return { type: 'spec_updated', message, spec_summary }
   }
 
   // Backend error: { type:'error', message, error_code } — error_code → details
@@ -176,4 +205,40 @@ function toAssistantResponse(
   }
 
   return { type: 'error', message: fallbackMessage }
+}
+
+export async function sendRealConfirm(
+  backendBaseUrl: string,
+  sessionId: string,
+  proposalId: string,
+): Promise<ConfirmResult> {
+  const baseUrl = backendBaseUrl.replace(/\/+$/, '')
+  const response = await fetch(
+    `${baseUrl}/v1/sessions/${encodeURIComponent(sessionId)}/confirm`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ proposal_id: proposalId }),
+    },
+  )
+  const body = await parseJsonBody(response)
+
+  if (!response.ok) {
+    const errBody = isRecord(body) ? body : {}
+    const detail =
+      toNonEmptyString(errBody.detail) ??
+      `Confirm fehlgeschlagen (HTTP ${response.status}).`
+    return { runId: null, error: detail }
+  }
+
+  if (!isRecord(body)) {
+    return { runId: null, error: 'Confirm-Response konnte nicht gelesen werden.' }
+  }
+
+  const runId = toNonEmptyString(body.run_id)
+  if (!runId) {
+    return { runId: null, error: 'Confirm-Response enthält keine run_id.' }
+  }
+
+  return { runId }
 }

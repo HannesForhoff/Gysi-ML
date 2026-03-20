@@ -66,7 +66,7 @@ describe('gysi-ml frontend (Story 1.1 smoke tests)', () => {
     await user.type(textarea, 'error{enter}')
 
     await screen.findByText(/Validierungsfehler \(Mock\):/)
-    expect(screen.getByText(/UI State: validation_error/)).toBeInTheDocument()
+    expect(screen.getByText(/Validierungsfehler aufgetreten/)).toBeInTheDocument()
 
     await user.type(textarea, 'proposal')
     expect(sendButton).not.toBeDisabled()
@@ -74,7 +74,7 @@ describe('gysi-ml frontend (Story 1.1 smoke tests)', () => {
     await user.type(textarea, '{enter}')
 
     await screen.findByText(/Vorschlag \(Mock\):/)
-    expect(screen.getByText(/UI State: proposal_pending/)).toBeInTheDocument()
+    expect(screen.getByText(/Vorschlag ausstehend/)).toBeInTheDocument()
   })
 
   it('Kein Doppelsenden: Send ist disabled während Request läuft', async () => {
@@ -98,7 +98,7 @@ describe('gysi-ml frontend (Story 1.1 smoke tests)', () => {
     await user.type(textarea, 'hi{enter}')
 
     expect(sendAssistantMessageMock).toHaveBeenCalledTimes(1)
-    expect(screen.getByText(/UI State: sending_message/)).toBeInTheDocument()
+    expect(screen.getByText(/Sendet…/)).toBeInTheDocument()
     expect(sendButton).toBeDisabled()
 
     await user.type(textarea, 'again{enter}')
@@ -116,5 +116,117 @@ describe('gysi-ml frontend (Story 1.1 smoke tests)', () => {
     })
 
     await screen.findByText(/ok/)
+  })
+
+  it('spec_updated Mock \u2014 Spec Summary im Status-Panel aktualisiert sich', async () => {
+    vi.resetModules()
+    vi.doUnmock('./api/transport')
+    const { default: App } = await import('./App')
+
+    const user = userEvent.setup()
+    render(<App />)
+
+    const textarea = screen.getByLabelText('Composer')
+
+    await user.type(textarea, 'undo{enter}')
+
+    await screen.findByText(/Spec aktualisiert \(Mock\)/)
+
+    expect(screen.getByText(/mock-spec-undo-v1/)).toBeInTheDocument()
+  })
+
+  it('Proposal Mock — Card sichtbar statt plain Text', async () => {
+    vi.resetModules()
+    vi.doUnmock('./api/transport')
+    const { default: App } = await import('./App')
+
+    const user = userEvent.setup()
+    render(<App />)
+
+    const textarea = screen.getByLabelText('Composer')
+    await user.type(textarea, 'vorschlag{enter}')
+
+    await screen.findByText(/Vorschlag \(noch nicht ausgeführt\)/)
+
+    // plain-Text-Format darf nicht vorkommen (StepsBlock aus formatAssistantResponse)
+    expect(screen.queryByText(/^Steps:$/m)).not.toBeInTheDocument()
+  })
+
+  it('Proposal Mock — Steps aus Fixture gelistet', async () => {
+    vi.resetModules()
+    vi.doUnmock('./api/transport')
+    const { default: App } = await import('./App')
+
+    const user = userEvent.setup()
+    render(<App />)
+
+    const textarea = screen.getByLabelText('Composer')
+    await user.type(textarea, 'vorschlag{enter}')
+
+    await screen.findByText(/Vorschlag \(noch nicht ausgeführt\)/)
+
+    expect(screen.getByText('load_csv')).toBeInTheDocument()
+    expect(screen.getByText('impute_missing')).toBeInTheDocument()
+    expect(screen.getByText('train_test_split')).toBeInTheDocument()
+  })
+
+  it('Proposal Mock — Confirm-Button vorhanden', async () => {
+    vi.resetModules()
+    vi.doUnmock('./api/transport')
+    const { default: App } = await import('./App')
+
+    const user = userEvent.setup()
+    render(<App />)
+
+    const textarea = screen.getByLabelText('Composer')
+    await user.type(textarea, 'proposal{enter}')
+
+    await screen.findByText(/Vorschlag \(noch nicht ausgeführt\)/)
+
+    expect(
+      screen.getByRole('button', { name: /Bestätigen/i }),
+    ).toBeInTheDocument()
+  })
+
+  it('Nicht-Proposal bleibt plain Text (keine Regression)', async () => {
+    vi.resetModules()
+    vi.doUnmock('./api/transport')
+    const { default: App } = await import('./App')
+
+    const user = userEvent.setup()
+    render(<App />)
+
+    const textarea = screen.getByLabelText('Composer')
+    await user.type(textarea, 'error{enter}')
+
+    await screen.findByText(/Validierungsfehler \(Mock\):/)
+
+    // Keine ProposalCard im DOM
+    expect(document.querySelector('.proposalCard')).toBeNull()
+  })
+
+  it('Confirm-Flow Mock: Klick auf Bestätigen wechselt State auf run_polling', async () => {
+    vi.resetModules()
+    vi.doUnmock('./api/transport')
+    const { default: App } = await import('./App')
+
+    const user = userEvent.setup()
+    render(<App />)
+
+    const textarea = screen.getByLabelText('Composer')
+
+    // Proposal auslösen
+    await user.type(textarea, 'proposal{enter}')
+    await screen.findByText(/Vorschlag \(noch nicht ausgeführt\)/)
+
+    // Button ist klickbar im proposal_pending-State
+    const confirmButton = screen.getByRole('button', { name: /Bestätigen/i })
+    expect(confirmButton).not.toBeDisabled()
+
+    // Confirm auslösen
+    await user.click(confirmButton)
+
+    // Nach Mock-Confirm wechselt UI auf run_polling
+    await screen.findByText(/Run läuft…/)
   })
 })

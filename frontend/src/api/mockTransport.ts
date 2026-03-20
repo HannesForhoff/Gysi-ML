@@ -1,5 +1,6 @@
 import type { AssistantResponse } from '../types'
 import type {
+  ConfirmResult,
   SendAssistantMessageInput,
   SendAssistantMessageResult,
 } from './transportTypes'
@@ -7,6 +8,7 @@ import type {
 import proposalFixture from '../fixtures/proposal.json'
 import resultFixture from '../fixtures/result.json'
 import errorFixture from '../fixtures/error.json'
+import specUpdatedFixture from '../fixtures/spec_updated.json'
 
 const MOCK_LATENCY_MS = import.meta.env.MODE === 'test' ? 0 : 250
 
@@ -16,6 +18,10 @@ function sleep(ms: number): Promise<void> {
 
 function pickFixture(userText: string): AssistantResponse {
   const text = userText.trim().toLowerCase()
+
+  if (text.includes('undo') || text.includes('rückgängig') || text.includes('revert')) {
+    return specUpdatedFixture as AssistantResponse
+  }
 
   if (text.includes('proposal') || text.includes('vorschlag')) {
     return proposalFixture as AssistantResponse
@@ -37,4 +43,9 @@ export async function sendMockMessage(
     sessionId: input.sessionId ?? 'mock',
     response: pickFixture(input.userText),
   }
+}
+
+export async function sendMockConfirm(_proposalId: string): Promise<ConfirmResult> {
+  await sleep(MOCK_LATENCY_MS)
+  return { runId: 'mock-run-001' }
 }

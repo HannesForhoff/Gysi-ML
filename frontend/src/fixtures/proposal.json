@@ -1,5 +1,6 @@
 {
   "type": "proposal",
+  "proposal_id": "mock-proposal-001",
   "message": "Vorschlag (Mock): Ich würde die Pipeline wie folgt anpassen.",
   "steps": [
     { "step_type": "load_csv", "parameters_summary": "source=data/raw/bike.csv" },

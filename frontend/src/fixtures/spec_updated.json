@@ -1,0 +1,11 @@
+{
+  "type": "spec_updated",
+  "message": "Spec aktualisiert (Mock): Preprocessing auf v1 rückgesetzt.",
+  "spec_summary": {
+    "spec_version_id": "mock-spec-undo-v1",
+    "steps": [
+      { "step_type": "load_csv", "enabled": true },
+      { "step_type": "train_model", "enabled": false }
+    ]
+  }
+}
