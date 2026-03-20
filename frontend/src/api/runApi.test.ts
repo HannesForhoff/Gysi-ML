@@ -129,4 +129,41 @@ describe('fetchRunStatus', () => {
       fetchRunStatus('http://localhost:8000', 's', 'r'),
     ).rejects.toThrow('Failed to fetch')
   })
+
+  it('mappt Backend-Status "completed" auf "done"', async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        status: 'completed',
+        metrics: { rmse: 1.0 },
+      }),
+    } as Response)
+
+    const result = await fetchRunStatus('http://localhost:8000', 's', 'r')
+
+    expect(result.status).toBe('done')
+    expect(result.metrics).toEqual({ rmse: 1.0 })
+  })
+
+  it('konstruiert URL aus artifact_id wenn href und url fehlen', async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        status: 'done',
+        artifacts: [
+          {
+            artifact_id: '550e8400-e29b-41d4-a716-446655440000',
+            type: 'plot',
+          },
+        ],
+      }),
+    } as Response)
+
+    const result = await fetchRunStatus('http://localhost:8000', 's', 'r')
+
+    expect(result.artifacts).toHaveLength(1)
+    expect(result.artifacts![0].id).toBe('550e8400-e29b-41d4-a716-446655440000')
+    expect(result.artifacts![0].url).toBe('/v1/artifacts/550e8400-e29b-41d4-a716-446655440000')
+    expect(result.artifacts![0].label).toBe('plot')
+  })
 })

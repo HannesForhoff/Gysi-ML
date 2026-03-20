@@ -1,5 +1,6 @@
 import type { ChatMessage } from '../types'
 import { ProposalCard } from './ProposalCard'
+import { ResultCard } from './ResultCard'
 
 type MessageListProps = {
   messages: ChatMessage[]
@@ -41,6 +42,8 @@ export function MessageList({ messages, onConfirm, confirmDisabled, activePendin
                     message.response.proposal_id === activePendingProposalId
                   }
                 />
+              ) : message.response?.type === 'result' ? (
+                <ResultCard result={message.response} />
               ) : (
                 <div className="messageContent">{message.content}</div>
               )}

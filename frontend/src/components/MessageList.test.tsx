@@ -102,3 +102,47 @@ describe('MessageList — Grundlegendes Rendering', () => {
     expect(screen.getAllByTestId('chat-message')).toHaveLength(2)
   })
 })
+
+describe('MessageList — ResultCard Integration', () => {
+  const resultMessage: ChatMessage = {
+    id: 'msg-result',
+    role: 'assistant',
+    content: 'Fallback-Text',
+    ts: new Date().toISOString(),
+    response: {
+      type: 'result',
+      message: 'Run abgeschlossen.',
+      status: 'done',
+      metrics: { rmse: 123.45 },
+    },
+  }
+
+  it('rendert Result-Message als ResultCard, nicht als Plain-Text', () => {
+    const { container } = render(
+      <MessageList
+        messages={[resultMessage]}
+        onConfirm={vi.fn()}
+        confirmDisabled={false}
+        activePendingProposalId={null}
+      />,
+    )
+    expect(screen.getByText('Ergebnis')).toBeInTheDocument()
+    expect(screen.getByText('Run abgeschlossen.')).toBeInTheDocument()
+    expect(container.querySelector('.resultCard')).toBeInTheDocument()
+    // Fallback-Text sollte NICHT als messageContent gerendert werden
+    expect(container.querySelector('.messageContent')).not.toBeInTheDocument()
+  })
+
+  it('rendert Proposal-Messages weiterhin als ProposalCard (Regression)', () => {
+    const { container } = render(
+      <MessageList
+        messages={[proposalMessage]}
+        onConfirm={vi.fn()}
+        confirmDisabled={false}
+        activePendingProposalId="prop-001"
+      />,
+    )
+    expect(container.querySelector('.proposalCard')).toBeInTheDocument()
+    expect(container.querySelector('.resultCard')).not.toBeInTheDocument()
+  })
+})

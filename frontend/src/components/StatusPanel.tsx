@@ -1,5 +1,6 @@
 import type { ArtifactRef, ResultResponse, SpecSummary } from '../types'
 import type { TransportInfo, UiState } from '../state/chatReducer'
+import { sanitizeArtifactUrl } from '../utils/sanitizeArtifactUrl'
 
 type StatusPanelProps = {
   transport: TransportInfo
@@ -29,32 +30,6 @@ function uiLabel(ui: UiState): string {
       return 'Validierungsfehler'
     case 'backend_unreachable':
       return 'Backend nicht erreichbar'
-  }
-}
-
-function sanitizeArtifactUrl(rawUrl: string): string | null {
-  const trimmed = rawUrl.trim()
-
-  if (trimmed.length === 0) {
-    return null
-  }
-
-  if (trimmed.startsWith('/')) {
-    return trimmed
-  }
-
-  try {
-    const parsed = new URL(trimmed, 'http://localhost')
-    const isHttp = parsed.protocol === 'http:' || parsed.protocol === 'https:'
-
-    if (!isHttp) {
-      return null
-    }
-
-    const isAbsolute = /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(trimmed)
-    return isAbsolute ? parsed.toString() : trimmed
-  } catch {
-    return null
   }
 }
 
@@ -159,7 +134,7 @@ export function StatusPanel({
                       {artifact.label}
                     </a>
                   ) : (
-                    <span className="statusMeta">{artifact.label} (ungueltige URL)</span>
+                    <span className="statusMeta">{artifact.label} (ungültige URL)</span>
                   )}
                   <div className="statusMeta">{artifact.media_type}</div>
                 </li>

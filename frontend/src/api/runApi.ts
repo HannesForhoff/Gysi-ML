@@ -43,8 +43,17 @@ function parseRunStatusResponse(data: unknown): RunStatusResponse {
 
 const VALID_STATUSES = new Set<RunStatus>(['queued', 'running', 'done', 'failed'])
 
+const STATUS_ALIASES: Record<string, RunStatus> = {
+  completed: 'done',
+}
+
 function parseRunStatus(value: unknown): RunStatus {
-  if (typeof value === 'string' && VALID_STATUSES.has(value as RunStatus)) {
+  if (typeof value !== 'string') {
+    throw new Error(`Ungültiger Run-Status: ${String(value)}`)
+  }
+  const mapped = STATUS_ALIASES[value]
+  if (mapped) return mapped
+  if (VALID_STATUSES.has(value as RunStatus)) {
     return value as RunStatus
   }
   throw new Error(`Ungültiger Run-Status: ${String(value)}`)
@@ -57,7 +66,9 @@ function parseArtifacts(raw: unknown[]): ArtifactRef[] {
     // Backend: artifact_id + type; Frontend: id + media_type
     const id = toNonEmptyString(item.artifact_id) ?? toNonEmptyString(item.id) ?? ''
     const label = toNonEmptyString(item.label) ?? toNonEmptyString(item.type) ?? 'Artifact'
-    const url = toNonEmptyString(item.href) ?? toNonEmptyString(item.url) ?? ''
+    const url = toNonEmptyString(item.href)
+      ?? toNonEmptyString(item.url)
+      ?? (id ? `/v1/artifacts/${encodeURIComponent(id)}` : '')
     const media_type = toNonEmptyString(item.media_type) ?? toNonEmptyString(item.type) ?? ''
     if (id && url) {
       result.push({ id, label, url, media_type })

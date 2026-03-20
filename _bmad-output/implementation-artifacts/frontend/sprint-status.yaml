@@ -74,7 +74,7 @@ development_status:
   # EPIC 2: Vorschläge prüfen und kontrolliert ausführen (Proposal → Confirm)
   # FRs: FR4, FR5, FR6
   # ─────────────────────────────────────────────────────────────────
-  epic-2: in-progress
+  epic-2: done
 
   # Story 2.1 — Proposal-Card im Chat rendern
   2-1-proposal-card-im-chat-rendern: done
@@ -101,9 +101,9 @@ development_status:
 
   # Story 3.2 — Result-Message (Status/Metriken) rendern
   # DATENQUELLE: ausschließlich terminales Polling-Ergebnis (kein direkter result-Typ aus /messages nach Confirm)
-  3-2-result-message-status-und-metriken-rendern: backlog
+  3-2-result-message-status-und-metriken-rendern: done
 
   # Story 3.3 — Artefakt-Links anzeigen und öffnen
-  3-3-artefakt-links-anzeigen-und-oeffnen: backlog
+  3-3-artefakt-links-anzeigen-und-oeffnen: ready-for-dev
 
   epic-3-retrospective: optional

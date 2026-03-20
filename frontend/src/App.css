@@ -327,3 +327,92 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+/* ResultCard */
+
+.resultCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.resultCard--done {
+  border-color: #38a169;
+  background: #f0fff4;
+}
+
+.resultCard--failed {
+  border-color: #e53e3e;
+  background: #fff5f5;
+}
+
+.resultLabel {
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.7;
+}
+
+.resultMessage {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.resultMetrics {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.resultMetricsRow {
+  display: flex;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.resultMetricsRow dt {
+  font-family: var(--mono);
+  font-weight: 500;
+  min-width: 80px;
+}
+
+.resultMetricsRow dd {
+  margin: 0;
+  font-family: var(--mono);
+}
+
+.resultArtifacts {
+  margin: 0;
+  padding: 0 0 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+}
+
+.resultArtifactType {
+  font-family: var(--mono);
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.resultArtifactLink {
+  color: var(--accent, #646cff);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.resultArtifactLink:hover {
+  text-decoration: underline;
+}
+
+.resultArtifactInvalid {
+  opacity: 0.5;
+  cursor: default;
+}
