@@ -1,12 +1,20 @@
 import type { SpecStepSummary, SpecSummary } from '../types'
 
-export async function fetchHealth(baseUrl: string): Promise<boolean> {
+export interface HealthResult {
+  healthy: boolean
+  llmModel: string | null
+}
+
+export async function fetchHealth(baseUrl: string): Promise<HealthResult> {
   const base = baseUrl.replace(/\/+$/, '')
   try {
     const response = await fetch(`${base}/v1/health`)
-    return response.ok
+    if (!response.ok) return { healthy: false, llmModel: null }
+    const data = (await response.json()) as Record<string, unknown>
+    const llmModel = typeof data.llm_model === 'string' && data.llm_model ? data.llm_model : null
+    return { healthy: true, llmModel }
   } catch {
-    return false
+    return { healthy: false, llmModel: null }
   }
 }
 

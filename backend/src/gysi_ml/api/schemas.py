@@ -39,6 +39,7 @@ class ErrorResponse(BaseModel):
 
 class HealthResponse(BaseModel):
     status: str
+    llm_model: str | None = None
 
 
 class ExecuteRequest(BaseModel):

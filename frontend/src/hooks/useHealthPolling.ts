@@ -18,14 +18,14 @@ export function useHealthPolling(
     async function check() {
       if (document.visibilityState === 'hidden') return
 
-      const healthy = await fetchHealth(baseUrl)
+      const result = await fetchHealth(baseUrl)
 
       // Immer dispatchen: der Reducer ignoriert RECOVERED wenn nicht backend_unreachable
       // (idempotent), verhindert aber Stuck-State nach SEND_REQUEST_FAILED
-      if (!healthy) {
+      if (!result.healthy) {
         dispatch({ type: 'HEALTH_CHECK_FAILED' })
       } else {
-        dispatch({ type: 'HEALTH_CHECK_RECOVERED' })
+        dispatch({ type: 'HEALTH_CHECK_RECOVERED', llmModel: result.llmModel })
       }
     }
 

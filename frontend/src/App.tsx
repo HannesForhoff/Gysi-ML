@@ -161,9 +161,23 @@ function App() {
     <div className="page">
       <div className="shell">
         <header className="shellHeader">
-          <div className="brand">
-            <div className="brandTitle">gysi-ml</div>
-            <div className="brandSubtitle">Mock-first Chat UI</div>
+          <div className="brandGroup">
+            <div className="brandLogo">
+              <img src="/icon.png" alt="Gysi Logo" className="brandLogoImg" />
+              <span className="brandTitle">Gysi</span>
+            </div>
+            <span className="brandSubtitle">Live-Demo</span>
+            <span className="brandBadge">
+              {state.transport.useMock
+                ? 'Mock-Modus'
+                : state.llmModel ?? '…'}
+            </span>
+          </div>
+          <div className={`headerStatus ${state.ui.type === 'backend_unreachable' ? 'headerStatus--disconnected' : ''}`}>
+            <span className="headerStatusDot" />
+            <span className="headerStatusText">
+              {state.ui.type === 'backend_unreachable' ? 'Getrennt' : 'Verbunden'}
+            </span>
           </div>
         </header>
 

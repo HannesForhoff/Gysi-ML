@@ -36,6 +36,7 @@ export interface ChatState {
   runId: string | null
   isConfirming: boolean
   isLongRunning: boolean
+  llmModel: string | null
 }
 
 export type ChatAction =
@@ -52,7 +53,7 @@ export type ChatAction =
       errorMessage: string
     }
   | { type: 'HEALTH_CHECK_FAILED' }
-  | { type: 'HEALTH_CHECK_RECOVERED' }
+  | { type: 'HEALTH_CHECK_RECOVERED'; llmModel?: string | null }
   | { type: 'SPEC_SUMMARY_LOADED'; specSummary: SpecSummary }
   | { type: 'CONFIRM_STARTED' }
   | { type: 'CONFIRM_SUCCEEDED'; runId: string }
@@ -84,6 +85,7 @@ export function createInitialChatState(): ChatState {
     runId: null,
     isConfirming: false,
     isLongRunning: false,
+    llmModel: null,
   }
 }
 
@@ -167,9 +169,17 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
 
     case 'HEALTH_CHECK_RECOVERED':
       if (state.ui.type !== 'backend_unreachable') {
+        // Auch im Nicht-Fehlerfall llmModel aktualisieren
+        if (action.llmModel !== undefined && action.llmModel !== state.llmModel) {
+          return { ...state, llmModel: action.llmModel }
+        }
         return state
       }
-      return { ...state, ui: { type: 'idle' } }
+      return {
+        ...state,
+        ui: { type: 'idle' },
+        ...(action.llmModel !== undefined ? { llmModel: action.llmModel } : {}),
+      }
 
     case 'SPEC_SUMMARY_LOADED':
       return { ...state, specSummary: action.specSummary }

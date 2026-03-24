@@ -43,7 +43,7 @@ describe('useHealthPolling', () => {
 
   it('Real-Modus: fetchHealth wird nach erstem Interval aufgerufen', async () => {
     const { useHealthPolling } = await import('./useHealthPolling')
-    vi.mocked(fetchHealth).mockResolvedValue(true)
+    vi.mocked(fetchHealth).mockResolvedValue({ healthy: true, llmModel: null })
     const dispatch = vi.fn() as unknown as Dispatch<ChatAction>
 
     renderHook(() => useHealthPolling(dispatch, REAL_TRANSPORT))
@@ -55,7 +55,7 @@ describe('useHealthPolling', () => {
 
   it('Health-Failure → HEALTH_CHECK_FAILED dispatched', async () => {
     const { useHealthPolling } = await import('./useHealthPolling')
-    vi.mocked(fetchHealth).mockResolvedValue(false)
+    vi.mocked(fetchHealth).mockResolvedValue({ healthy: false, llmModel: null })
     const dispatch = vi.fn() as unknown as Dispatch<ChatAction>
 
     renderHook(() => useHealthPolling(dispatch, REAL_TRANSPORT))
@@ -68,8 +68,8 @@ describe('useHealthPolling', () => {
   it('Recovery nach Failure → HEALTH_CHECK_RECOVERED dispatched', async () => {
     const { useHealthPolling } = await import('./useHealthPolling')
     vi.mocked(fetchHealth)
-      .mockResolvedValueOnce(false)
-      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce({ healthy: false, llmModel: null })
+      .mockResolvedValueOnce({ healthy: true, llmModel: 'gpt-4o-mini' })
     const dispatch = vi.fn() as unknown as Dispatch<ChatAction>
 
     renderHook(() => useHealthPolling(dispatch, REAL_TRANSPORT))
@@ -78,12 +78,12 @@ describe('useHealthPolling', () => {
     expect(dispatch).toHaveBeenCalledWith({ type: 'HEALTH_CHECK_FAILED' })
 
     await vi.advanceTimersByTimeAsync(10_000)
-    expect(dispatch).toHaveBeenCalledWith({ type: 'HEALTH_CHECK_RECOVERED' })
+    expect(dispatch).toHaveBeenCalledWith({ type: 'HEALTH_CHECK_RECOVERED', llmModel: 'gpt-4o-mini' })
   })
 
   it('Dauerhaft healthy → HEALTH_CHECK_RECOVERED wird bei jedem Tick dispatched (Reducer bleibt idempotent)', async () => {
     const { useHealthPolling } = await import('./useHealthPolling')
-    vi.mocked(fetchHealth).mockResolvedValue(true)
+    vi.mocked(fetchHealth).mockResolvedValue({ healthy: true, llmModel: 'gpt-4o-mini' })
     const dispatch = vi.fn() as unknown as Dispatch<ChatAction>
 
     renderHook(() => useHealthPolling(dispatch, REAL_TRANSPORT))
@@ -100,7 +100,7 @@ describe('useHealthPolling', () => {
     // Poller jemals HEALTH_CHECK_FAILED dispatched hat. Vor dem Fix blieb die
     // UI permanent in backend_unreachable, da hasFailed.current==false war.
     const { useHealthPolling } = await import('./useHealthPolling')
-    vi.mocked(fetchHealth).mockResolvedValue(true)
+    vi.mocked(fetchHealth).mockResolvedValue({ healthy: true, llmModel: null })
     const dispatch = vi.fn() as unknown as Dispatch<ChatAction>
 
     renderHook(() => useHealthPolling(dispatch, REAL_TRANSPORT))
