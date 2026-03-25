@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -108,12 +108,20 @@ class MessageRequest(BaseModel):
 
 class ConfirmRequest(BaseModel):
     proposal_id: str
+    confirmed_steps: Optional[list[int]] = None  # None = alle Steps ausführen
+    mode: Literal["all", "step_by_step"] = "all"
+
+
+class CompletedStepSchema(BaseModel):
+    type: str
+    summary: str
+    metadata: Optional[dict] = None
 
 
 class MessageResponse(BaseModel):
     """Typisierte Response fuer POST /messages."""
 
-    type: str  # "proposal" | "result" | "error" | "spec_updated" | "comparison"
+    type: str  # "proposal" | "result" | "error" | "spec_updated" | "comparison" | "step_result"
     run_id: Optional[str] = None
     message: Optional[str] = None
     error_code: Optional[str] = None
@@ -126,3 +134,26 @@ class MessageResponse(BaseModel):
     spec: Optional[dict] = None
     runs: Optional[list[dict]] = None
     better_run_id: Optional[str] = None
+    # Step-by-Step-Felder (Story 9.3)
+    completed_step: Optional[CompletedStepSchema] = None
+    remaining_steps: Optional[list[dict]] = None
+    next_action: Optional[str] = None
+    state_id: Optional[str] = None
+    is_final: Optional[bool] = None
+    completed_steps_summary: Optional[list[CompletedStepSchema]] = None
+
+
+class VersionNodeResponse(BaseModel):
+    spec_id: str
+    version: str
+    parent_spec_id: Optional[str] = None
+    change_summary: Optional[str] = None
+    created_at: str
+    has_runs: bool
+    last_run_status: Optional[str] = None
+
+
+class VersionTreeResponse(BaseModel):
+    session_id: str
+    active_spec_id: Optional[str] = None
+    versions: list[VersionNodeResponse]

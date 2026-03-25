@@ -1,0 +1,130 @@
+# generated: 2026-03-21
+# last_updated: 2026-03-21
+# project: gysi-ml
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: _bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - SM typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+
+generated: 2026-03-21
+last_updated: 2026-03-21  # Stories 5.1–9.3 alle ready-for-dev
+project: gysi-ml
+project_key: NOKEY
+tracking_system: file-system
+story_location: _bmad-output/implementation-artifacts
+
+development_status:
+
+  # ===========================================================================
+  # BACKEND — Epics 1–4 (Basis-System — abgeschlossen)
+  # ===========================================================================
+
+  epic-1: done
+  1-1-fastapi-grundgeruest-sqlite-schema-und-session-endpunkte: done
+  1-2-step-registry-und-pipeline-executor-mit-spec-validierung: done
+  1-3-preprocessing-steps-dedup-imputation-und-outlier-handling: done
+  1-4-preprocessing-steps-encoding-correlation-rare-category-und-time-features: done
+  1-5-train-test-split-als-architekturgrenze-und-run-persistenz: done
+  1-6-capabilities-endpunkt: done
+  epic-1-retrospective: optional
+
+  epic-2: done
+  2-1-decision-tree-training-und-metriken: done
+  2-2-feature-importance-plot-und-artefakt-abruf: done
+  2-3-ebm-training-und-globaler-erklaerungsplot: done
+  epic-2-retrospective: optional
+
+  epic-3: done
+  3-1-message-endpunkt-und-gespraechsverlauf-persistenz: done
+  3-2-llm-integration-und-json-schema-validierung-mit-retry: done
+  3-3-vagheitserkennung-proposal-mode-und-bestaetigung: done
+  epic-3-retrospective: optional
+
+  epic-4: done
+  4-1-spec-abruf-und-re-execution: done
+  4-2-parameter-anpassung-per-sprache-und-step-deaktivierung: done
+  4-3-modellvergleich-und-catboost-feature-selection: done
+  epic-4-retrospective: optional
+
+  # ===========================================================================
+  # BACKEND — Epics 5–9 (Usability Features 2026-03-21 — NEU)
+  # Source: _bmad-output/planning-artifacts/shared/epics-usability-features-2026-03-21.md
+  # Implementierungsreihenfolge: 5 → 6 → 7 → 8 → 9
+  # ===========================================================================
+
+  epic-5: in-progress
+  5-1-db-migration-step-states-tabelle-und-spec-versions-erweiterung: done
+  epic-5-retrospective: optional
+
+  epic-6: in-progress
+  6-1-welcome-message-bei-session-erstellung: done
+  6-2-slash-command-router-mit-help-overview-status: done
+  epic-6-retrospective: optional
+
+  epic-7: in-progress
+  7-1-rohdatensatz-profilierung-profilingservice: done
+  7-2-llm-kontext-injection-fuer-profiling-empfehlungen: done
+  7-3-post-preprocessing-profilierung-vorher-nachher: done
+  epic-7-retrospective: optional
+
+  epic-8: in-progress
+  8-1-spec-diff-utility-spec-diff: done
+  8-2-versionsbaum-api-endpunkt: ready-for-dev
+  8-3-rollback-auf-fruehere-spec-version: ready-for-dev
+  epic-8-retrospective: optional
+
+  epic-9: in-progress
+  9-1-stepstaterepository-persistenz-fuer-step-by-step-state: ready-for-dev
+  9-2-selektive-step-bestaetigung-confirmed-steps: done
+  9-3-step-by-step-ausfuehrungsmodus: ready-for-dev
+  epic-9-retrospective: optional
+
+  # ===========================================================================
+  # FRONTEND — Epics 1–3 (Chat-UI — abgeschlossen)
+  # ===========================================================================
+
+  frontend-epic-1: done
+  frontend-1-1-frontend-scaffold-und-mock-chat-ui: done
+  frontend-1-2-backend-integration-session-und-messages: done
+  frontend-1-3-status-panel-backend-health-und-spec-summary: done
+  frontend-1-4-fehlerfaelle-und-undo-im-ui-sichtbar: done
+  frontend-epic-1-retrospective: optional
+
+  frontend-epic-2: done
+  frontend-2-1-proposal-card-im-chat-rendern: done
+  frontend-2-2-confirm-flow-bestaetigen-und-ausfuehren: done
+  frontend-2-3-proposal-modifizieren-durch-neue-nachricht: done
+  frontend-epic-2-retrospective: optional
+
+  frontend-epic-3: done
+  frontend-3-1-run-polling-mit-backoff-und-long-run-hinweis: done
+  frontend-3-2-result-message-status-und-metriken-rendern: done
+  frontend-3-3-artefakt-links-anzeigen-und-oeffnen: done
+  frontend-epic-3-retrospective: optional

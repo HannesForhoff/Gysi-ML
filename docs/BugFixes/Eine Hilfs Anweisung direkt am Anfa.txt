@@ -1,0 +1,39 @@
+Eine Hilfs Anweisung direkt am Anfang wenn man den Chat öffnet. Was kann man machen , wie läuft alles ab, welche Funktionen und Möglichkeiten gibt es auszuführen ? Wo liegen eventuelle grenzen ? 
+
+-> Kurz Anleitung wie das ganze funktioniert / Wie man in dem Chat interagiert um sinnvoll zu Arbeiten
+Wie /help 
+-> User bekommt allgemeine Hinweise zu Funktionen wie : 
+- Kann Overview von Datensatz abfragen 
+- 
+
+-> Maybe nicht jedes mal Standart Prompt hier : 
+Um einen Überblick über die Daten zu erhalten, könnten wir Schritte wie das Entfernen von Duplikaten, das Imputieren fehlender Werte oder das Encodieren kategorischer Variablen durchführen. Bitte spezifizieren Sie, welche Informationen oder Analysen Sie genau wünschen.
+	- Der ist nicht direkt hilfreich. 
+	- Vor allem weil es da nur einen Button gibt mit Bestätigen und Ausführen (Führt es automatisch alles aus ? Nicht sinn der Sache - Schritt für Schritt)	
+		-> Möglichkeit geben einzelene Schritte davon nacheinander auszuführen 
+
+
+Strukturelle Anzeige der LLM Ausgaben : 
+-> Aufzählungen von Möglichen Schritten zum Beispiel nicht als :
+Als ersten Schritt empfehle ich, die Daten zu bereinigen und vorzubereiten. Dazu könnten folgende Schritte gehören: 1. Entfernen von Duplikaten, 2. Imputieren fehlender Werte, 3. Encodieren kategorischer Variablen, 4. Entfernen hochkorrelierter Features. Diese Schritte helfen Ihnen, eine saubere und gut strukturierte Datenbasis für die Analyse und Modellierung zu schaffen.
+Sondern eher : 
+Als ersten Schritt empfehle ich, die Daten zu bereinigen und vorzubereiten. Dazu könnten folgende Schritte gehören:
+1. Entfernen von Duplikaten 
+2. Imputieren fehlender Werte,
+3. Encodieren kategorischer Variablen
+4. Entfernen hochkorrelierter Features. 
+
+Diese Schritte helfen Ihnen, eine saubere und gut strukturierte Datenbasis für die Analyse und Modellierung zu schaffen.
+
+
+Beschreibung des Geladenen Datensatzes mit liefern falls der USer fragt. 
+Bisher kommt einfach : Um einen Überblick über die Daten zu erhalten, könnten wir Schritte wie das Entfernen von Duplikaten, das Imputieren fehlender Werte oder das Encodieren kategorischer Variablen durchführen. Bitte spezifizieren Sie, welche Informationen oder Analysen Sie genau wünschen.
+
+Aber es wäre gut wenn wir Funktionen einführen die Ausgeben wie viele Spalten , welche , wie viele Features , wie viel welcher Features sind leer usw. 
+-> Der User soll damit lernen und selbst Entscheidungen treffen können basierend auf den Daten. 
+-> Das ist schwer möglich solange der User nicht ein Aufbereiteten Überblick über die Daten bekommt + Eventuelle direkte Vorschläge des LLM wo es sich lohnen würde anzusetzen und anzufangen, was auffällt, was angepasst werden muss usw
+-> Hinweis auf Datensatz Overview in der ersten Nachicht (user weiß bescheid das er sich ein Overview über die Daten geben lassen kann )
+
+
+
+

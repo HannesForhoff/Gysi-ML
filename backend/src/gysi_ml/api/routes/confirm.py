@@ -64,12 +64,23 @@ def confirm(
     result = confirm_proposal(
         session_id=session_id,
         proposal_id=body.proposal_id,
+        confirmed_steps=body.confirmed_steps,
+        mode=body.mode,
         db_path=db_path,
         data_path=_get_data_path(request),
         artifacts_path=_get_artifacts_path(request),
     )
 
     # 3. Fehlerbehandlung
+    if result.get("error_code") in ("no_steps_selected", "step_index_out_of_range"):
+        return JSONResponse(
+            status_code=422,
+            content=ErrorResponse(
+                error=result["error_code"],
+                detail=result["message"],
+                code=result["error_code"].upper(),
+            ).model_dump(),
+        )
     if result.get("error") == "proposal_not_found":
         return JSONResponse(
             status_code=404,

@@ -62,7 +62,30 @@ def create_all_tables(db_path: str | None = None) -> None:
                 created_at   TEXT NOT NULL,
                 FOREIGN KEY (session_id) REFERENCES sessions(session_id)
             );
+
+            CREATE TABLE IF NOT EXISTS step_states (
+                state_id               TEXT PRIMARY KEY,
+                session_id             TEXT NOT NULL,
+                proposal_id            TEXT,
+                remaining_steps_json   TEXT,
+                completed_steps_json   TEXT,
+                confirmed_indices_json TEXT,
+                created_at             TEXT,
+                last_updated           TEXT,
+                FOREIGN KEY (session_id) REFERENCES sessions(session_id)
+            );
         """)
         conn.commit()
+
+        # Migration: spec_versions — parent_spec_id und change_summary
+        for alter_sql in [
+            "ALTER TABLE spec_versions ADD COLUMN parent_spec_id TEXT REFERENCES spec_versions(spec_id)",
+            "ALTER TABLE spec_versions ADD COLUMN change_summary TEXT",
+        ]:
+            try:
+                conn.execute(alter_sql)
+                conn.commit()
+            except Exception:
+                pass  # Spalte existiert bereits — Idempotenz gewährleistet
     finally:
         conn.close()

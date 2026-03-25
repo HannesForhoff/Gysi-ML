@@ -47,7 +47,7 @@ def get_runs_for_session(session_id: str, db_path: str | None = None) -> list[di
     conn = get_connection(db_path)
     try:
         cursor = conn.execute(
-            "SELECT run_id, status, started_at, spec_version FROM runs "
+            "SELECT run_id, spec_id, status, started_at, spec_version FROM runs "
             "WHERE session_id = ? ORDER BY started_at ASC",
             (session_id,),
         )

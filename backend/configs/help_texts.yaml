@@ -1,0 +1,22 @@
+welcome_message: |
+  Willkommen bei Gysi — deinem ML-Assistenten für den Bike-Datensatz! 🚲
+
+  **Was ich kann:**
+  - Preprocessing-Schritte konfigurieren (Dedup, Imputation, Encoding, ...)
+  - Modelle trainieren (Decision Tree, EBM, CatBoost)
+  - Ergebnisse erklären und Runs vergleichen
+
+  **Beispiele:**
+  - „Entferne Duplikate und impute fehlende Werte mit Median"
+  - „Trainiere einen Decision Tree mit max_depth=5"
+  - „Vergleiche Run A mit Run B"
+
+  **Hilfe:** `/help` → Alle Funktionen  |  `/overview` → Datensatz-Überblick  |  `/status` → Session-Status
+
+help:
+  categories:
+    daten: "Datensatz erkunden: /overview, Profiling"
+    preprocessing: "Dedup, Imputation, Encoding, Outlier Handling, Correlation Filter, Rare Category, Time Features"
+    modellierung: "Decision Tree, EBM, CatBoost Feature Selection"
+    pipeline: "Spec-Abruf, Re-Execution, Parameter-Anpassung, Modellvergleich"
+    grenzen: "Nur Bike-Datensatz, kein Code-Upload, kein Deployment"

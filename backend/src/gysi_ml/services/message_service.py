@@ -10,7 +10,7 @@ from gysi_ml.llm.client import call_llm
 from gysi_ml.llm.exceptions import LLMConnectionError, LLMResponseValidationError
 from gysi_ml.llm.prompts import build_retry_prompt, build_system_prompt
 from gysi_ml.llm.response_schema import validate_llm_response
-from gysi_ml.persistence import message_repository, proposal_repository, spec_repository
+from gysi_ml.persistence import message_repository, proposal_repository, spec_repository, step_state_repository
 from gysi_ml.spec.schema import validate_spec
 
 LLM_NOT_CONFIGURED = "llm_not_configured"
@@ -101,6 +101,22 @@ def handle_message(
     explanation = parsed["explanation"]
     spec_version_ref = parsed.get("spec_version")
 
+    if action == "rollback":
+        target_spec_id = parsed.get("target_spec_id")
+        if not target_spec_id:
+            return {"type": "error", "message": "Rollback: target_spec_id fehlt."}
+        new_spec = spec_repository.rollback_to(
+            session_id=session_id, target_spec_id=target_spec_id, db_path=db_path
+        )
+        if new_spec is None:
+            return {"type": "error", "message": f"Spec '{target_spec_id}' nicht gefunden."}
+        return {
+            "type": "rollback",
+            "new_spec_id": new_spec["spec_id"],
+            "new_version": new_spec["version"],
+            "change_summary": new_spec["change_summary"],
+        }
+
     if action == "compare_runs":
         run_id_a = parsed.get("run_id_a")
         run_id_b = parsed.get("run_id_b")
@@ -190,6 +206,22 @@ def handle_message(
         if "error" in result:
             return {"type": "error", "message": result.get("detail", result.get("error"))}
         return {"type": "result", "run_id": result["run_id"], "explanation": explanation}
+
+    if action == "abort_step_by_step":
+        state = step_state_repository.get_step_state_by_session(
+            session_id=session_id, db_path=db_path
+        )
+        if state:
+            completed = state["completed_steps"]
+            step_state_repository.delete_step_state(
+                state_id=state["state_id"], db_path=db_path
+            )
+            types_str = ", ".join(s["type"] for s in completed)
+            return {
+                "type": "assistant",
+                "message": f"Step-by-Step-Modus beendet. Bisher ausgeführt: {types_str or 'keine Steps'}.",
+            }
+        return {"type": "assistant", "message": "Kein aktiver Step-by-Step-Vorgang."}
 
     # action == "propose"
     proposal = proposal_repository.create_proposal(

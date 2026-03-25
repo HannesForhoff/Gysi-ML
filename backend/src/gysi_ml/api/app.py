@@ -12,6 +12,7 @@ from gysi_ml.api.routes.confirm import router as confirm_router
 from gysi_ml.api.routes.execute import router as execute_router
 from gysi_ml.api.routes.health import router as health_router
 from gysi_ml.api.routes.messages import router as messages_router
+from gysi_ml.api.routes.rollback import router as rollback_router
 from gysi_ml.api.routes.runs import router as runs_router
 from gysi_ml.api.routes.sessions import router as sessions_router
 from gysi_ml.api.routes.specs import router as specs_router
@@ -51,6 +52,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
     app.include_router(specs_router)
     app.include_router(capabilities_router)
     app.include_router(artifacts_router)
+    app.include_router(rollback_router)
 
     @app.exception_handler(404)
     async def not_found_handler(request: Request, exc: Exception) -> JSONResponse:
