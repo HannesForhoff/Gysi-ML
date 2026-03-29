@@ -121,7 +121,7 @@ class CompletedStepSchema(BaseModel):
 class MessageResponse(BaseModel):
     """Typisierte Response fuer POST /messages."""
 
-    type: str  # "proposal" | "result" | "error" | "spec_updated" | "comparison" | "step_result"
+    type: str  # "proposal" | "result" | "error" | "spec_updated" | "info" | "comparison" | "step_result"
     run_id: Optional[str] = None
     message: Optional[str] = None
     error_code: Optional[str] = None
@@ -134,6 +134,8 @@ class MessageResponse(BaseModel):
     spec: Optional[dict] = None
     runs: Optional[list[dict]] = None
     better_run_id: Optional[str] = None
+    step_results: Optional[list] = None
+    artifacts: Optional[list] = None
     # Step-by-Step-Felder (Story 9.3)
     completed_step: Optional[CompletedStepSchema] = None
     remaining_steps: Optional[list[dict]] = None

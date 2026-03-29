@@ -1,4 +1,4 @@
-import type { AssistantResponse, SpecSummary } from '../types'
+import type { AssistantResponse, SpecSummary, StepResult } from '../types'
 import type {
   ConfirmResult,
   SendAssistantMessageInput,
@@ -61,6 +61,7 @@ export async function sendRealMessage(
       response: toAssistantResponse(
         messageBody,
         `Message request failed with HTTP ${messageResponse.status}`,
+        baseUrl,
       ),
     }
   }
@@ -70,6 +71,7 @@ export async function sendRealMessage(
     response: toAssistantResponse(
       messageBody,
       'Backend response could not be interpreted.',
+      baseUrl,
     ),
   }
 }
@@ -107,6 +109,7 @@ async function parseJsonBody(response: Response): Promise<unknown> {
 function toAssistantResponse(
   payload: unknown,
   fallbackMessage: string,
+  baseUrl: string,
 ): AssistantResponse {
   if (!isRecord(payload)) {
     return { type: 'error', message: fallbackMessage }
@@ -126,11 +129,15 @@ function toAssistantResponse(
       // Backend uses 'type', frontend uses 'step_type'
       const stepType = toNonEmptyString(step.step_type ?? step.type) ?? ''
       const params = isRecord(step.params) ? step.params : undefined
-      const paramsSummary = params
-        ? Object.entries(params)
-            .map(([k, v]) => `${k}=${String(v)}`)
-            .join(', ')
-        : (toNonEmptyString(step.parameters_summary) ?? undefined)
+      // LLM-geschriebene parameters_summary bevorzugen (lesbares Deutsch),
+      // als Fallback die technische k=v-Darstellung der params verwenden.
+      const llmSummary = toNonEmptyString(step.parameters_summary) ?? undefined
+      const paramsSummary = llmSummary
+        ?? (params
+          ? Object.entries(params)
+              .map(([k, v]) => `${k}=${String(v)}`)
+              .join(', ')
+          : undefined)
       return {
         step_type: stepType,
         ...(typeof step.enabled === 'boolean' ? { enabled: step.enabled } : {}),
@@ -146,14 +153,58 @@ function toAssistantResponse(
     }
   }
 
-  // Backend result: { type:'result', run_id, explanation } — no 'status' field
+  // Backend result: { type:'result', run_id, explanation, step_results, artifacts } — no 'status' field
   if (type === 'result') {
     const message =
       toNonEmptyString(payload.explanation) ??
       toNonEmptyString(payload.message) ??
       fallbackMessage
     const status = payload.status === 'failed' ? ('failed' as const) : ('done' as const)
-    return { type: 'result', message, status }
+    const rawStepResults = Array.isArray(payload.step_results) ? payload.step_results : []
+    const step_results: StepResult[] = rawStepResults.map((sr) => {
+      const s = isRecord(sr) ? sr : {}
+      return {
+        step_type: toNonEmptyString(s.step_type) ?? 'unknown',
+        metadata: isRecord(s.metadata) ? (s.metadata as Record<string, unknown>) : {},
+      }
+    })
+    // Parse artifacts from execute response (Artefakte aus direktem Execute, z.B. Split-CSVs)
+    const rawArtifacts = Array.isArray(payload.artifacts) ? payload.artifacts : []
+    const artifacts: ArtifactRef[] = rawArtifacts
+      .filter(isRecord)
+      .map((a) => {
+        const id = toNonEmptyString(a.artifact_id) ?? toNonEmptyString(a.id) ?? ''
+        const artifactType = toNonEmptyString(a.type) ?? ''
+        const label = artifactTypeToLabel(artifactType)
+        const url = id && baseUrl ? `${baseUrl.replace(/\/+$/, '')}/v1/artifacts/${encodeURIComponent(id)}` : ''
+        const media_type = artifactTypeToMime(artifactType)
+        return { id, label, url, media_type }
+      })
+      .filter((a) => Boolean(a.id && a.url))
+    let spec_summary: SpecSummary | undefined
+    if (isRecord(payload.spec) && payload.version) {
+      const rawSteps = Array.isArray((payload.spec as Record<string, unknown>).steps)
+        ? ((payload.spec as Record<string, unknown>).steps as unknown[])
+        : []
+      spec_summary = {
+        spec_version_id: toNonEmptyString(payload.version) ?? 'unknown',
+        steps: rawSteps.map((s) => {
+          const step = isRecord(s) ? s : {}
+          return {
+            step_type: toNonEmptyString(step.step_type ?? step.type) ?? 'unknown',
+            enabled: typeof step.enabled === 'boolean' ? step.enabled : true,
+          }
+        }),
+      }
+    }
+    return {
+      type: 'result',
+      message,
+      status,
+      ...(step_results.length > 0 ? { step_results } : {}),
+      ...(artifacts.length > 0 ? { artifacts } : {}),
+      ...(spec_summary ? { spec_summary } : {}),
+    }
   }
 
   // Backend spec_updated: { type:'spec_updated', version, spec, explanation }
@@ -176,6 +227,12 @@ function toAssistantResponse(
       }),
     }
     return { type: 'spec_updated', message, spec_summary }
+  }
+
+  // Backend info: { type:'info', message } — Command-Antworten (z.B. /help)
+  if (type === 'info') {
+    const message = toNonEmptyString(payload.message) ?? fallbackMessage
+    return { type: 'info', message }
   }
 
   // Backend error: { type:'error', message, error_code } — error_code → details
@@ -241,4 +298,19 @@ export async function sendRealConfirm(
   }
 
   return { runId }
+}
+
+function artifactTypeToLabel(type: string): string {
+  const labels: Record<string, string> = {
+    split_train: 'Trainingsdaten (CSV)',
+    split_test: 'Testdaten (CSV)',
+    feature_importance: 'Feature Importance',
+  }
+  return labels[type] ?? (type || 'Artifact')
+}
+
+function artifactTypeToMime(type: string): string {
+  if (type === 'split_train' || type === 'split_test') return 'text/csv'
+  if (type === 'feature_importance') return 'image/png'
+  return 'application/octet-stream'
 }

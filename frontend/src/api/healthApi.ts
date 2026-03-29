@@ -1,4 +1,4 @@
-import type { SpecStepSummary, SpecSummary } from '../types'
+import type { SpecStepSummary, SpecSummary, VersionNode, VersionTree } from '../types'
 
 export interface HealthResult {
   healthy: boolean
@@ -87,4 +87,80 @@ function parseSteps(raw: unknown[]): SpecStepSummary[] | null {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
+}
+
+export async function fetchSpecTree(
+  baseUrl: string,
+  sessionId: string,
+): Promise<VersionTree | null> {
+  const base = baseUrl.replace(/\/+$/, '')
+  try {
+    const response = await fetch(
+      `${base}/v1/sessions/${encodeURIComponent(sessionId)}/spec/tree`,
+    )
+    if (!response.ok) return null
+    const data = (await response.json()) as unknown
+    return parseVersionTree(data)
+  } catch {
+    return null
+  }
+}
+
+function parseVersionNode(item: unknown): VersionNode | null {
+  if (!isRecord(item)) return null
+  if (typeof item.spec_id !== 'string' || typeof item.version !== 'string') return null
+  return {
+    spec_id: item.spec_id,
+    version: item.version,
+    parent_spec_id: typeof item.parent_spec_id === 'string' ? item.parent_spec_id : null,
+    change_summary: typeof item.change_summary === 'string' ? item.change_summary : null,
+    created_at: typeof item.created_at === 'string' ? item.created_at : '',
+    has_runs: item.has_runs === true,
+    last_run_status: typeof item.last_run_status === 'string' ? item.last_run_status : null,
+  }
+}
+
+function parseVersionTree(value: unknown): VersionTree | null {
+  if (!isRecord(value)) return null
+  if (typeof value.session_id !== 'string') return null
+  if (!Array.isArray(value.versions)) return null
+
+  const versions: VersionNode[] = []
+  for (const item of value.versions) {
+    const node = parseVersionNode(item)
+    if (node === null) return null
+    versions.push(node)
+  }
+
+  return {
+    session_id: value.session_id,
+    active_spec_id: typeof value.active_spec_id === 'string' ? value.active_spec_id : null,
+    versions,
+  }
+}
+
+export async function performRollback(
+  baseUrl: string,
+  sessionId: string,
+  targetSpecId: string,
+): Promise<{ ok: true; newVersion: string } | { ok: false; error: string }> {
+  const base = baseUrl.replace(/\/+$/, '')
+  try {
+    const response = await fetch(
+      `${base}/v1/sessions/${encodeURIComponent(sessionId)}/rollback`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target_spec_id: targetSpecId }),
+      },
+    )
+    if (!response.ok) {
+      const err = (await response.json()) as Record<string, unknown>
+      return { ok: false, error: String(err.detail ?? 'Rollback fehlgeschlagen') }
+    }
+    const data = (await response.json()) as Record<string, unknown>
+    return { ok: true, newVersion: String(data.new_version ?? '?') }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Netzwerkfehler' }
+  }
 }

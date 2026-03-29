@@ -121,6 +121,26 @@ export function StatusPanel({
       </div>
 
       <div className="statusBlock">
+        <div className="statusTitle">Ausgeführte Steps</div>
+        {lastRun?.step_results && lastRun.step_results.length > 0 ? (
+          <ul className="statusList">
+            {lastRun.step_results.map((sr, idx) => (
+              <li key={idx}>
+                <span className="statusMeta" style={{ fontWeight: 600 }}>{sr.step_type}</span>
+                {Object.entries(sr.metadata).map(([k, v]) => (
+                  <div key={k} className="statusMeta">
+                    {k}: {String(v)}
+                  </div>
+                ))}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="statusMeta">(noch keine Steps ausgeführt)</div>
+        )}
+      </div>
+
+      <div className="statusBlock">
         <div className="statusTitle">Artefakte</div>
         {artifacts.length > 0 ? (
           <ul className="statusList">

@@ -31,12 +31,18 @@ class CommandService:
 
     def _handle_help(self, topic: str | None) -> str:
         texts = self._load_help_texts()
-        categories = texts.get("help", {}).get("categories", {})
+        help_section = texts.get("help", {})
         if topic:
+            categories = help_section.get("categories", {})
             key = topic.lower()
             if key in categories:
                 return f"**{key}:** {categories[key]}"
-            return f"Unbekanntes Thema: `{topic}`. Verfügbar: {', '.join(categories.keys())}"
+            return f"Unbekanntes Thema: `{topic}`. Verf\u00fcgbar: {', '.join(categories.keys())}"
+        full_text = help_section.get("full_text")
+        if full_text:
+            return full_text.strip()
+        # Fallback: kategorie-basiert
+        categories = help_section.get("categories", {})
         lines = ["**Gysi-Hilfe:**\n"]
         for cat, desc in categories.items():
             lines.append(f"- **{cat}:** {desc}")

@@ -36,7 +36,7 @@ def df_test(df_train):
 
 
 def test_requires_split_true():
-    assert RareCategoryBucketingStep.requires_split is True
+    assert not getattr(RareCategoryBucketingStep, 'requires_split', False)
 
 
 def test_description_set():

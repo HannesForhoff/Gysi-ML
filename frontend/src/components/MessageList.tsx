@@ -1,3 +1,5 @@
+import Markdown from 'react-markdown'
+
 import type { ChatMessage } from '../types'
 import { ProposalCard } from './ProposalCard'
 import { ResultCard } from './ResultCard'
@@ -7,9 +9,10 @@ type MessageListProps = {
   onConfirm: (proposalId: string) => void
   confirmDisabled: boolean
   activePendingProposalId: string | null
+  isSending?: boolean
 }
 
-export function MessageList({ messages, onConfirm, confirmDisabled, activePendingProposalId }: MessageListProps) {
+export function MessageList({ messages, onConfirm, confirmDisabled, activePendingProposalId, isSending }: MessageListProps) {
   return (
     <ol className="messageList" aria-label="Chat messages">
       {messages.map((message) => (
@@ -44,6 +47,10 @@ export function MessageList({ messages, onConfirm, confirmDisabled, activePendin
                 />
               ) : message.response?.type === 'result' ? (
                 <ResultCard result={message.response} />
+              ) : message.role === 'assistant' ? (
+                <div className="messageContent">
+                  <Markdown>{message.content}</Markdown>
+                </div>
               ) : (
                 <div className="messageContent">{message.content}</div>
               )}
@@ -51,6 +58,20 @@ export function MessageList({ messages, onConfirm, confirmDisabled, activePendin
           </div>
         </li>
       ))}
+      {isSending && (
+        <li className="message" data-role="assistant" data-testid="typing-indicator">
+          <div className="messageRow">
+            <div className="avatar" aria-hidden="true">G</div>
+            <div className="bubble">
+              <div className="typingIndicator" aria-label="Gysi rechnet...">
+                <span />
+                <span />
+                <span />
+              </div>
+            </div>
+          </div>
+        </li>
+      )}
     </ol>
   )
 }

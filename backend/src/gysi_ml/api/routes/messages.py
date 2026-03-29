@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from gysi_ml.api.schemas import ErrorResponse, MessageRequest, MessageResponse
 from gysi_ml.config import get_settings
 from gysi_ml.persistence import message_repository, session_repository
+from gysi_ml.services.command_service import CommandService
 from gysi_ml.services.message_service import LLM_NOT_CONFIGURED, handle_message
 
 router = APIRouter(prefix="/v1")
@@ -66,7 +67,24 @@ def send_message(
         session_id=session_id, role="user", content=body.text, db_path=db_path
     )
 
-    # 3. An MessageService delegieren
+    # 3a. Slash-Commands direkt im CommandService behandeln (kein LLM)
+    command_svc = CommandService()
+    if command_svc.is_slash_command(body.text):
+        command_result = command_svc.handle(
+            content=body.text,
+            session_id=session_id,
+            db_path=db_path,
+        )
+        result = {"type": "info", "message": command_result}
+        message_repository.save_message(
+            session_id=session_id,
+            role="assistant",
+            content=json.dumps(result, ensure_ascii=False),
+            db_path=db_path,
+        )
+        return MessageResponse(**result)
+
+    # 3b. An MessageService delegieren
     result = handle_message(
         session_id=session_id,
         text=body.text,

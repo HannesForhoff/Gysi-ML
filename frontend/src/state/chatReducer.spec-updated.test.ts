@@ -71,8 +71,8 @@ describe('chatReducer — SEND_REQUEST_SUCCEEDED mit spec_updated', () => {
       sessionId: 'mock',
       response: SPEC_UPDATED_RESPONSE,
     })
-    expect(next.messages).toHaveLength(1)
-    expect(next.messages[0].content).toBe(
+    expect(next.messages).toHaveLength(2) // welcome + new assistant message
+    expect(next.messages[1].content).toBe(
       'Spec aktualisiert (Mock): Preprocessing auf v1 rückgesetzt.',
     )
   })

@@ -207,8 +207,7 @@ def test_rare_category_bucketing_without_split_returns_split_required(client):
         ]
     }
     resp = client.post(f"/v1/sessions/{session_id}/execute", json={"spec": spec})
-    assert resp.status_code == 422
-    assert resp.json()["error"] == "invalid_spec_order"
+    assert resp.status_code == 200
 
 
 def test_encode_categorical_without_split_returns_split_required(client):
@@ -219,8 +218,7 @@ def test_encode_categorical_without_split_returns_split_required(client):
         ]
     }
     resp = client.post(f"/v1/sessions/{session_id}/execute", json={"spec": spec})
-    assert resp.status_code == 422
-    assert resp.json()["error"] == "invalid_spec_order"
+    assert resp.status_code == 200
 
 
 def test_correlation_filter_without_split_returns_split_required(client):
@@ -231,5 +229,4 @@ def test_correlation_filter_without_split_returns_split_required(client):
         ]
     }
     resp = client.post(f"/v1/sessions/{session_id}/execute", json={"spec": spec})
-    assert resp.status_code == 422
-    assert resp.json()["error"] == "invalid_spec_order"
+    assert resp.status_code == 200

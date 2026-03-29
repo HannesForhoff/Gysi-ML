@@ -55,6 +55,7 @@ export function useRunPolling(
             artifacts: result.artifacts,
             errorMessage: result.error_message,
             assistantMessage,
+            step_results: result.step_results,
           })
         } else {
           dispatch({

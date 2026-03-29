@@ -27,7 +27,9 @@ class CatBoostFeatureSelectionStep(BaseStep):
         top_n = int(self.params.get("top_n", 8))
         random_state = int(self.params.get("random_state", 42))
 
-        X_train = df_train.drop(columns=[self.TARGET_COL])
+        X_train = df_train.select_dtypes(include="number").drop(
+            columns=[self.TARGET_COL], errors="ignore"
+        )
         y_train = df_train[self.TARGET_COL]
 
         model = CatBoostRegressor(random_seed=random_state, verbose=0)

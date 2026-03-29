@@ -14,7 +14,6 @@ class ImputationStep(BaseStep):
             "default": "median",
         }
     }
-    requires_split = True
 
     def __init__(self, params: dict | None = None) -> None:
         super().__init__(params)

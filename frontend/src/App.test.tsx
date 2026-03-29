@@ -28,7 +28,7 @@ describe('gysi-ml frontend (Story 1.1 smoke tests)', () => {
     await user.type(textarea, 'Hallo{shift>}{enter}{/shift}Welt')
     expect(textarea).toHaveValue('Hallo\nWelt')
 
-    expect(screen.queryAllByTestId('chat-message')).toHaveLength(0)
+    expect(screen.queryAllByTestId('chat-message')).toHaveLength(1) // welcome message
 
     await user.type(textarea, '{enter}')
 

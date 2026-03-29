@@ -6,6 +6,7 @@ import type {
   ResultResponse,
   RunStatus,
   SpecSummary,
+  VersionTree,
 } from '../types'
 
 export type UiState =
@@ -29,6 +30,7 @@ export interface ChatState {
   transport: TransportInfo
   sessionId: string | null
   specSummary: SpecSummary | null
+  specHistory: VersionTree | null
   lastRun: ResultResponse | null
   artifacts: ArtifactRef[]
   lastError: string | null
@@ -65,19 +67,39 @@ export type ChatAction =
       artifacts?: ArtifactRef[]
       errorMessage?: string
       assistantMessage?: ChatMessage
+      step_results?: StepResult[]
     }
   | { type: 'RUN_POLL_NETWORK_ERROR'; errorMessage: string }
   | { type: 'RUN_LONG_RUNNING' }
+  | { type: 'SPEC_TREE_LOADED'; specTree: VersionTree }
+  | { type: 'ROLLBACK_SUCCEEDED'; infoMessage: ChatMessage; specTree: VersionTree; specSummary: SpecSummary | null }
+  | { type: 'ROLLBACK_FAILED'; errorMessage: string; errorChatMessage: ChatMessage }
+
+const WELCOME_MESSAGE: ChatMessage = {
+  id: 'welcome',
+  role: 'assistant',
+  content:
+    'Hallo! Ich bin **Gysi**, dein ML-Assistent für den Bike-Sharing-Datensatz.\n\n' +
+    'Ich helfe dir dabei, die Daten Schritt für Schritt zu verstehen und ein Machine-Learning-Modell aufzubauen. ' +
+    'Beschreibe einfach auf Deutsch, was du machen möchtest — zum Beispiel:\n\n' +
+    '- *"Entferne Duplikate aus dem Datensatz"*\n' +
+    '- *"Imputiere fehlende Werte in windspeed mit dem Median"*\n' +
+    '- *"Führe einen Train-Test-Split durch"*\n\n' +
+    'Tipp: Gib `/help` ein, um alle verfügbaren Commands, Steps und Funktionen aufzulisten.\n\n' +
+    'Womit möchtest du beginnen?',
+  ts: new Date().toISOString(),
+}
 
 export function createInitialChatState(): ChatState {
   const env = getFrontendEnv()
 
   return {
     ui: { type: 'idle' },
-    messages: [],
+    messages: [WELCOME_MESSAGE],
     transport: { useMock: env.useMock, backendBaseUrl: env.backendBaseUrl },
     sessionId: null,
     specSummary: null,
+    specHistory: null,
     lastRun: null,
     artifacts: [],
     lastError: null,
@@ -100,6 +122,8 @@ function nextUiStateForResponse(response: AssistantResponse): UiState {
     case 'error':
       return { type: 'validation_error' }
     case 'spec_updated':
+      return { type: 'idle' }
+    case 'info':
       return { type: 'idle' }
   }
 }
@@ -212,6 +236,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           status: 'done',
           metrics: action.metrics,
           artifacts: action.artifacts,
+          step_results: action.step_results,
         }
         return {
           ...state,
@@ -262,5 +287,26 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'RUN_LONG_RUNNING':
       if (state.ui.type !== 'run_polling') return state
       return { ...state, isLongRunning: true }
+
+    case 'SPEC_TREE_LOADED':
+      return { ...state, specHistory: action.specTree }
+
+    case 'ROLLBACK_SUCCEEDED':
+      return {
+        ...state,
+        ui: { type: 'idle' },
+        specHistory: action.specTree,
+        specSummary: action.specSummary ?? state.specSummary,
+        messages: [...state.messages, action.infoMessage],
+        lastError: null,
+      }
+
+    case 'ROLLBACK_FAILED':
+      return {
+        ...state,
+        ui: { type: 'validation_error' },
+        lastError: action.errorMessage,
+        messages: [...state.messages, action.errorChatMessage],
+      }
   }
 }

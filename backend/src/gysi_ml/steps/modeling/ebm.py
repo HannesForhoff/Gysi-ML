@@ -32,7 +32,9 @@ class EBMStep(BaseStep):
         self._feature_names: list = []
 
     def fit(self, df_train: pd.DataFrame) -> None:
-        X_train = df_train.drop(columns=[self.TARGET_COL])
+        X_train = df_train.select_dtypes(include="number").drop(
+            columns=[self.TARGET_COL], errors="ignore"
+        )
         y_train = df_train[self.TARGET_COL]
         self._feature_names = list(X_train.columns)
 
@@ -50,7 +52,7 @@ class EBMStep(BaseStep):
             raise RuntimeError(
                 "transform() wurde vor fit() aufgerufen. Bitte zuerst fit(df_train) aufrufen."
             )
-        X_test = df_test.drop(columns=[self.TARGET_COL])
+        X_test = df_test[self._feature_names]
         y_test = df_test[self.TARGET_COL]
         y_pred = self.model.predict(X_test)
 

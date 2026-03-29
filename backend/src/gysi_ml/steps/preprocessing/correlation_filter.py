@@ -8,7 +8,6 @@ from gysi_ml.steps.registry import register_step
 class CorrelationFilterStep(BaseStep):
     description = "Entfernt hochkorrelierte numerische Features (Pearson)"
     param_schema = {"threshold": {"type": "number", "default": 0.9}}
-    requires_split = True
 
     def __init__(self, params: dict | None = None) -> None:
         super().__init__(params)

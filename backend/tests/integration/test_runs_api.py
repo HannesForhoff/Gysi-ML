@@ -200,20 +200,20 @@ def test_invalid_spec_order_returns_error_before_execution(client):
     session_id = _create_session(client)
     resp = client.post(
         f"/v1/sessions/{session_id}/execute",
-        json={"spec": {"steps": [{"type": "impute_missing"}]}},
+        json={"spec": {"steps": [{"type": "train_decision_tree"}]}},
     )
     assert resp.status_code == 422
     body = resp.json()
     assert body["error"] == "invalid_spec_order"
     assert body["code"] == "INVALID_SPEC_ORDER"
-    assert "impute_missing" in body["detail"]
+    assert "train_decision_tree" in body["detail"]
 
 
 def test_invalid_spec_order_does_not_create_run(client):
     session_id = _create_session(client)
     client.post(
         f"/v1/sessions/{session_id}/execute",
-        json={"spec": {"steps": [{"type": "outlier_handling"}]}},
+        json={"spec": {"steps": [{"type": "train_decision_tree"}]}},
     )
     resp = client.get(f"/v1/sessions/{session_id}/runs")
     # Spec-order errors happen before run creation → no run in DB

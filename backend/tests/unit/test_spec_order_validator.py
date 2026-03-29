@@ -35,7 +35,7 @@ def test_time_feature_before_split_ok():
     validate_spec_order(steps)
 
 
-def test_multiple_requires_split_steps_after_split_ok():
+def test_multiple_preprocessing_steps_after_split_ok():
     steps = [
         {"type": "split"},
         {"type": "impute_missing"},
@@ -44,6 +44,44 @@ def test_multiple_requires_split_steps_after_split_ok():
         {"type": "correlation_filter"},
         {"type": "rare_category_bucketing"},
     ]
+    validate_spec_order(steps)
+
+
+def test_preprocessing_steps_without_split_ok():
+    """Preprocessing-Steps dürfen jetzt auch VOR dem Split ausgeführt werden."""
+    steps = [
+        {"type": "impute_missing"},
+        {"type": "outlier_handling"},
+        {"type": "encode_categorical"},
+        {"type": "correlation_filter"},
+        {"type": "rare_category_bucketing"},
+    ]
+    validate_spec_order(steps)
+
+
+def test_impute_missing_before_split_ok():
+    """impute_missing vor Split ist explizit erlaubt (kein Data Leakage)."""
+    steps = [{"type": "impute_missing"}]
+    validate_spec_order(steps)
+
+
+def test_outlier_handling_before_split_ok():
+    steps = [{"type": "outlier_handling"}]
+    validate_spec_order(steps)
+
+
+def test_encode_categorical_before_split_ok():
+    steps = [{"type": "encode_categorical"}]
+    validate_spec_order(steps)
+
+
+def test_correlation_filter_before_split_ok():
+    steps = [{"type": "correlation_filter"}]
+    validate_spec_order(steps)
+
+
+def test_rare_category_bucketing_before_split_ok():
+    steps = [{"type": "rare_category_bucketing"}]
     validate_spec_order(steps)
 
 
@@ -57,54 +95,37 @@ def test_disabled_step_before_split_ok():
 
 
 # ---------------------------------------------------------------------------
-# Ungültige Reihenfolgen — SpecOrderError erwartet
+# Ungültige Reihenfolgen — SpecOrderError erwartet (nur noch Modeling-Steps)
 # ---------------------------------------------------------------------------
 
 
-def test_impute_missing_before_split_raises():
-    steps = [{"type": "impute_missing"}]
-    with pytest.raises(SpecOrderError):
-        validate_spec_order(steps)
-
-
-def test_outlier_handling_before_split_raises():
-    steps = [{"type": "outlier_handling"}]
-    with pytest.raises(SpecOrderError):
-        validate_spec_order(steps)
-
-
-def test_encode_categorical_before_split_raises():
-    steps = [{"type": "encode_categorical"}]
-    with pytest.raises(SpecOrderError):
-        validate_spec_order(steps)
-
-
-def test_correlation_filter_before_split_raises():
-    steps = [{"type": "correlation_filter"}]
-    with pytest.raises(SpecOrderError):
-        validate_spec_order(steps)
-
-
-def test_rare_category_bucketing_before_split_raises():
-    steps = [{"type": "rare_category_bucketing"}]
-    with pytest.raises(SpecOrderError):
-        validate_spec_order(steps)
-
-
 def test_train_decision_tree_before_split_raises():
+    """Modeling-Steps erfordern weiterhin einen vorherigen Split (Data Leakage)."""
     steps = [{"type": "train_decision_tree"}]
     with pytest.raises(SpecOrderError):
         validate_spec_order(steps)
 
 
-def test_impute_after_stateless_but_before_split_raises():
+def test_train_ebm_before_split_raises():
+    steps = [{"type": "train_ebm"}]
+    with pytest.raises(SpecOrderError):
+        validate_spec_order(steps)
+
+
+def test_catboost_feature_selection_before_split_raises():
+    steps = [{"type": "catboost_feature_selection"}]
+    with pytest.raises(SpecOrderError):
+        validate_spec_order(steps)
+
+
+def test_impute_after_stateless_but_before_split_ok():
+    """impute_missing nach dedup aber vor Split ist jetzt erlaubt."""
     steps = [
         {"type": "dedup"},
         {"type": "impute_missing"},
         {"type": "split"},
     ]
-    with pytest.raises(SpecOrderError):
-        validate_spec_order(steps)
+    validate_spec_order(steps)
 
 
 # ---------------------------------------------------------------------------
@@ -113,14 +134,14 @@ def test_impute_after_stateless_but_before_split_raises():
 
 
 def test_error_message_contains_step_type():
-    steps = [{"type": "impute_missing"}]
+    steps = [{"type": "train_decision_tree"}]
     with pytest.raises(SpecOrderError) as exc_info:
         validate_spec_order(steps)
-    assert "impute_missing" in str(exc_info.value)
+    assert "train_decision_tree" in str(exc_info.value)
 
 
 def test_error_str_is_useful():
-    steps = [{"type": "outlier_handling"}]
+    steps = [{"type": "train_ebm"}]
     with pytest.raises(SpecOrderError) as exc_info:
         validate_spec_order(steps)
     # Should mention "split" in the message

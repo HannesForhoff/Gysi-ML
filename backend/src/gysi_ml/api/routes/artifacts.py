@@ -1,3 +1,4 @@
+import mimetypes
 import os
 
 from fastapi import APIRouter, Request
@@ -46,4 +47,9 @@ async def get_artifact(artifact_id: str, request: Request):
                 code="ARTIFACT_FILE_MISSING",
             ).model_dump(),
         )
-    return FileResponse(file_path, media_type="image/png")
+    filename = os.path.basename(file_path)
+    mime_type, _ = mimetypes.guess_type(file_path)
+    media_type = mime_type or "application/octet-stream"
+    if media_type.startswith("image/"):
+        return FileResponse(file_path, media_type=media_type)
+    return FileResponse(file_path, media_type=media_type, filename=filename)

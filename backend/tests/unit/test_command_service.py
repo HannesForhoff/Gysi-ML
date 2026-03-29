@@ -190,8 +190,8 @@ def test_slash_command_response_persisted(tmp_path):
         resp = client.post(f"/v1/sessions/{session_id}/messages", json={"text": "/help"})
         assert resp.status_code == 200
         body = resp.json()
-        assert body["type"] == "assistant"
-        assert "Gysi-Hilfe" in body["message"]
+        assert body["type"] == "info"
+        assert "Hilfe" in body["message"]
 
         # Session-History: user-Message mit "/help" ist gespeichert
         messages = client.get(f"/v1/sessions/{session_id}").json()["messages"]
@@ -199,12 +199,12 @@ def test_slash_command_response_persisted(tmp_path):
         assert len(user_msgs) == 1
         assert user_msgs[0]["content"] == "/help"
 
-        # Assistant-Antwort auf /help ist in History (Welcome + /help-Response)
+        # Assistant-Antwort auf /help ist in History (Welcome-Message ist nur frontend-seitig)
         assistant_msgs = [m for m in messages if m["role"] == "assistant"]
-        assert len(assistant_msgs) >= 2
+        assert len(assistant_msgs) >= 1
         # Letzte assistant-Message enthält help-Response (JSON-serialisiert in DB)
         import json as _json
         last_assistant = assistant_msgs[-1]["content"]
         parsed = _json.loads(last_assistant)
-        assert parsed["type"] == "assistant"
-        assert "Gysi-Hilfe" in parsed["message"]
+        assert parsed["type"] == "info"
+        assert "Hilfe" in parsed["message"]

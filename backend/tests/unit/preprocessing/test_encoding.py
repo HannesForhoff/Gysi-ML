@@ -50,7 +50,7 @@ def df_test_onehot():
 
 
 def test_requires_split_true():
-    assert CategoricalEncodingStep.requires_split is True
+    assert not getattr(CategoricalEncodingStep, 'requires_split', False)
 
 
 def test_description_set():

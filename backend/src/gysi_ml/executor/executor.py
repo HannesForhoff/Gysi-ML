@@ -54,11 +54,15 @@ class PipelineExecutor:
         spec_id = spec_entry["spec_id"]
         spec_version = spec_entry["version"]
 
-        return self._run_pipeline(
+        pipeline_result = self._run_pipeline(
             spec=spec, run_id=run_id, spec_id=spec_id,
             spec_version=spec_version,
             session_id=session_id, started_at=started_at, db_path=db_path,
         )
+        if "error" not in pipeline_result:
+            pipeline_result["spec_version"] = spec_version
+            pipeline_result["spec"] = spec
+        return pipeline_result
 
     def execute_with_spec_id(
         self, spec: dict, spec_id: str, session_id: str, db_path: str | None = None
@@ -206,25 +210,32 @@ class PipelineExecutor:
                 context.add_step_result(step_type, metadata)
                 if "metrics" in metadata and metadata["metrics"]:
                     context.metrics.update(metadata["metrics"])
-                # Artefakt generieren (optional — nur Modeling-Steps überschreiben diese Methode)
+                # Artefakt generieren (optional — Modeling- und SplitStep überschreiben diese Methode)
                 artifact_info = step.generate_artifact(
                     artifacts_path=self._artifacts_path,
                     run_id=run_id,
                 )
-                if artifact_info:
+                # Normalisieren: dict → [dict], None → []
+                if isinstance(artifact_info, list):
+                    artifact_items = artifact_info
+                elif isinstance(artifact_info, dict):
+                    artifact_items = [artifact_info]
+                else:
+                    artifact_items = []
+                for item in artifact_items:
                     artifact_id = str(uuid.uuid4())
                     artifact_created_at = _utc_now()
                     artifact_repository.create_artifact(
                         artifact_id=artifact_id,
                         run_id=run_id,
-                        artifact_type=artifact_info["type"],
-                        file_path=artifact_info["file_path"],
+                        artifact_type=item["type"],
+                        file_path=item["file_path"],
                         created_at=artifact_created_at,
                         db_path=db_path,
                     )
                     context.artifacts.append({
                         "artifact_id": artifact_id,
-                        "type": artifact_info["type"],
+                        "type": item["type"],
                         "created_at": artifact_created_at,
                     })
             except Exception as exc:

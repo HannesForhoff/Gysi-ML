@@ -134,7 +134,7 @@ def test_transform_zscore_no_outlier_unchanged():
 
 
 def test_requires_split_is_true():
-    assert OutlierHandlingStep.requires_split is True
+    assert not getattr(OutlierHandlingStep, 'requires_split', False)
 
 
 def test_default_method():

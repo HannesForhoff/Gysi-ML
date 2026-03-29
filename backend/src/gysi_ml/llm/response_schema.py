@@ -22,6 +22,7 @@ LLM_RESPONSE_SCHEMA: dict = {
                         "properties": {
                             "type": {"type": "string"},
                             "params": {"type": "object"},
+                            "parameters_summary": {"type": "string"},
                         },
                     },
                 }

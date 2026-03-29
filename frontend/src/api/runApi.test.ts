@@ -163,7 +163,7 @@ describe('fetchRunStatus', () => {
 
     expect(result.artifacts).toHaveLength(1)
     expect(result.artifacts![0].id).toBe('550e8400-e29b-41d4-a716-446655440000')
-    expect(result.artifacts![0].url).toBe('/v1/artifacts/550e8400-e29b-41d4-a716-446655440000')
+    expect(result.artifacts![0].url).toBe('http://localhost:8000/v1/artifacts/550e8400-e29b-41d4-a716-446655440000')
     expect(result.artifacts![0].label).toBe('plot')
   })
 })

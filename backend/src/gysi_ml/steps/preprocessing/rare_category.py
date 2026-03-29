@@ -8,7 +8,6 @@ from gysi_ml.steps.registry import register_step
 class RareCategoryBucketingStep(BaseStep):
     description = "Bündelt seltene Kategorien zu '__rare__'"
     param_schema = {"min_frequency": {"type": "number", "default": 0.01}}
-    requires_split = True
 
     def __init__(self, params: dict | None = None) -> None:
         super().__init__(params)

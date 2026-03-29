@@ -73,8 +73,10 @@ def test_artifact_retrieve_after_training(client):
     artifacts = run_body.get("artifacts", [])
     assert len(artifacts) >= 1, "Nach Training muss mindestens ein Artefakt vorhanden sein"
 
-    artifact_id = artifacts[0]["artifact_id"]
-    assert artifacts[0]["type"] == "feature_importance"
+    # Feature-Importance-Artefakt nach Typ suchen (Split-Artefakte kommen zuerst)
+    fi_artifacts = [a for a in artifacts if a["type"] == "feature_importance"]
+    assert len(fi_artifacts) >= 1, "Nach Training muss ein Feature-Importance-Artefakt vorhanden sein"
+    artifact_id = fi_artifacts[0]["artifact_id"]
 
     # Artefakt als PNG abrufen
     art_resp = client.get(f"/v1/artifacts/{artifact_id}")

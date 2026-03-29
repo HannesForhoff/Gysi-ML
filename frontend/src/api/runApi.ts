@@ -15,10 +15,10 @@ export async function fetchRunStatus(
   }
 
   const data: unknown = await response.json()
-  return parseRunStatusResponse(data)
+  return parseRunStatusResponse(data, base)
 }
 
-function parseRunStatusResponse(data: unknown): RunStatusResponse {
+function parseRunStatusResponse(data: unknown, baseUrl: string): RunStatusResponse {
   if (!isRecord(data)) {
     throw new Error('Run-Status-Response ist kein Objekt.')
   }
@@ -30,7 +30,7 @@ function parseRunStatusResponse(data: unknown): RunStatusResponse {
     : undefined
 
   const artifacts = Array.isArray(data.artifacts)
-    ? parseArtifacts(data.artifacts)
+    ? parseArtifacts(data.artifacts, baseUrl)
     : undefined
 
   const error_message =
@@ -38,7 +38,16 @@ function parseRunStatusResponse(data: unknown): RunStatusResponse {
       ? data.error_message
       : undefined
 
-  return { status, metrics, artifacts, error_message }
+  const step_results = Array.isArray(data.step_results)
+    ? data.step_results
+        .filter(isRecord)
+        .map((sr) => ({
+          step_type: toNonEmptyString(sr.step_type) ?? 'unknown',
+          metadata: isRecord(sr.metadata) ? (sr.metadata as Record<string, unknown>) : {},
+        }))
+    : undefined
+
+  return { status, metrics, artifacts, error_message, step_results }
 }
 
 const VALID_STATUSES = new Set<RunStatus>(['queued', 'running', 'done', 'failed'])
@@ -59,22 +68,39 @@ function parseRunStatus(value: unknown): RunStatus {
   throw new Error(`Ungültiger Run-Status: ${String(value)}`)
 }
 
-function parseArtifacts(raw: unknown[]): ArtifactRef[] {
+function parseArtifacts(raw: unknown[], baseUrl: string): ArtifactRef[] {
+  const base = baseUrl.replace(/\/+$/, '')
   const result: ArtifactRef[] = []
   for (const item of raw) {
     if (!isRecord(item)) continue
     // Backend: artifact_id + type; Frontend: id + media_type
     const id = toNonEmptyString(item.artifact_id) ?? toNonEmptyString(item.id) ?? ''
-    const label = toNonEmptyString(item.label) ?? toNonEmptyString(item.type) ?? 'Artifact'
+    const artifactType = toNonEmptyString(item.type) ?? ''
+    const label = toNonEmptyString(item.label) ?? artifactTypeToLabel(artifactType)
     const url = toNonEmptyString(item.href)
       ?? toNonEmptyString(item.url)
-      ?? (id ? `/v1/artifacts/${encodeURIComponent(id)}` : '')
-    const media_type = toNonEmptyString(item.media_type) ?? toNonEmptyString(item.type) ?? ''
+      ?? (id && base ? `${base}/v1/artifacts/${encodeURIComponent(id)}` : '')
+    const media_type = toNonEmptyString(item.media_type) ?? artifactTypeToMime(artifactType)
     if (id && url) {
       result.push({ id, label, url, media_type })
     }
   }
   return result
+}
+
+function artifactTypeToLabel(type: string): string {
+  const labels: Record<string, string> = {
+    split_train: 'Trainingsdaten (CSV)',
+    split_test: 'Testdaten (CSV)',
+    feature_importance: 'Feature Importance',
+  }
+  return labels[type] ?? (type || 'Artifact')
+}
+
+function artifactTypeToMime(type: string): string {
+  if (type === 'split_train' || type === 'split_test') return 'text/csv'
+  if (type === 'feature_importance') return 'image/png'
+  return 'application/octet-stream'
 }
 
 function toMetrics(obj: Record<string, unknown>): Record<string, number | string> {

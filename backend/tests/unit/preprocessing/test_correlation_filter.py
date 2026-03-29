@@ -37,7 +37,7 @@ def df_with_correlated():
 
 
 def test_requires_split_true():
-    assert CorrelationFilterStep.requires_split is True
+    assert not getattr(CorrelationFilterStep, 'requires_split', False)
 
 
 def test_description_set():

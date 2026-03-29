@@ -738,7 +738,7 @@ def test_re_execution_calls_execute_with_spec_id(monkeypatch):
     )
     monkeypatch.setattr(
         "gysi_ml.services.message_service.spec_repository.get_spec_by_version",
-        lambda **kw: {"spec_id": "spec-abc", "spec": {"steps": [{"type": "dedup"}]}},
+        lambda **kw: {"spec_id": "spec-abc", "spec": {"steps": [{"type": "dedup"}]}, "version": "v1"},
     )
     fake_executor = MagicMock()
     fake_executor.execute_with_spec_id.return_value = {"run_id": "run-re"}

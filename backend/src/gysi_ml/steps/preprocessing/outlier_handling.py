@@ -15,7 +15,6 @@ class OutlierHandlingStep(BaseStep):
         },
         "zscore_threshold": {"type": "number", "default": 3.0},
     }
-    requires_split = True
 
     def __init__(self, params: dict | None = None) -> None:
         super().__init__(params)

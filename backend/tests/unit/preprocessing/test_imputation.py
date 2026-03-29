@@ -118,7 +118,7 @@ def test_metadata_zero_when_no_missing(df_no_missing):
 
 
 def test_requires_split_is_true():
-    assert ImputationStep.requires_split is True
+    assert not getattr(ImputationStep, 'requires_split', False)
 
 
 def test_default_strategy():

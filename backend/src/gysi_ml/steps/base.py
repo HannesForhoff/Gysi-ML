@@ -28,9 +28,10 @@ class BaseStep(ABC):
         """Gibt optionale Metadaten nach der Ausführung zurück."""
         return {}
 
-    def generate_artifact(self, artifacts_path: str, run_id: str) -> dict | None:
-        """Generiert ein Artefakt (z.B. Plot) nach der Step-Ausführung.
-        Gibt dict mit 'type' und 'file_path' zurück oder None wenn kein Artefakt.
+    def generate_artifact(self, artifacts_path: str, run_id: str) -> list[dict] | dict | None:
+        """Generiert Artefakte (z.B. Plot, CSV) nach der Step-Ausführung.
+        Gibt ein dict, eine Liste von dicts (je mit 'type' und 'file_path') zurück,
+        oder None wenn kein Artefakt erzeugt wird.
         Preprocessing-Steps geben immer None zurück (Default).
         """
         return None

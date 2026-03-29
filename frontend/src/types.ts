@@ -41,6 +41,11 @@ export interface ProposalResponse {
   proposal_id?: string
 }
 
+export interface StepResult {
+  step_type: string
+  metadata: Record<string, unknown>
+}
+
 export interface ResultResponse {
   type: 'result'
   message: string
@@ -48,6 +53,7 @@ export interface ResultResponse {
   metrics?: Record<string, number | string>
   artifacts?: ArtifactRef[]
   spec_summary?: SpecSummary
+  step_results?: StepResult[]
 }
 
 export interface ErrorResponse {
@@ -62,7 +68,28 @@ export interface SpecUpdatedResponse {
   spec_summary: SpecSummary
 }
 
-export type AssistantResponse = ProposalResponse | ResultResponse | ErrorResponse | SpecUpdatedResponse
+export interface InfoResponse {
+  type: 'info'
+  message: string
+}
+
+export type AssistantResponse = ProposalResponse | ResultResponse | ErrorResponse | SpecUpdatedResponse | InfoResponse
+
+export interface VersionNode {
+  spec_id: string
+  version: string
+  parent_spec_id: string | null
+  change_summary: string | null
+  created_at: string
+  has_runs: boolean
+  last_run_status: string | null
+}
+
+export interface VersionTree {
+  session_id: string
+  active_spec_id: string | null
+  versions: VersionNode[]
+}
 
 export type RunStatus = 'queued' | 'running' | 'done' | 'failed'
 
@@ -71,4 +98,5 @@ export interface RunStatusResponse {
   metrics?: Record<string, number | string>
   artifacts?: ArtifactRef[]
   error_message?: string
+  step_results?: StepResult[]
 }

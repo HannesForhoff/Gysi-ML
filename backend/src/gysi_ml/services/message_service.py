@@ -1,4 +1,5 @@
 import json
+import logging
 
 import jsonschema
 
@@ -13,7 +14,56 @@ from gysi_ml.llm.response_schema import validate_llm_response
 from gysi_ml.persistence import message_repository, proposal_repository, spec_repository, step_state_repository
 from gysi_ml.spec.schema import validate_spec
 
+log = logging.getLogger(__name__)
+
 LLM_NOT_CONFIGURED = "llm_not_configured"
+
+
+def _merge_specs(current_spec: dict | None, new_spec: dict) -> dict:
+    """Fügt neue Steps aus new_spec in die bestehende Spec ein.
+
+    Merge-Regeln:
+    - Kein current_spec (Erstausführung) → new_spec unverändert
+    - new_spec leer (steps: []) → aktuelle Spec erneut ausführen (Re-Run)
+    - Neuer Step-Typ noch nicht in current_spec → am Ende anfügen
+    - Step-Typ bereits vorhanden → durch neuen Step ersetzen (neue Parameter)
+
+    Die Reihenfolge der bestehenden Steps bleibt erhalten. Neue Steps kommen
+    stets NACH den bestehenden (abgesehen von Ersetzungen an der gleichen Position).
+    """
+    new_steps = new_spec.get("steps", [])
+
+    # Kein aktueller Zustand: direkte Ausführung der LLM-Spec
+    if current_spec is None:
+        return new_spec
+
+    current_steps: list[dict] = list(current_spec.get("steps", []))
+
+    # Leere neue Spec = Re-Run des aktuellen Stands
+    if not new_steps:
+        return {**new_spec, "steps": current_steps}
+
+    # Map: step_type → Index in current_steps (für O(1)-Lookup)
+    type_to_idx: dict[str, int] = {
+        s["type"]: i for i, s in enumerate(current_steps)
+    }
+
+    merged: list[dict] = list(current_steps)
+    for new_step in new_steps:
+        step_type = new_step.get("type")
+        if not step_type:
+            # Ungültiger Step ohne type-Feld — wird vom Spec-Validator abgefangen
+            merged.append(new_step)
+            continue
+        if step_type in type_to_idx:
+            # Step existiert bereits → Parameter aktualisieren, Position beibehalten
+            merged[type_to_idx[step_type]] = new_step
+        else:
+            # Neuer Step-Typ → anhängen und in Index aufnehmen
+            type_to_idx[step_type] = len(merged)
+            merged.append(new_step)
+
+    return {**new_spec, "steps": merged}
 
 
 def handle_message(
@@ -180,6 +230,11 @@ def handle_message(
         }
 
     if action == "execute":
+        # parameters_summary ist Präsentationsschicht — darf nicht in die ausführbare Spec.
+        # PIPELINE_SPEC_SCHEMA hat additionalProperties: False, weshalb validate_spec sonst fehlschlägt.
+        clean_steps = [{k: v for k, v in s.items() if k != "parameters_summary"} for s in spec.get("steps", [])]
+        spec = {**spec, "steps": clean_steps}
+
         executor = PipelineExecutor(
             data_path=data_path or settings.data_path,
             artifacts_path=artifacts_path or settings.artifacts_path,
@@ -200,12 +255,35 @@ def handle_message(
                 session_id=session_id,
                 db_path=db_path,
             )
+            spec_for_response = existing_spec["spec"]
+            version_for_response = existing_spec["version"]
         else:
-            result = executor.execute(spec=spec, session_id=session_id, db_path=db_path)
+            # Neue Steps mit akkumulierter Session-Spec zusammenführen,
+            # damit der Executor immer die vollständige Pipeline erhält.
+            try:
+                merged_spec = _merge_specs(current_spec, spec)
+            except Exception as exc:  # pragma: no cover
+                log.exception("Spec-Merge fehlgeschlagen")
+                return {
+                    "type": "error",
+                    "message": f"Interner Fehler beim Zusammenführen der Pipeline-Spec: {exc}",
+                }
+            result = executor.execute(spec=merged_spec, session_id=session_id, db_path=db_path)
+            spec_for_response = result.get("spec", merged_spec)
+            version_for_response = result.get("spec_version")
 
         if "error" in result:
             return {"type": "error", "message": result.get("detail", result.get("error"))}
-        return {"type": "result", "run_id": result["run_id"], "explanation": explanation}
+        run_result = result.get("result", {})
+        return {
+            "type": "result",
+            "run_id": result["run_id"],
+            "explanation": explanation,
+            "step_results": run_result.get("step_results", []),
+            "artifacts": run_result.get("artifacts", []),
+            "spec": spec_for_response,
+            "version": version_for_response,
+        }
 
     if action == "abort_step_by_step":
         state = step_state_repository.get_step_state_by_session(
@@ -224,16 +302,23 @@ def handle_message(
         return {"type": "assistant", "message": "Kein aktiver Step-by-Step-Vorgang."}
 
     # action == "propose"
+    raw_steps = spec.get("steps", [])
+
+    # Spec für Speicherung bereinigen: parameters_summary ist nur Präsentation,
+    # darf nicht in der ausführbaren Spec landen (würde validate_spec bei Confirm fehlschlagen).
+    clean_steps = [{k: v for k, v in s.items() if k != "parameters_summary"} for s in raw_steps]
+    clean_spec = {**spec, "steps": clean_steps}
+
     proposal = proposal_repository.create_proposal(
         session_id=session_id,
-        spec_json=json.dumps(spec),
+        spec_json=json.dumps(clean_spec),
         explanation=explanation,
         db_path=db_path,
     )
     return {
         "type": "proposal",
         "proposal_id": proposal["proposal_id"],
-        "steps": spec.get("steps", []),
+        "steps": raw_steps,  # enthält parameters_summary für die Anzeige
         "explanation": explanation,
         "confirmation_required": True,
     }

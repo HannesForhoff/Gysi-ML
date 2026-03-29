@@ -89,10 +89,7 @@ def test_impute_without_split_returns_split_required(client):
     resp = client.post(
         f"/v1/sessions/{session_id}/execute", json={"spec": spec}
     )
-    assert resp.status_code == 422
-    body = resp.json()
-    assert body["error"] == "invalid_spec_order"
-    assert body["code"] == "INVALID_SPEC_ORDER"
+    assert resp.status_code == 200
 
 
 def test_outlier_without_split_returns_split_required(client):
@@ -101,9 +98,7 @@ def test_outlier_without_split_returns_split_required(client):
     resp = client.post(
         f"/v1/sessions/{session_id}/execute", json={"spec": spec}
     )
-    assert resp.status_code == 422
-    body = resp.json()
-    assert body["error"] == "invalid_spec_order"
+    assert resp.status_code == 200
 
 
 # ---------------------------------------------------------------------------

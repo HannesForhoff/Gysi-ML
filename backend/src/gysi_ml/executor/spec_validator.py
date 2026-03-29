@@ -1,12 +1,10 @@
 """Spec-Order-Validierung: prüft ob Split-abhängige Steps nach dem Split kommen."""
 
+# Nur Modeling-Steps erfordern einen vorherigen Split (Data-Leakage-Schutz).
+# Preprocessing-Steps (impute_missing, outlier_handling, encode_categorical etc.)
+# können pädagogisch sinnvoll auch auf dem Gesamtdatensatz ausgeführt werden.
 REQUIRES_SPLIT: frozenset[str] = frozenset({
-    "impute_missing",
-    "outlier_handling",
-    "encode_categorical",
-    "correlation_filter",
-    "rare_category_bucketing",
-    # Modeling Steps (Epic 2)
+    # Modeling Steps (Epic 2) — zwingend nach Split wegen Data Leakage
     "train_decision_tree",
     "train_ebm",
     "catboost_feature_selection",
