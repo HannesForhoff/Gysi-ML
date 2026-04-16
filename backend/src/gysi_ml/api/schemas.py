@@ -78,6 +78,16 @@ class RunDetailResponse(BaseModel):
     error_message: Optional[str] = None
 
 
+class DataPageResponse(BaseModel):
+    columns: list[str]
+    rows: list[list[Any]]
+    total_rows: int
+    offset: int
+    limit: int
+    is_split: bool
+    column_stats: Optional[dict] = None  # nur bei offset == 0 befüllt
+
+
 class RunListResponse(BaseModel):
     runs: list[RunSummaryResponse]
 

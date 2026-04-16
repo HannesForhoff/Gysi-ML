@@ -154,6 +154,207 @@
   min-height: 0;
 }
 
+.tabBar {
+  flex: 0 0 auto;
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--header-bg);
+}
+
+.tabBtn {
+  all: unset;
+  padding: 8px 18px;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.tabBtn:hover:not(:disabled) {
+  color: var(--accent, #00008C);
+}
+
+.tabBtn--active {
+  color: var(--accent, #00008C);
+  font-weight: 700;
+  border-bottom: 2px solid var(--accent, #00008C);
+}
+
+.tabBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.tabContent {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.dataViewPanel {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.dataViewPanel--empty {
+  color: var(--text-muted, #888);
+  font-size: 13px;
+  padding: 18px;
+}
+
+.dataViewToolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  min-height: 32px;
+}
+
+.dataViewInfo {
+  font-size: 12px;
+  color: var(--text-muted, #888);
+}
+
+.splitBadge {
+  background: var(--accent, #5b6af6);
+  color: #fff;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.dataTableContainer {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.dataTable {
+  border-collapse: collapse;
+  width: 100%;
+  table-layout: auto;
+  font-size: 12px;
+}
+
+.dataTable thead th {
+  position: sticky;
+  top: 0;
+  background: var(--header-bg, #fff);
+  z-index: 1;
+  border-bottom: 2px solid var(--border, #e0e0e0);
+  padding: 6px 8px;
+  text-align: left;
+  white-space: normal;
+  font-weight: 600;
+}
+
+.columnSummaryHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 80px;
+  padding: 2px 0;
+}
+
+.columnSummaryName {
+  font-weight: 600;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.columnSummaryStat {
+  font-size: 12px;
+  color: var(--text-muted, #888);
+  white-space: nowrap;
+}
+
+.columnSummaryMinMax {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-muted, #888);
+  white-space: nowrap;
+}
+
+.histogramTooltip {
+  position: fixed;
+  z-index: 9999;
+  background: #1e2533;
+  border: 1px solid #2d3748;
+  border-radius: 6px;
+  padding: 6px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  min-width: 110px;
+}
+
+.histogramTooltipRange {
+  font-size: 12px;
+  color: #a0aec0;
+}
+
+.histogramTooltipCount {
+  font-size: 13px;
+  color: #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.histogramTooltipCount strong {
+  color: #fff;
+}
+
+.histogramTooltipDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4299e1;
+  flex-shrink: 0;
+}
+
+.dataTable td {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border, #e0e0e0);
+  white-space: nowrap;
+}
+
+.dataTable tbody tr:nth-child(even) {
+  background: var(--row-alt, #f7f7fa);
+}
+
+.missingValue {
+  color: var(--text-muted, #888);
+  font-style: italic;
+  font-size: 11px;
+}
+
+.dataTableStatusRow {
+  text-align: center;
+  padding: 12px;
+  color: var(--text-muted, #888);
+  font-size: 12px;
+}
+
+.dataTableErrorRow {
+  color: var(--error, #c0392b);
+}
+
 .messageList {
   flex: 1;
   overflow: auto;

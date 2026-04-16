@@ -1,4 +1,5 @@
 import json
+import logging
 import uuid
 from datetime import datetime, timezone
 
@@ -10,7 +11,10 @@ from gysi_ml.persistence import artifact_repository, run_repository, spec_reposi
 from gysi_ml.persistence.database import get_connection
 from gysi_ml.spec.schema import validate_spec
 from gysi_ml.steps.registry import get_step_class
+from gysi_ml.services.snapshot_service import SnapshotService
 from gysi_ml.utils.data_loader import load_bikes_dataset
+
+logger = logging.getLogger(__name__)
 
 
 def _utc_now() -> str:
@@ -267,6 +271,17 @@ class PipelineExecutor:
             result_json=json.dumps(result),
             db_path=db_path,
         )
+
+        # 8. Snapshot speichern (fire-and-forget — darf Run nicht zum Scheitern bringen)
+        try:
+            SnapshotService().save_snapshot(
+                run_id=run_id,
+                df=context.df_full,
+                is_split=context.is_split,
+                artifacts_path=self._artifacts_path,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Snapshot konnte nicht gespeichert werden (run_id=%s): %s", run_id, exc)
 
         return {
             "run_id": run_id,

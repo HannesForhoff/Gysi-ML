@@ -39,6 +39,8 @@ export interface ChatState {
   isConfirming: boolean
   isLongRunning: boolean
   llmModel: string | null
+  activeTab: 'chat' | 'data'
+  activeDataRunId: string | null
 }
 
 export type ChatAction =
@@ -74,6 +76,7 @@ export type ChatAction =
   | { type: 'SPEC_TREE_LOADED'; specTree: VersionTree }
   | { type: 'ROLLBACK_SUCCEEDED'; infoMessage: ChatMessage; specTree: VersionTree; specSummary: SpecSummary | null }
   | { type: 'ROLLBACK_FAILED'; errorMessage: string; errorChatMessage: ChatMessage }
+  | { type: 'SET_ACTIVE_TAB'; tab: 'chat' | 'data' }
 
 const WELCOME_MESSAGE: ChatMessage = {
   id: 'welcome',
@@ -108,6 +111,8 @@ export function createInitialChatState(): ChatState {
     isConfirming: false,
     isLongRunning: false,
     llmModel: null,
+    activeTab: 'chat',
+    activeDataRunId: null,
   }
 }
 
@@ -243,6 +248,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           ui: { type: 'run_done' },
           lastRun,
           artifacts: action.artifacts ?? state.artifacts,
+          activeDataRunId: state.runId,
           runId: null,
           isLongRunning: false,
           ...(action.assistantMessage
@@ -308,5 +314,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         lastError: action.errorMessage,
         messages: [...state.messages, action.errorChatMessage],
       }
+
+    case 'SET_ACTIVE_TAB':
+      return { ...state, activeTab: action.tab }
   }
 }

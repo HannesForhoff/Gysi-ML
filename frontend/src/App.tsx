@@ -6,6 +6,7 @@ import { fetchSpecSummary, fetchSpecTree, performRollback } from './api/healthAp
 import { confirmProposal, sendAssistantMessage } from './api/transport'
 import { ChatLayout } from './components/ChatLayout'
 import { Composer } from './components/Composer'
+import { DataViewPanel } from './components/DataViewPanel'
 import { MessageList } from './components/MessageList'
 import { SpecHistoryPanel } from './components/SpecHistoryPanel'
 import { StatusPanel } from './components/StatusPanel'
@@ -185,6 +186,13 @@ function App() {
     [state.isConfirming, state.ui.type, state.sessionId],
   )
 
+  const handleTabChange = useCallback(
+    (tab: 'chat' | 'data') => {
+      dispatch({ type: 'SET_ACTIVE_TAB', tab })
+    },
+    [],
+  )
+
   const handleRollback = useCallback(
     async (targetSpecId: string) => {
       if (!state.sessionId || isRollingBack) return
@@ -293,6 +301,16 @@ function App() {
               onRollback={handleRollback}
               isRollingBack={isRollingBack}
               rollbackTargetId={rollbackTargetId}
+            />
+          }
+          activeTab={state.activeTab}
+          onTabChange={handleTabChange}
+          dataTabEnabled={state.sessionId !== null}
+          dataPane={
+            <DataViewPanel
+              activeDataRunId={state.activeDataRunId}
+              sessionId={state.sessionId}
+              backendBaseUrl={state.transport.backendBaseUrl}
             />
           }
         >

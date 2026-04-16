@@ -1,5 +1,5 @@
 # generated: 2026-03-21
-# last_updated: 2026-03-21
+# last_updated: 2026-04-14
 # project: gysi-ml
 # project_key: NOKEY
 # tracking_system: file-system
@@ -34,7 +34,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-03-21
-last_updated: 2026-03-21  # Stories 5.1–9.3 alle ready-for-dev
+last_updated: 2026-04-14  # DV-2.3 story ready-for-dev
 project: gysi-ml
 project_key: NOKEY
 tracking_system: file-system
@@ -128,3 +128,24 @@ development_status:
   frontend-3-2-result-message-status-und-metriken-rendern: done
   frontend-3-3-artefakt-links-anzeigen-und-oeffnen: done
   frontend-epic-3-retrospective: optional
+
+  # ===========================================================================
+  # DATA VIEW TAB — Epics DV-1 & DV-2 (2026-04-04 — NEU)
+  # Source: _bmad-output/planning-artifacts/shared/epics-data-view-tab.md
+  # Implementierungsreihenfolge: DV-1.1 → DV-1.2 → DV-2.1 → DV-2.2 → DV-2.3 → DV-2.4 → DV-2.5
+  #                              DV-1.3 kann parallel zu DV-2.x entwickelt werden
+  # ===========================================================================
+
+  epic-dv-1: in-progress
+  dv-1-1-run-snapshot-nach-pipeline-ausfuehrung-speichern: done
+  dv-1-2-paginierter-daten-endpunkt: done
+  dv-1-3-csv-download-endpunkt: ready-for-dev
+  epic-dv-1-retrospective: optional
+
+  epic-dv-2: in-progress
+  dv-2-1-tab-switcher-chat-datenansicht: done
+  dv-2-2-paginierte-datentabelle-mit-infinite-scroll: done
+  dv-2-3-spalten-feature-summary-header: review
+  dv-2-4-rollback-integration-datenansicht-aktualisiert-sich: backlog
+  dv-2-5-csv-download-button: backlog
+  epic-dv-2-retrospective: optional 
