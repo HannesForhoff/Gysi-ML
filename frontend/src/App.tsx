@@ -211,6 +211,9 @@ function App() {
           fetchSpecSummary(state.transport.backendBaseUrl, state.sessionId),
           fetchSpecTree(state.transport.backendBaseUrl, state.sessionId),
         ])
+        const treeForLookup = newTree ?? state.specHistory
+        const targetNode = treeForLookup?.versions.find(v => v.spec_id === targetSpecId) ?? null
+        const newActiveDataRunId = targetNode?.last_run_id ?? null
         dispatch({
           type: 'ROLLBACK_SUCCEEDED',
           infoMessage: createMessage(
@@ -219,6 +222,7 @@ function App() {
           ),
           specTree: newTree ?? state.specHistory!,
           specSummary: newSummary,
+          activeDataRunId: newActiveDataRunId,
         })
       } else {
         dispatch({

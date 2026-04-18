@@ -74,7 +74,7 @@ export type ChatAction =
   | { type: 'RUN_POLL_NETWORK_ERROR'; errorMessage: string }
   | { type: 'RUN_LONG_RUNNING' }
   | { type: 'SPEC_TREE_LOADED'; specTree: VersionTree }
-  | { type: 'ROLLBACK_SUCCEEDED'; infoMessage: ChatMessage; specTree: VersionTree; specSummary: SpecSummary | null }
+  | { type: 'ROLLBACK_SUCCEEDED'; infoMessage: ChatMessage; specTree: VersionTree; specSummary: SpecSummary | null; activeDataRunId: string | null }
   | { type: 'ROLLBACK_FAILED'; errorMessage: string; errorChatMessage: ChatMessage }
   | { type: 'SET_ACTIVE_TAB'; tab: 'chat' | 'data' }
 
@@ -168,6 +168,13 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           ? (response.proposal_id ?? null)
           : null
 
+      // Bei direkter Ausführung (action:execute via message-Pfad) ist die Run-ID
+      // im result enthalten — activeDataRunId direkt setzen (kein Polling-Zyklus).
+      const activeDataRunId =
+        response.type === 'result' && response.run_id
+          ? response.run_id
+          : state.activeDataRunId
+
       return {
         ...state,
         ui: nextUiStateForResponse(response),
@@ -178,6 +185,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         lastRun,
         lastError: null,
         pendingProposalId,
+        activeDataRunId,
       }
     }
 
@@ -305,6 +313,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         specSummary: action.specSummary ?? state.specSummary,
         messages: [...state.messages, action.infoMessage],
         lastError: null,
+        activeDataRunId: action.activeDataRunId,
       }
 
     case 'ROLLBACK_FAILED':

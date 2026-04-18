@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import io
 import json
+import re
 from pathlib import Path
 from typing import Union
 
@@ -164,6 +165,48 @@ def get_run_data(
 
 
 @router.get(
+    "/sessions/{session_id}/raw-data/download",
+    response_model=None,
+    responses={
+        200: {"content": {"text/csv": {}}, "description": "CSV-Download des Rohdatensatzes"},
+        404: {"model": ErrorResponse},
+    },
+)
+def download_raw_data_csv(
+    session_id: str,
+    request: Request,
+) -> Union[StreamingResponse, JSONResponse]:
+    """Streamt den Rohdatensatz (bikes.csv) als CSV-Datei.
+
+    Content-Disposition: attachment; filename="gysi_raw_data.csv"
+    Hinweis: session_id wird nicht validiert — bikes.csv ist ein globaler
+    Datensatz ohne Session-Zugehörigkeit (Single-User-System).
+    """
+    data_path = _get_data_path(request)
+    csv_path = Path(data_path)
+    if not csv_path.exists():
+        return JSONResponse(
+            status_code=404,
+            content=ErrorResponse(
+                error="raw_data_not_found",
+                detail="Rohdatensatz nicht gefunden.",
+                code="RAW_DATA_NOT_FOUND",
+            ).model_dump(),
+        )
+
+    df = pd.read_csv(csv_path)
+    buffer = io.StringIO()
+    df.to_csv(buffer, index=False)
+    buffer.seek(0)
+
+    return StreamingResponse(
+        iter([buffer.read()]),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="gysi_raw_data.csv"'},
+    )
+
+
+@router.get(
     "/sessions/{session_id}/runs/{run_id}/data/download",
     response_model=None,
     responses={
@@ -214,7 +257,9 @@ def download_run_data_csv(
     df.to_csv(buffer, index=False)
     buffer.seek(0)
 
-    filename = f"gysi_data_{run_id[:8]}.csv"
+    spec_version = row.get("spec_version") or run_id[:8]
+    safe_version = re.sub(r'[^a-zA-Z0-9._\-]', '_', str(spec_version))
+    filename = f"bikes_{safe_version}.csv"
     return StreamingResponse(
         iter([buffer.read()]),
         media_type="text/csv; charset=utf-8",

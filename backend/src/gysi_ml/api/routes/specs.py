@@ -86,6 +86,7 @@ def get_spec_tree(
                 created_at=spec["created_at"],
                 has_runs=len(spec_runs) > 0,
                 last_run_status=last_run["status"] if last_run else None,
+                last_run_id=last_run["run_id"] if last_run else None,
             )
         )
 
@@ -118,48 +119,3 @@ def get_spec_by_version(
             ).model_dump(),
         )
     return SpecVersionResponse(**row)
-    db_path = _get_db_path(request)
-
-    session = session_repository.get_session(session_id=session_id, db_path=db_path)
-    if session is None:
-        return JSONResponse(
-            status_code=404,
-            content=ErrorResponse(
-                error="session_not_found",
-                detail=f"Session '{session_id}' nicht gefunden.",
-                code="SESSION_NOT_FOUND",
-            ).model_dump(),
-        )
-
-    specs = spec_repository.get_all_specs_for_session(session_id=session_id, db_path=db_path)
-
-    runs = run_repository.get_runs_for_session(session_id=session_id, db_path=db_path)
-    runs_by_spec: dict[str, list] = {}
-    for run in runs:
-        spec_id = run.get("spec_id")
-        if spec_id:
-            runs_by_spec.setdefault(spec_id, []).append(run)
-
-    active_spec_id = specs[-1]["spec_id"] if specs else None
-
-    nodes = []
-    for spec in specs:
-        spec_runs = runs_by_spec.get(spec["spec_id"], [])
-        last_run = spec_runs[-1] if spec_runs else None
-        nodes.append(
-            VersionNodeResponse(
-                spec_id=spec["spec_id"],
-                version=spec["version"],
-                parent_spec_id=spec.get("parent_spec_id"),
-                change_summary=spec.get("change_summary"),
-                created_at=spec["created_at"],
-                has_runs=len(spec_runs) > 0,
-                last_run_status=last_run["status"] if last_run else None,
-            )
-        )
-
-    return VersionTreeResponse(
-        session_id=session_id,
-        active_spec_id=active_spec_id,
-        versions=nodes,
-    )

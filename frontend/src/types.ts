@@ -50,6 +50,7 @@ export interface ResultResponse {
   type: 'result'
   message: string
   status: 'done' | 'failed'
+  run_id?: string
   metrics?: Record<string, number | string>
   artifacts?: ArtifactRef[]
   spec_summary?: SpecSummary
@@ -83,6 +84,7 @@ export interface VersionNode {
   created_at: string
   has_runs: boolean
   last_run_status: string | null
+  last_run_id: string | null
 }
 
 export interface VersionTree {

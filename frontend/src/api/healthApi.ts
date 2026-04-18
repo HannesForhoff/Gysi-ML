@@ -117,6 +117,7 @@ function parseVersionNode(item: unknown): VersionNode | null {
     created_at: typeof item.created_at === 'string' ? item.created_at : '',
     has_runs: item.has_runs === true,
     last_run_status: typeof item.last_run_status === 'string' ? item.last_run_status : null,
+    last_run_id: typeof item.last_run_id === 'string' ? item.last_run_id : null,
   }
 }
 

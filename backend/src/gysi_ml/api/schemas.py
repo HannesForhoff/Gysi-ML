@@ -163,6 +163,7 @@ class VersionNodeResponse(BaseModel):
     created_at: str
     has_runs: bool
     last_run_status: Optional[str] = None
+    last_run_id: Optional[str] = None
 
 
 class VersionTreeResponse(BaseModel):

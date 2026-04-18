@@ -34,7 +34,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-03-21
-last_updated: 2026-04-14  # DV-2.3 story ready-for-dev
+last_updated: 2026-04-18  # DV-2.5 review
 project: gysi-ml
 project_key: NOKEY
 tracking_system: file-system
@@ -146,6 +146,6 @@ development_status:
   dv-2-1-tab-switcher-chat-datenansicht: done
   dv-2-2-paginierte-datentabelle-mit-infinite-scroll: done
   dv-2-3-spalten-feature-summary-header: review
-  dv-2-4-rollback-integration-datenansicht-aktualisiert-sich: backlog
-  dv-2-5-csv-download-button: backlog
+  dv-2-4-rollback-integration-datenansicht-aktualisiert-sich: done
+  dv-2-5-csv-download-button: review
   epic-dv-2-retrospective: optional 

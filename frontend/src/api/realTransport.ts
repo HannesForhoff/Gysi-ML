@@ -197,10 +197,12 @@ function toAssistantResponse(
         }),
       }
     }
+    const run_id = toNonEmptyString(payload.run_id) ?? undefined
     return {
       type: 'result',
       message,
       status,
+      ...(run_id ? { run_id } : {}),
       ...(step_results.length > 0 ? { step_results } : {}),
       ...(artifacts.length > 0 ? { artifacts } : {}),
       ...(spec_summary ? { spec_summary } : {}),

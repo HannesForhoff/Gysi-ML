@@ -157,6 +157,80 @@ def test_spec_tree_has_runs_and_last_run_status(client, settings):
 
 
 # ---------------------------------------------------------------------------
+# DV-2.4: last_run_id im VersionNode
+# ---------------------------------------------------------------------------
+
+
+def test_spec_tree_last_run_id_with_run(client, settings):
+    """Spec mit 1 Run → last_run_id enthält run_id."""
+    import uuid
+    from datetime import datetime, timezone
+
+    from gysi_ml.persistence import run_repository
+
+    session_id = _create_session(client)
+    spec = _add_spec(settings, session_id)
+    spec_id = spec["spec_id"]
+
+    run_id = str(uuid.uuid4())
+    run_repository.create_run(
+        session_id=session_id,
+        run_id=run_id,
+        spec_version=spec["version"],
+        status="done",
+        started_at=datetime.now(timezone.utc).isoformat(),
+        spec_id=spec_id,
+        db_path=settings.db_path,
+    )
+
+    resp = client.get(f"/v1/sessions/{session_id}/spec/tree")
+    assert resp.status_code == 200
+    node = resp.json()["versions"][0]
+    assert node["last_run_id"] == run_id
+
+
+def test_spec_tree_last_run_id_without_run(client, settings):
+    """Spec ohne Run → last_run_id ist null."""
+    session_id = _create_session(client)
+    _add_spec(settings, session_id)
+
+    resp = client.get(f"/v1/sessions/{session_id}/spec/tree")
+    assert resp.status_code == 200
+    node = resp.json()["versions"][0]
+    assert node["last_run_id"] is None
+
+
+def test_spec_tree_last_run_id_is_last_run(client, settings):
+    """Spec mit 2 Runs → last_run_id ist die run_id des letzten Runs."""
+    import uuid
+    from datetime import datetime, timezone
+
+    from gysi_ml.persistence import run_repository
+
+    session_id = _create_session(client)
+    spec = _add_spec(settings, session_id)
+    spec_id = spec["spec_id"]
+
+    run_id_1 = str(uuid.uuid4())
+    run_id_2 = str(uuid.uuid4())
+    for rid in [run_id_1, run_id_2]:
+        run_repository.create_run(
+            session_id=session_id,
+            run_id=rid,
+            spec_version=spec["version"],
+            status="done",
+            started_at=datetime.now(timezone.utc).isoformat(),
+            spec_id=spec_id,
+            db_path=settings.db_path,
+        )
+
+    resp = client.get(f"/v1/sessions/{session_id}/spec/tree")
+    assert resp.status_code == 200
+    node = resp.json()["versions"][0]
+    assert node["last_run_id"] == run_id_2
+
+
+# ---------------------------------------------------------------------------
 # AC5: HTTP 404 bei unbekannter Session
 # ---------------------------------------------------------------------------
 

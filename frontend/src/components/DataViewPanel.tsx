@@ -167,6 +167,23 @@ export function DataViewPanel({ activeDataRunId, sessionId, backendBaseUrl }: Da
             1–{rows.length} von {totalRows.toLocaleString('de-DE')} Zeilen
           </span>
         )}
+        {sessionId ? (
+          <a
+            className="csvDownloadButton"
+            href={
+              activeDataRunId
+                ? `${backendBaseUrl}/v1/sessions/${encodeURIComponent(sessionId)}/runs/${encodeURIComponent(activeDataRunId)}/data/download`
+                : `${backendBaseUrl}/v1/sessions/${encodeURIComponent(sessionId)}/raw-data/download`
+            }
+            download
+          >
+            ⬇ CSV herunterladen
+          </a>
+        ) : (
+          <span className="csvDownloadButton csvDownloadButton--disabled" aria-disabled="true">
+            ⬇ CSV herunterladen
+          </span>
+        )}
       </div>
       <div className="dataTableContainer">
         <table className="dataTable">
