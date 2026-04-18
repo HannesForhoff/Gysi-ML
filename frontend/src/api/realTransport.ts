@@ -1,4 +1,4 @@
-import type { AssistantResponse, SpecSummary, StepResult } from '../types'
+import type { ArtifactRef, AssistantResponse, SpecSummary, StepResult } from '../types'
 import type {
   ConfirmResult,
   SendAssistantMessageInput,
@@ -27,6 +27,7 @@ export async function sendRealMessage(
         response: toAssistantResponse(
           sessionBody,
           `Session creation failed with HTTP ${sessionResponse.status}`,
+          baseUrl,
         ),
       }
     }
