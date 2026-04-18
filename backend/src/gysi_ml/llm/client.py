@@ -37,4 +37,10 @@ def call_llm(
         raise LLMConnectionError(f"Verbindungsfehler: {exc}") from exc
     except openai.APIError as exc:
         raise LLMConnectionError(f"API-Fehler: {exc}") from exc
-    return response.choices[0].message.content
+    content = response.choices[0].message.content
+    if content is None:
+        raise LLMConnectionError(
+            "LLM hat keinen Textinhalt zurückgegeben (content=None). "
+            "Prüfe ob das Modell Tool-Calls statt Text zurückgibt."
+        )
+    return content

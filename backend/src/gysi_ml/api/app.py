@@ -43,6 +43,8 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
     app.state.db_path = settings.db_path
     app.state.data_path = settings.data_path
     app.state.artifacts_path = settings.artifacts_path
+    app.state.openai_api_key = settings.openai_api_key
+    app.state.llm_model = settings.llm_model
 
     app.include_router(health_router)
     app.include_router(sessions_router)

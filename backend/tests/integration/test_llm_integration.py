@@ -165,7 +165,7 @@ def test_message_flow_retry_success(monkeypatch, client_with_llm, session_with_l
     )
     assert resp.status_code == 200
     assert resp.json()["type"] == "result"
-    assert call_count["n"] == 2
+    assert call_count["n"] == 3  # 1× ungültig, 1× retry-gültig, 1× post_run
 
 
 def test_message_flow_retry_exhausted(monkeypatch, client_with_llm, session_with_llm):
@@ -219,9 +219,10 @@ def test_conversation_history_sent_to_llm(
         json={"text": "zweite Frage"},
     )
 
-    assert len(captured_calls) == 2
-    second_call_messages = captured_calls[1]
-    roles = [m["role"] for m in second_call_messages]
+    assert len(captured_calls) == 4  # 2× execute + 2× post_run
+    # captured_calls: [execute_1, post_run_1, execute_2, post_run_2]
+    second_execute_messages = captured_calls[2]
+    roles = [m["role"] for m in second_execute_messages]
     assert roles[0] == "system"
     assert "user" in roles
     assert "assistant" in roles

@@ -114,7 +114,9 @@ def test_ebm_artifact_retrieve(client):
 
     run_resp = client.get(f"/v1/sessions/{session_id}/runs/{run_id}")
     artifacts = run_resp.json().get("artifacts", [])
-    artifact_id = artifacts[0]["artifact_id"]
+    ebm_artifacts = [a for a in artifacts if a["type"] == "ebm_global_explanation"]
+    assert len(ebm_artifacts) >= 1, "ebm_global_explanation-Artefakt muss vorhanden sein"
+    artifact_id = ebm_artifacts[0]["artifact_id"]
 
     art_resp = client.get(f"/v1/artifacts/{artifact_id}")
     assert art_resp.status_code == 200

@@ -164,4 +164,7 @@ def test_full_pipeline_outlier_treated_for_extreme_value(client):
     )
     assert resp.status_code == 200
     outlier_meta = resp.json()["result"]["step_results"][2]["metadata"]
-    assert outlier_meta["outliers_treated"] >= 1
+    # Bug 1.3: outliers_treated ist jetzt ein dict[str, int] (Spaltenname → Anzahl)
+    treated = outlier_meta["outliers_treated"]
+    assert isinstance(treated, dict)
+    assert sum(treated.values()) >= 1

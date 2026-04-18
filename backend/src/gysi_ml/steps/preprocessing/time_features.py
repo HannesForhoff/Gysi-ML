@@ -1,17 +1,45 @@
+import os
+
 import pandas as pd
 
 from gysi_ml.steps.base import BaseStep
 from gysi_ml.steps.registry import register_step
 
+# Mapping unterstützter Feature-Namen → Pandas dt-Accessor
+_FEATURE_ACCESSORS: dict[str, str] = {
+    "weekday": "dayofweek",
+    "month": "month",
+    "day_of_month": "day",
+    "year": "year",
+    "quarter": "quarter",
+}
+
 
 @register_step("time_feature_encoding")
 class TimeFeatureEncodingStep(BaseStep):
-    description = "Leitet Wochentag und Monat aus Datumsspalte ab"
-    param_schema = {"column": {"type": "string", "default": "dteday"}}
+    description = (
+        "Leitet Zeitfeatures (Wochentag, Monat, Tag etc.) aus Datumsspalte ab "
+        "und entfernt die Original-Spalte danach (konfigurierbar via drop_original)"
+    )
+    param_schema = {
+        "column": {"type": "string", "default": "dteday"},
+        "features": {
+            "type": "array",
+            "default": ["weekday", "month"],
+            "items": {
+                "type": "string",
+                "enum": ["weekday", "month", "day_of_month", "year", "quarter"],
+            },
+        },
+        "drop_original": {"type": "boolean", "default": False, "description": "Originale Datumsspalte nach Extraktion entfernen. Standard: False (Spalte bleibt erhalten)."},
+    }
 
     def __init__(self, params: dict | None = None) -> None:
         super().__init__(params)
         self._column: str = self.params.get("column", "dteday")
+        self._features: list[str] = list(self.params.get("features", ["weekday", "month"]))
+        self._drop_original: bool = bool(self.params.get("drop_original", False))
+        self._df_result: pd.DataFrame | None = None
 
     def fit(self, df_train: pd.DataFrame) -> None:
         pass  # stateless
@@ -19,20 +47,33 @@ class TimeFeatureEncodingStep(BaseStep):
     def transform(
         self, df_train: pd.DataFrame, df_test: pd.DataFrame
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        return self._apply(df_train), self._apply(df_test)
+        result_train = self._apply(df_train)
+        self._df_result = result_train
+        return result_train, self._apply(df_test)
 
     def _apply(self, df: pd.DataFrame) -> pd.DataFrame:
         if self._column not in df.columns:
             return df.copy()
         result = df.copy()
         dates = pd.to_datetime(result[self._column])
-        result["weekday"] = dates.dt.dayofweek
-        result["month"] = dates.dt.month
-        result = result.drop(columns=[self._column])
+        for feature in self._features:
+            accessor = _FEATURE_ACCESSORS.get(feature)
+            if accessor is not None:
+                result[feature] = getattr(dates.dt, accessor)
+        if self._drop_original:
+            result = result.drop(columns=[self._column])
         return result
 
     def get_metadata(self) -> dict:
-        return {
-            "derived_features": ["weekday", "month"],
-            "dropped_column": self._column,
-        }
+        meta: dict = {"derived_features": list(self._features)}
+        if self._drop_original:
+            meta["dropped_column"] = self._column
+        return meta
+
+    def generate_artifact(self, artifacts_path: str, run_id: str) -> list[dict] | None:
+        if self._df_result is None:
+            return None
+        os.makedirs(artifacts_path, exist_ok=True)
+        path = os.path.join(artifacts_path, f"{run_id}_time_features.csv")
+        self._df_result.to_csv(path, index=False, float_format="%.6f")
+        return [{"type": "time_features_result", "file_path": path}]

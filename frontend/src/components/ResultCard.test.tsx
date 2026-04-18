@@ -137,3 +137,34 @@ describe('ResultCard — CSS-Klassen', () => {
     expect(container.firstChild).toHaveClass('resultCard--failed')
   })
 })
+
+describe('ResultCard — formatStepResult time_feature_encoding', () => {
+  function makeResult(metadata: Record<string, unknown>): ResultResponse {
+    return {
+      type: 'result',
+      message: '',
+      status: 'done',
+      step_results: [{ step_type: 'time_feature_encoding', metadata }],
+    }
+  }
+
+  it('zeigt abgeleitete Features und entfernte Spalte an', () => {
+    render(<ResultCard result={makeResult({ derived_features: ['weekday', 'month', 'day_of_month'], dropped_column: 'dteday' })} />)
+    expect(screen.getByText('Abgeleitet: weekday, month, day_of_month | dteday entfernt')).toBeInTheDocument()
+  })
+
+  it('zeigt nur abgeleitete Features wenn dropped_column fehlt (drop_original=false)', () => {
+    render(<ResultCard result={makeResult({ derived_features: ['weekday', 'month'] })} />)
+    expect(screen.getByText('Abgeleitet: weekday, month')).toBeInTheDocument()
+  })
+
+  it('zeigt Fallback-Text wenn keine Features und keine dropped_column', () => {
+    render(<ResultCard result={makeResult({})} />)
+    expect(screen.getByText('Zeit-Feature-Encoding abgeschlossen.')).toBeInTheDocument()
+  })
+
+  it('zeigt Fallback-Text wenn derived_features leer ist', () => {
+    render(<ResultCard result={makeResult({ derived_features: [] })} />)
+    expect(screen.getByText('Zeit-Feature-Encoding abgeschlossen.')).toBeInTheDocument()
+  })
+})

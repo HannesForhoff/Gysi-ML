@@ -9,6 +9,18 @@ from gysi_ml.persistence import artifact_repository
 
 router = APIRouter(prefix="/v1", tags=["artifacts"])
 
+# Mapping: DB-Artefakt-Typ → lesbarer Download-Dateiname.
+# Entkoppelt den physischen Disk-Dateinamen (UUID-basiert) vom HTTP Content-Disposition Header.
+# Bei unbekannten Typen greift der Fallback auf os.path.basename(file_path).
+_TYPE_TO_DOWNLOAD_FILENAME: dict[str, str] = {
+    "split_train": "trainingsdaten.csv",
+    "split_test": "testdaten.csv",
+    "feature_importance": "decision_tree_feature_importance.png",
+    "ebm_global_explanation": "ebm_feature_importance.png",
+    "correlation_filter_result": "correlation_filter_ergebnis.csv",
+    "time_features_result": "time_features_ergebnis.csv",
+}
+
 
 @router.get("/artifacts/{artifact_id}")
 async def get_artifact(artifact_id: str, request: Request):
@@ -47,9 +59,9 @@ async def get_artifact(artifact_id: str, request: Request):
                 code="ARTIFACT_FILE_MISSING",
             ).model_dump(),
         )
-    filename = os.path.basename(file_path)
+    filename = _TYPE_TO_DOWNLOAD_FILENAME.get(
+        record.get("type", ""), os.path.basename(file_path)
+    )
     mime_type, _ = mimetypes.guess_type(file_path)
     media_type = mime_type or "application/octet-stream"
-    if media_type.startswith("image/"):
-        return FileResponse(file_path, media_type=media_type)
     return FileResponse(file_path, media_type=media_type, filename=filename)

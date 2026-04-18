@@ -146,6 +146,7 @@ class MessageResponse(BaseModel):
     better_run_id: Optional[str] = None
     step_results: Optional[list] = None
     artifacts: Optional[list] = None
+    post_run_explanation: Optional[str] = None
     # Step-by-Step-Felder (Story 9.3)
     completed_step: Optional[CompletedStepSchema] = None
     remaining_steps: Optional[list[dict]] = None

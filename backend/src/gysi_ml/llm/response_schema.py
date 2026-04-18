@@ -8,7 +8,7 @@ LLM_RESPONSE_SCHEMA: dict = {
     "type": "object",
     "required": ["action", "spec", "explanation"],
     "properties": {
-        "action": {"type": "string", "enum": ["execute", "propose", "modify_spec", "compare_runs", "rollback", "abort_step_by_step"]},
+        "action": {"type": "string", "enum": ["execute", "propose", "modify_spec", "compare_runs", "rollback", "abort_step_by_step", "info"]},
         "target_spec_id": {"type": "string"},
         "spec": {
             "type": "object",

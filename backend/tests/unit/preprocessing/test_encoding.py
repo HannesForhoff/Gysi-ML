@@ -243,3 +243,123 @@ def test_no_categorical_cols_no_change():
     result_train, result_test = step.transform(df, df.copy())
     pd.testing.assert_frame_equal(result_train, df)
     assert step.get_metadata()["encoded_columns"] == []
+
+
+# ---------------------------------------------------------------------------
+# columns-Parameter (Bug 1.2)
+# ---------------------------------------------------------------------------
+
+
+def test_encode_categorical_with_explicit_column():
+    """Nur die explizit angegebene Spalte wird encodiert — andere bleiben unberührt."""
+    df = pd.DataFrame({
+        "color": ["red", "blue", "green"],
+        "size": ["S", "M", "L"],
+        "value": [1, 2, 3],
+    })
+    step = CategoricalEncodingStep(params={"method": "label", "columns": ["color"]})
+    step.fit(df)
+    result_train, _ = step.transform(df, df.copy())
+    # color wurde encodiert
+    assert result_train["color"].dtype in (int, "int64", "int32")
+    # size bleibt als object
+    assert result_train["size"].tolist() == ["S", "M", "L"]
+    meta = step.get_metadata()
+    assert meta["encoded_columns"] == ["color"]
+    assert "size" not in meta["encoded_columns"]
+
+
+def test_encode_categorical_multiple_columns():
+    """Mehrere explizit angegebene Spalten werden korrekt encodiert, value bleibt."""
+    df = pd.DataFrame({
+        "color": ["red", "blue", "green"],
+        "size": ["S", "M", "L"],
+        "value": [1, 2, 3],
+    })
+    step = CategoricalEncodingStep(params={"method": "label", "columns": ["color", "size"]})
+    step.fit(df)
+    result_train, _ = step.transform(df, df.copy())
+    assert result_train["color"].dtype in (int, "int64", "int32")
+    assert result_train["size"].dtype in (int, "int64", "int32")
+    assert result_train["value"].tolist() == [1, 2, 3]
+    meta = step.get_metadata()
+    assert set(meta["encoded_columns"]) == {"color", "size"}
+
+
+def test_encode_categorical_fallback_no_columns():
+    """Ohne columns-Parameter: Fallback zu dtype-Autoerkennung (bisheriges Verhalten)."""
+    df = pd.DataFrame({
+        "color": ["red", "blue", "green"],
+        "value": [1, 2, 3],
+    })
+    step = CategoricalEncodingStep(params={"method": "label"})
+    step.fit(df)
+    meta = step.get_metadata()
+    # dtype-Autoerkennung findet "color"
+    assert "color" in meta["encoded_columns"]
+    # Numerische Spalte nicht dabei
+    assert "value" not in meta["encoded_columns"]
+
+
+def test_encode_categorical_nonexistent_column_skipped():
+    """Nicht vorhandene Spalte in columns → kein Fehler, wird stillschweigend übersprungen."""
+    df = pd.DataFrame({"color": ["red", "blue", "green"]})
+    step = CategoricalEncodingStep(params={"method": "label", "columns": ["nonexistent"]})
+    step.fit(df)
+    result_train, _ = step.transform(df, df.copy())
+    # Kein Encoding, kein Fehler
+    assert step.get_metadata()["encoded_columns"] == []
+    # color unverändert
+    assert result_train["color"].tolist() == ["red", "blue", "green"]
+
+
+def test_encode_categorical_non_categorical_column_warning():
+    """Numerische Spalte in columns → Warning im Metadata, keine Encodierung."""
+    df = pd.DataFrame({
+        "color": ["red", "blue", "green"],
+        "windspeed": [0.3, 0.5, 0.2],
+    })
+    step = CategoricalEncodingStep(params={"method": "label", "columns": ["windspeed"]})
+    step.fit(df)
+    result_train, _ = step.transform(df, df.copy())
+    meta = step.get_metadata()
+    # windspeed nicht encodiert
+    assert "windspeed" not in meta["encoded_columns"]
+    # Warnung vorhanden
+    assert "warnings" in meta
+    assert any("windspeed" in w for w in meta["warnings"])
+    # windspeed-Werte unverändert
+    assert result_train["windspeed"].tolist() == [0.3, 0.5, 0.2]
+
+
+def test_encode_categorical_onehot_specific_column():
+    """One-Hot auf explizit angegebene Spalte — nur diese Spalte wird zu Dummies."""
+    df = pd.DataFrame({
+        "color": ["red", "blue", "green"],
+        "size": ["S", "M", "L"],
+    })
+    step = CategoricalEncodingStep(params={"method": "onehot", "columns": ["color"]})
+    step.fit(df)
+    result_train, result_test = step.transform(df, df.copy())
+    # color-Dummies vorhanden
+    assert "color_red" in result_train.columns
+    assert "color_blue" in result_train.columns
+    assert "color_green" in result_train.columns
+    # Original color-Spalte entfernt
+    assert "color" not in result_train.columns
+    # size bleibt als object, unverändert
+    assert "size" in result_train.columns
+    assert result_train["size"].tolist() == ["S", "M", "L"]
+
+
+def test_encode_categorical_warnings_reset_on_refit():
+    """_warnings werden bei erneutem fit() zurückgesetzt."""
+    df = pd.DataFrame({"num": [1.0, 2.0, 3.0]})
+    df_cat = pd.DataFrame({"color": ["red", "blue", "green"]})
+    step = CategoricalEncodingStep(params={"method": "label", "columns": ["num"]})
+    step.fit(df)
+    assert "warnings" in step.get_metadata()
+    # Zweiter fit mit kategorialer Spalte — keine Warnings mehr
+    step2 = CategoricalEncodingStep(params={"method": "label", "columns": ["color"]})
+    step2.fit(df_cat)
+    assert "warnings" not in step2.get_metadata()

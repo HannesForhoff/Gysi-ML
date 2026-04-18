@@ -13,6 +13,14 @@ from gysi_ml.services.message_service import LLM_NOT_CONFIGURED, handle_message
 router = APIRouter(prefix="/v1")
 
 
+def _get_api_key(request: Request) -> str:
+    return getattr(request.app.state, "openai_api_key", get_settings().openai_api_key)
+
+
+def _get_llm_model(request: Request) -> str:
+    return getattr(request.app.state, "llm_model", get_settings().llm_model)
+
+
 def _get_db_path(request: Request) -> str | None:
     return getattr(request.app.state, "db_path", None)
 
@@ -91,6 +99,8 @@ def send_message(
         db_path=db_path,
         data_path=_get_data_path(request),
         artifacts_path=_get_artifacts_path(request),
+        api_key=_get_api_key(request),
+        llm_model=_get_llm_model(request),
     )
 
     # 4. Assistenten-Antwort speichern

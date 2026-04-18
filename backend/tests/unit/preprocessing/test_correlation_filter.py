@@ -1,4 +1,7 @@
 """Unit-Tests für CorrelationFilterStep."""
+import os
+import tempfile
+
 import pandas as pd
 import pytest
 
@@ -150,7 +153,7 @@ def test_transform_drops_from_both_splits(df_with_correlated):
 
 
 # ---------------------------------------------------------------------------
-# get_metadata
+# get_metadata — dropped_features (bestehend)
 # ---------------------------------------------------------------------------
 
 
@@ -169,3 +172,206 @@ def test_metadata_empty_when_no_drops(df_uncorrelated):
     step.fit(df_uncorrelated)
     meta = step.get_metadata()
     assert meta["dropped_features"] == []
+
+
+# ---------------------------------------------------------------------------
+# get_metadata — corr_pairs (Problem A Fix)
+# ---------------------------------------------------------------------------
+
+
+def test_metadata_corr_pairs_present(df_with_correlated):
+    """corr_pairs wird nach fit() befüllt."""
+    step = CorrelationFilterStep(params={"threshold": 0.9})
+    step.fit(df_with_correlated)
+    meta = step.get_metadata()
+    assert "corr_pairs" in meta
+    assert isinstance(meta["corr_pairs"], list)
+    assert len(meta["corr_pairs"]) >= 1
+
+
+def test_metadata_corr_pairs_structure(df_with_correlated):
+    """Jeder Eintrag in corr_pairs hat col_a, col_b, value, dropped."""
+    step = CorrelationFilterStep(params={"threshold": 0.9})
+    step.fit(df_with_correlated)
+    pairs = step.get_metadata()["corr_pairs"]
+    for p in pairs:
+        assert "col_a" in p
+        assert "col_b" in p
+        assert "value" in p
+        assert "dropped" in p
+        assert isinstance(p["value"], float)
+        assert 0.0 <= p["value"] <= 1.0
+
+
+def test_metadata_corr_pairs_value_rounded():
+    """Korrelationswerte werden auf 4 Dezimalstellen gerundet."""
+    values = [1.0, 2.0, 3.0, 4.0, 5.0]
+    df = pd.DataFrame({"a": values, "b": values})
+    step = CorrelationFilterStep(params={"threshold": 0.9})
+    step.fit(df)
+    pairs = step.get_metadata()["corr_pairs"]
+    assert len(pairs) == 1
+    assert pairs[0]["value"] == 1.0  # identische Spalten → r=1.0
+
+
+def test_metadata_corr_pairs_empty_when_no_correlation(df_uncorrelated):
+    """Keine Paare wenn alle Features unter dem Threshold liegen."""
+    step = CorrelationFilterStep(params={"threshold": 0.9})
+    step.fit(df_uncorrelated)
+    meta = step.get_metadata()
+    assert meta["corr_pairs"] == []
+
+
+def test_metadata_corr_pairs_dropped_matches_features_to_drop():
+    """Das 'dropped'-Feld in jedem Paar ist in dropped_features enthalten."""
+    values = [1.0, 2.0, 3.0, 4.0, 5.0]
+    df = pd.DataFrame({"a": values, "b": values, "c": [5.0, 4.0, 3.0, 2.0, 1.0]})
+    step = CorrelationFilterStep(params={"threshold": 0.9})
+    step.fit(df)
+    meta = step.get_metadata()
+    for p in meta["corr_pairs"]:
+        assert p["dropped"] in meta["dropped_features"]
+
+
+# ---------------------------------------------------------------------------
+# get_metadata — independent_features (Problem C Fix)
+# ---------------------------------------------------------------------------
+
+
+def test_metadata_independent_features_present(df_with_correlated):
+    """independent_features wird nach fit() zurückgegeben."""
+    step = CorrelationFilterStep(params={"threshold": 0.9})
+    step.fit(df_with_correlated)
+    meta = step.get_metadata()
+    assert "independent_features" in meta
+    assert isinstance(meta["independent_features"], list)
+
+
+def test_metadata_independent_features_excludes_correlated(df_with_correlated):
+    """a und b sind korreliert → beide nicht in independent_features."""
+    step = CorrelationFilterStep(params={"threshold": 0.9})
+    step.fit(df_with_correlated)
+    independent = step.get_metadata()["independent_features"]
+    assert "a" not in independent
+    assert "b" not in independent
+    # c ist unkorrelliert → in independent
+    assert "c" in independent
+
+
+def test_metadata_independent_features_all_when_no_correlation(df_uncorrelated):
+    """Keine Korrelation → alle Features sind eigenständig."""
+    step = CorrelationFilterStep(params={"threshold": 0.9})
+    step.fit(df_uncorrelated)
+    independent = step.get_metadata()["independent_features"]
+    assert set(independent) == {"a", "b", "c"}
+
+
+# ---------------------------------------------------------------------------
+# features_to_drop Parameter — Nutzer-Kontrolle (Problem B2 Fix)
+# ---------------------------------------------------------------------------
+
+
+def test_explicit_features_to_drop_overrides_fallback():
+    """User gibt explizit 'a' an → 'a' wird entfernt, nicht 'b' (Fallback wäre 'b')."""
+    values = [1.0, 2.0, 3.0, 4.0, 5.0]
+    df = pd.DataFrame({"a": values, "b": values})
+    step = CorrelationFilterStep(params={"threshold": 0.9, "features_to_drop": ["a"]})
+    step.fit(df)
+    meta = step.get_metadata()
+    assert "a" in meta["dropped_features"]
+    assert "b" not in meta["dropped_features"]
+    # dropped-Feld im Paar muss 'a' sein
+    assert meta["corr_pairs"][0]["dropped"] == "a"
+
+
+def test_explicit_features_to_drop_reflected_in_transform():
+    """Nach explizitem Drop von 'a': Transform entfernt 'a', behält 'b'."""
+    values = [1.0, 2.0, 3.0, 4.0, 5.0]
+    df_train = pd.DataFrame({"a": values, "b": values, "c": [5.0, 4.0, 3.0, 2.0, 1.0]})
+    df_test = df_train.copy()
+    step = CorrelationFilterStep(params={"threshold": 0.9, "features_to_drop": ["a"]})
+    step.fit(df_train)
+    result_train, result_test = step.transform(df_train, df_test)
+    assert "a" not in result_train.columns
+    assert "b" in result_train.columns
+    assert "a" not in result_test.columns
+
+
+def test_explicit_features_to_drop_empty_uses_fallback():
+    """Leere features_to_drop → Fallback max()-Logik greift (alphabetisch späteres)."""
+    values = [1.0, 2.0, 3.0, 4.0, 5.0]
+    df = pd.DataFrame({"a": values, "b": values})
+    step = CorrelationFilterStep(params={"threshold": 0.9, "features_to_drop": []})
+    step.fit(df)
+    meta = step.get_metadata()
+    assert "b" in meta["dropped_features"]
+    assert "a" not in meta["dropped_features"]
+
+
+# ---------------------------------------------------------------------------
+# generate_artifact (Problem D Fix)
+# ---------------------------------------------------------------------------
+
+
+def test_generate_artifact_returns_none_before_transform():
+    """Vor transform() gibt generate_artifact() None zurück."""
+    values = [1.0, 2.0, 3.0, 4.0, 5.0]
+    df = pd.DataFrame({"a": values, "b": values})
+    step = CorrelationFilterStep(params={"threshold": 0.9})
+    step.fit(df)
+    # Kein transform() → kein Artefakt
+    result = step.generate_artifact("/tmp", "test-run")
+    assert result is None
+
+
+def test_generate_artifact_creates_csv(df_with_correlated):
+    """Nach transform() wird ein CSV im artifacts_path erstellt."""
+    step = CorrelationFilterStep(params={"threshold": 0.9})
+    step.fit(df_with_correlated)
+    step.transform(df_with_correlated, df_with_correlated.copy())
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        result = step.generate_artifact(tmpdir, "run-abc")
+        assert result is not None
+        assert isinstance(result, list)
+        assert len(result) == 1
+        assert result[0]["type"] == "correlation_filter_result"
+        assert os.path.exists(result[0]["file_path"])
+
+
+def test_generate_artifact_csv_path_contains_run_id(df_with_correlated):
+    """Der Dateiname des Artefakts enthält die run_id."""
+    step = CorrelationFilterStep(params={"threshold": 0.9})
+    step.fit(df_with_correlated)
+    step.transform(df_with_correlated, df_with_correlated.copy())
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        result = step.generate_artifact(tmpdir, "my-run-42")
+        assert "my-run-42" in result[0]["file_path"]
+        assert result[0]["file_path"].endswith("_correlation_filter.csv")
+
+
+def test_generate_artifact_csv_has_correct_columns(df_with_correlated):
+    """Das gespeicherte CSV enthält nur die nicht-entfernten Spalten."""
+    step = CorrelationFilterStep(params={"threshold": 0.9})
+    step.fit(df_with_correlated)
+    df_result_train, _ = step.transform(df_with_correlated, df_with_correlated.copy())
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        result = step.generate_artifact(tmpdir, "col-check")
+        saved = pd.read_csv(result[0]["file_path"])
+        assert list(saved.columns) == list(df_result_train.columns)
+        for dropped in step._features_to_drop:
+            assert dropped not in saved.columns
+
+
+def test_generate_artifact_no_drops_still_creates_csv(df_uncorrelated):
+    """Auch wenn keine Features entfernt wurden, wird ein CSV erzeugt."""
+    step = CorrelationFilterStep(params={"threshold": 0.9})
+    step.fit(df_uncorrelated)
+    step.transform(df_uncorrelated, df_uncorrelated.copy())
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        result = step.generate_artifact(tmpdir, "no-drop-run")
+        assert result is not None
+        assert os.path.exists(result[0]["file_path"])

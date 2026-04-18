@@ -12,18 +12,44 @@ class ImputationStep(BaseStep):
             "type": "string",
             "enum": ["median", "mean", "most_frequent"],
             "default": "median",
-        }
+        },
+        "columns": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Spalten die imputiert werden sollen. Leer = alle numerischen Spalten.",
+        },
     }
 
     def __init__(self, params: dict | None = None) -> None:
         super().__init__(params)
         self.strategy: str = self.params.get("strategy", "median")
+        self._columns: list[str] = self.params.get("columns", [])
         self._fill_values: dict[str, float] = {}
         self._imputed_per_col: dict[str, int] = {}
+        self._warnings: list[str] = []
 
     def fit(self, df_train: pd.DataFrame) -> None:
-        numeric_cols = df_train.select_dtypes(include="number").columns
-        for col in numeric_cols:
+        numeric_cols = set(df_train.select_dtypes(include="number").columns)
+
+        if self._columns:
+            # Strict-Validierung: Fehler bei nicht-existenten oder nicht-numerischen Spalten
+            non_existent = [c for c in self._columns if c not in df_train.columns]
+            if non_existent:
+                raise ValueError(
+                    f"Imputation: Spalten nicht im Datensatz gefunden: {non_existent}. "
+                    f"Verfügbare Spalten: {sorted(df_train.columns.tolist())}"
+                )
+            non_numeric = [c for c in self._columns if c not in numeric_cols]
+            if non_numeric:
+                raise ValueError(
+                    f"Imputation: Nicht-numerische Spalten können nicht imputiert werden: {non_numeric}. "
+                    f"Verfügbare numerische Spalten: {sorted(numeric_cols)}"
+                )
+            target_cols = list(self._columns)
+        else:
+            target_cols = list(numeric_cols)
+
+        for col in target_cols:
             if self.strategy == "median":
                 self._fill_values[col] = df_train[col].median()
             elif self.strategy == "mean":
@@ -37,15 +63,24 @@ class ImputationStep(BaseStep):
         result_train = df_train.copy()
         result_test = df_test.copy()
         self._imputed_per_col = {}
+        self._warnings = []
         for col, val in self._fill_values.items():
             if col not in result_train.columns:
                 continue
             n_train = int(result_train[col].isna().sum())
             n_test = int(result_test[col].isna().sum())
             self._imputed_per_col[col] = n_train + n_test
+            # Hinweis: Spalte explizit genannt, aber keine fehlenden Werte vorhanden
+            if self._columns and (n_train + n_test) == 0:
+                self._warnings.append(
+                    f"{col}: Keine fehlenden Werte gefunden (0 Werte ersetzt)."
+                )
             result_train[col] = result_train[col].fillna(val)
             result_test[col] = result_test[col].fillna(val)
         return result_train, result_test
 
     def get_metadata(self) -> dict:
-        return {"imputed_values_per_column": self._imputed_per_col}
+        meta: dict = {"imputed_values_per_column": self._imputed_per_col}
+        if self._warnings:
+            meta["warnings"] = self._warnings
+        return meta

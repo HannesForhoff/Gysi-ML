@@ -1,13 +1,17 @@
 import uvicorn
 
-from gysi_ml.api.app import create_app
 from gysi_ml.config import get_settings
 
 
 def main() -> None:
     settings = get_settings()
-    app = create_app(settings=settings)
-    uvicorn.run(app, host=settings.host, port=settings.port)
+    uvicorn.run(
+        "gysi_ml.api.app:create_app",
+        factory=True,
+        host=settings.host,
+        port=settings.port,
+        reload=True,
+    )
 
 
 if __name__ == "__main__":

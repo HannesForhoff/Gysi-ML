@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime, timezone
 
 import jsonschema
+import pandas as pd
 
 from gysi_ml.executor.pipeline_context import PipelineContext
 from gysi_ml.executor.spec_validator import SpecOrderError, validate_spec_order
@@ -206,8 +207,9 @@ class PipelineExecutor:
                     )
                 else:
                     step.fit(context.df_full)
+                    # Pre-Split: leerer Test-DataFrame verhindert Doppelzählung in Metadata (Bug 1B)
                     result_train, _ = step.transform(
-                        context.df_full, context.df_full
+                        context.df_full, pd.DataFrame(columns=context.df_full.columns)
                     )
                     context.df_full = result_train
                 metadata = step.get_metadata()

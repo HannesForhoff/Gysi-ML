@@ -2,14 +2,16 @@ import json
 import logging
 
 import jsonschema
+import pandas as pd
 
 from gysi_ml.config import get_settings
+from gysi_ml.utils.data_loader import load_bikes_dataset
 from gysi_ml.core.capabilities import get_capabilities
 from gysi_ml.executor.executor import PipelineExecutor
 from gysi_ml.executor.spec_validator import SpecOrderError, validate_spec_order
 from gysi_ml.llm.client import call_llm
 from gysi_ml.llm.exceptions import LLMConnectionError, LLMResponseValidationError
-from gysi_ml.llm.prompts import build_retry_prompt, build_system_prompt
+from gysi_ml.llm.prompts import build_post_run_prompt, build_retry_prompt, build_system_prompt
 from gysi_ml.llm.response_schema import validate_llm_response
 from gysi_ml.persistence import message_repository, proposal_repository, spec_repository, step_state_repository
 from gysi_ml.spec.schema import validate_spec
@@ -66,12 +68,41 @@ def _merge_specs(current_spec: dict | None, new_spec: dict) -> dict:
     return {**new_spec, "steps": merged}
 
 
+def _compute_column_stats(data_path: str) -> dict | None:
+    """Berechnet deskriptive Statistiken pro Spalte für den System-Prompt (Bug 1D).
+
+    Verhindert LLM-Halluzination bei Fragen zu konkreten Spaltenwerten.
+    Gibt None zurück wenn das Laden des Datensatzes fehlschlägt.
+    """
+    try:
+        df = load_bikes_dataset(data_path)
+        stats: dict[str, dict] = {}
+        for col in df.columns:
+            col_stats: dict = {
+                "dtype": str(df[col].dtype),
+                "n_missing": int(df[col].isna().sum()),
+            }
+            if pd.api.types.is_numeric_dtype(df[col]):
+                non_null = df[col].dropna()
+                col_stats["median"] = round(float(non_null.median()), 4) if len(non_null) > 0 else None
+                col_stats["mean"] = round(float(non_null.mean()), 4) if len(non_null) > 0 else None
+                vc = non_null.value_counts()
+                col_stats["most_frequent"] = float(vc.index[0]) if len(vc) > 0 else None
+            stats[col] = col_stats
+        return stats
+    except Exception as exc:
+        log.warning("Spaltenstatistiken konnten nicht berechnet werden: %s", exc)
+        return None
+
+
 def handle_message(
     session_id: str,
     text: str,
     db_path: str | None = None,
     data_path: str | None = None,
     artifacts_path: str | None = None,
+    api_key: str | None = None,
+    llm_model: str | None = None,
 ) -> dict:
     """Koordiniert den Nachrichtenfluss: Text -> LLM -> Ausführung/Proposal.
 
@@ -79,9 +110,11 @@ def handle_message(
         dict mit Pflichtfeld 'type' ('proposal', 'result', 'error')
     """
     settings = get_settings()
+    effective_api_key = api_key if api_key is not None else settings.openai_api_key
+    effective_model = llm_model if llm_model is not None else settings.llm_model
 
     # 1. LLM-Konfiguration prüfen
-    if not settings.openai_api_key or not settings.llm_model:
+    if not effective_api_key or not effective_model:
         return {
             "type": "error",
             "error_code": LLM_NOT_CONFIGURED,
@@ -97,7 +130,8 @@ def handle_message(
         session_id=session_id, db_path=db_path
     )
     current_spec = current_spec_entry["spec"] if current_spec_entry else None
-    system_prompt = build_system_prompt(capabilities, current_spec=current_spec)
+    df_stats = _compute_column_stats(data_path or settings.data_path)
+    system_prompt = build_system_prompt(capabilities, current_spec=current_spec, df_stats=df_stats)
 
     # 3. Gesprächshistorie laden und messages-Array aufbauen
     history = message_repository.get_messages_for_session(
@@ -114,8 +148,8 @@ def handle_message(
     try:
         llm_response_str = call_llm(
             messages=messages,
-            model=settings.llm_model,
-            api_key=settings.openai_api_key,
+            model=effective_model,
+            api_key=effective_api_key,
             base_url=settings.openai_base_url or None,
         )
     except LLMConnectionError as exc:
@@ -131,8 +165,8 @@ def handle_message(
         try:
             llm_retry_str = call_llm(
                 messages=messages,
-                model=settings.llm_model,
-                api_key=settings.openai_api_key,
+                model=effective_model,
+                api_key=effective_api_key,
                 base_url=settings.openai_base_url or None,
             )
             parsed = validate_llm_response(llm_retry_str)
@@ -150,6 +184,13 @@ def handle_message(
     spec = parsed["spec"]
     explanation = parsed["explanation"]
     spec_version_ref = parsed.get("spec_version")
+
+    # Reine Informationsanfragen: keine Ausführung, Antwort in explanation (Bug 1E-E2)
+    if action == "info":
+        return {
+            "type": "assistant",
+            "message": explanation,
+        }
 
     if action == "rollback":
         target_spec_id = parsed.get("target_spec_id")
@@ -275,11 +316,47 @@ def handle_message(
         if "error" in result:
             return {"type": "error", "message": result.get("detail", result.get("error"))}
         run_result = result.get("result", {})
+        step_results = run_result.get("step_results", [])
+
+        # Post-Run-Erklärung: zweiter LLM-Call mit echten Ergebnissen (Bug 1.11)
+        # Nur die neuen/geänderten Steps übergeben — nie die gesamte akkumulierte Pipeline.
+        # "clean_steps" enthält exakt die Steps die der Nutzer in dieser Anfrage angefragt hat.
+        # Fallback bei Re-Run (clean_steps leer): alle Steps verwenden.
+        new_step_types = {s["type"] for s in clean_steps}
+        if new_step_types:
+            new_step_results = [r for r in step_results if r.get("step_type") in new_step_types]
+            new_steps_spec = {**spec_for_response, "steps": [
+                s for s in spec_for_response.get("steps", []) if s.get("type") in new_step_types
+            ]}
+        else:
+            # Re-Run: alle Steps erklären
+            new_step_results = step_results
+            new_steps_spec = spec_for_response
+
+        post_run_explanation: str | None = None
+        try:
+            post_run_prompt = build_post_run_prompt(
+                user_message=text,
+                spec=new_steps_spec,
+                step_results=new_step_results,
+            )
+            post_run_explanation = call_llm(
+                messages=[
+                    {"role": "user", "content": post_run_prompt},
+                ],
+                model=effective_model,
+                api_key=effective_api_key,
+                base_url=settings.openai_base_url or None,
+            )
+        except Exception as exc:
+            log.warning("Post-Run-Erkl\u00e4rung fehlgeschlagen (nicht kritisch): %s", exc)
+
         return {
             "type": "result",
             "run_id": result["run_id"],
             "explanation": explanation,
-            "step_results": run_result.get("step_results", []),
+            "post_run_explanation": post_run_explanation,
+            "step_results": step_results,
             "artifacts": run_result.get("artifacts", []),
             "spec": spec_for_response,
             "version": version_for_response,

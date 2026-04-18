@@ -34,9 +34,26 @@ function formatStepResult(sr: StepResult): string {
     case 'outlier_handling': {
       const treated = m.outliers_treated
       if (treated && typeof treated === 'object') {
-        const entries = Object.entries(treated as Record<string, number>)
-        if (entries.length === 0) return 'Keine Ausreißer behandelt.'
-        return entries.map(([col, n]) => `${col}: ${n} Ausreißer`).join(', ')
+        const bounds = m.bounds as Record<string, { lower: number; upper: number }> | undefined
+        const skipped = m.skipped_columns as Record<string, string> | undefined
+        const entries = Object.entries(treated as Record<string, number>).filter(([, n]) => n > 0)
+        const parts: string[] = []
+        if (entries.length > 0) {
+          parts.push(
+            entries
+              .map(([col, n]) => {
+                const b = bounds?.[col]
+                const boundsStr = b != null ? ` [${b.lower} – ${b.upper}]` : ''
+                return `${col}: ${n} Ausreißer${boundsStr}`
+              })
+              .join(', '),
+          )
+        }
+        if (skipped && Object.keys(skipped).length > 0) {
+          parts.push(`Übersprungen (IQR=0): ${Object.keys(skipped).join(', ')}`)
+        }
+        if (parts.length === 0) return 'Keine Ausreißer gefunden.'
+        return parts.join(' | ')
       }
       return 'Ausreißer-Behandlung abgeschlossen.'
     }
@@ -48,21 +65,56 @@ function formatStepResult(sr: StepResult): string {
       return 'Encoding abgeschlossen.'
     }
     case 'correlation_filter': {
-      const dropped = m.dropped_features
-      if (Array.isArray(dropped)) {
-        if (dropped.length === 0) return 'Keine hochkorrelierten Features gefunden.'
-        return `Entfernt: ${(dropped as string[]).join(', ')}`
+      const dropped = m.dropped_features as string[] | undefined
+      const pairs = m.corr_pairs as
+        | Array<{ col_a: string; col_b: string; value: number; dropped: string }>
+        | undefined
+      const independent = m.independent_features as string[] | undefined
+
+      const parts: string[] = []
+
+      if (pairs && pairs.length > 0) {
+        const pairStr = pairs
+          .map((p) => `${p.col_a}↔${p.col_b} (r=${p.value}, entfernt: ${p.dropped})`)
+          .join(' | ')
+        parts.push(`Korrelierte Paare: ${pairStr}`)
       }
-      return 'Korrelations-Filter abgeschlossen.'
+
+      if (dropped && dropped.length > 0) {
+        parts.push(`Entfernt: ${dropped.join(', ')}`)
+      } else {
+        parts.push('Keine hochkorrelierten Features gefunden.')
+      }
+
+      if (independent && independent.length > 0) {
+        parts.push(`Eigenständig: ${independent.join(', ')}`)
+      }
+
+      return parts.join(' — ')
     }
     case 'rare_category_bucketing': {
       const perCol = m.rare_categories_per_column
       if (perCol && typeof perCol === 'object') {
         const entries = Object.entries(perCol as Record<string, number>)
-        if (entries.length === 0) return 'Keine seltenen Kategorien gefunden.'
-        return entries.map(([col, n]) => `${col}: ${n} Kategorie(n) gebündelt`).join(', ')
+        const found = entries.filter(([, n]) => n > 0)
+        if (found.length === 0) {
+          return 'Keine seltenen Kategorien gefunden. Erhöhe min_frequency, um mehr Werte als selten einzustufen.'
+        }
+        return found.map(([col, n]) => `${col}: ${n} Kategorie(n) gebündelt`).join(', ')
       }
       return 'Rare-Category-Bucketing abgeschlossen.'
+    }
+    case 'time_feature_encoding': {
+      const derived = m.derived_features as string[] | undefined
+      const dropped = m.dropped_column as string | undefined
+      const parts: string[] = []
+      if (derived && derived.length > 0) {
+        parts.push(`Abgeleitet: ${derived.join(', ')}`)
+      }
+      if (dropped) {
+        parts.push(`${dropped} entfernt`)
+      }
+      return parts.length > 0 ? parts.join(' | ') : 'Zeit-Feature-Encoding abgeschlossen.'
     }
     default:
       return JSON.stringify(m)

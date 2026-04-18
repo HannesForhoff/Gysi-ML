@@ -136,7 +136,7 @@ def test_dteday_dropped_metadata_confirms(client):
     session_id = _create_session(client)
     spec = {
         "steps": [
-            {"type": "time_feature_encoding", "params": {"column": "dteday"}},
+            {"type": "time_feature_encoding", "params": {"column": "dteday", "drop_original": True}},
             {"type": "split", "params": {"test_size": 0.2}},
             {"type": "encode_categorical", "params": {"method": "label"}},
         ]
@@ -157,7 +157,7 @@ def test_encode_categorical_does_not_encode_dteday(client):
     session_id = _create_session(client)
     spec = {
         "steps": [
-            {"type": "time_feature_encoding", "params": {"column": "dteday"}},
+            {"type": "time_feature_encoding", "params": {"column": "dteday", "drop_original": True}},
             {"type": "split", "params": {"test_size": 0.2}},
             {"type": "encode_categorical", "params": {"method": "label"}},
         ]

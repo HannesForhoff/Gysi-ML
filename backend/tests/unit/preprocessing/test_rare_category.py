@@ -163,3 +163,60 @@ def test_no_categorical_cols_no_change():
     step.fit(df)
     result_train, _ = step.transform(df, df.copy())
     pd.testing.assert_frame_equal(result_train, df)
+
+
+# ---------------------------------------------------------------------------
+# Bug 1.5 — numerisch-typisierte Spalten via explizitem columns-Parameter
+# ---------------------------------------------------------------------------
+
+
+def test_fit_int64_col_via_columns_param():
+    """int64-Spalte mit explizitem columns-Parameter → seltene Werte erkannt."""
+    # 1→8×, 2→4×, 4→1× — 4 hat 1/13 ≈ 7.7% → mit min_frequency=0.1 selten
+    df = pd.DataFrame({"weathersit": [1] * 8 + [2] * 4 + [4] * 1})
+    step = RareCategoryBucketingStep(params={"min_frequency": 0.1, "columns": ["weathersit"]})
+    step.fit(df)
+    assert "weathersit" in step._rare_categories
+    assert 4 in step._rare_categories["weathersit"]
+
+
+def test_fit_float64_col_via_columns_param():
+    """float64-Spalte mit explizitem columns-Parameter → seltene Werte erkannt."""
+    df = pd.DataFrame({"weathersit": [1.0] * 8 + [2.0] * 4 + [4.0] * 1})
+    step = RareCategoryBucketingStep(params={"min_frequency": 0.1, "columns": ["weathersit"]})
+    step.fit(df)
+    assert "weathersit" in step._rare_categories
+    assert 4.0 in step._rare_categories["weathersit"]
+
+
+def test_columns_param_limits_scope_to_specified_only():
+    """Wenn columns gesetzt, werden nur diese Spalten verarbeitet (nicht andere)."""
+    df = pd.DataFrame({
+        "weathersit": [1] * 8 + [2] * 4 + [4] * 1,
+        "cnt": list(range(13)),  # kontinuierlich — soll NICHT verarbeitet werden
+    })
+    step = RareCategoryBucketingStep(params={"min_frequency": 0.1, "columns": ["weathersit"]})
+    step.fit(df)
+    assert "cnt" not in step._rare_categories
+
+
+def test_transform_int64_rare_replaced():
+    """transform() ersetzt seltene int64-Werte korrekt durch '__rare__'."""
+    df_train = pd.DataFrame({"weathersit": [1] * 8 + [2] * 4 + [4] * 1})
+    df_test = pd.DataFrame({"weathersit": [1, 2, 4]})
+    step = RareCategoryBucketingStep(params={"min_frequency": 0.1, "columns": ["weathersit"]})
+    step.fit(df_train)
+    result_train, result_test = step.transform(df_train, df_test)
+    assert "__rare__" in result_train["weathersit"].values
+    assert "__rare__" in result_test["weathersit"].values
+    assert 1 in result_train["weathersit"].values
+    assert 2 in result_train["weathersit"].values
+
+
+def test_without_columns_param_numeric_not_processed():
+    """Ohne columns-Parameter werden int64-Spalten NICHT verarbeitet (Backward-Compat)."""
+    df = pd.DataFrame({"weathersit": [1] * 8 + [2] * 4 + [4] * 1})
+    step = RareCategoryBucketingStep(params={"min_frequency": 0.1})
+    step.fit(df)
+    # Kein columns-Param → nur object/category/string → weathersit (int64) unberührt
+    assert "weathersit" not in step._rare_categories

@@ -51,6 +51,7 @@ export interface ResultResponse {
   message: string
   status: 'done' | 'failed'
   run_id?: string
+  post_run_explanation?: string
   metrics?: Record<string, number | string>
   artifacts?: ArtifactRef[]
   spec_summary?: SpecSummary

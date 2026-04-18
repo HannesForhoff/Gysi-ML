@@ -124,3 +124,63 @@ def test_requires_split_is_true():
 def test_default_strategy():
     step = ImputationStep()
     assert step.strategy == "median"
+
+
+# ---------------------------------------------------------------------------
+# columns-Parameter (Bug 1A)
+# ---------------------------------------------------------------------------
+
+
+def test_columns_filters_to_specified_column(df_with_missing):
+    """Nur die angegebene Spalte wird imputiert, andere bleiben unberührt."""
+    step = ImputationStep(params={"strategy": "median", "columns": ["a"]})
+    step.fit(df_with_missing)
+    result_train, _ = step.transform(df_with_missing, df_with_missing.copy())
+    assert result_train["a"].isna().sum() == 0
+    assert result_train["b"].isna().sum() == 1  # b wurde nicht imputiert
+
+
+def test_columns_strict_non_numeric_raises(df_with_missing):
+    """Nicht-numerische Spalte in columns → ValueError (Strict-Validierung)."""
+    df = df_with_missing.copy()
+    df["cat"] = ["x", "y", "z", "w"]
+    step = ImputationStep(params={"strategy": "median", "columns": ["cat"]})
+    with pytest.raises(ValueError, match="Nicht-numerische"):
+        step.fit(df)
+
+
+def test_columns_non_existent_raises(df_with_missing):
+    """Nicht-existente Spalte in columns → ValueError."""
+    step = ImputationStep(params={"strategy": "median", "columns": ["nonexistent"]})
+    with pytest.raises(ValueError, match="nicht im Datensatz gefunden"):
+        step.fit(df_with_missing)
+
+
+def test_columns_zero_missing_adds_warning(df_no_missing):
+    """Explizit genannte Spalte ohne fehlende Werte → 0 in Metadata + Warning."""
+    step = ImputationStep(params={"strategy": "median", "columns": ["a"]})
+    step.fit(df_no_missing)
+    step.transform(df_no_missing, df_no_missing.copy())
+    meta = step.get_metadata()
+    assert meta["imputed_values_per_column"]["a"] == 0
+    assert "warnings" in meta
+    assert any("a" in w for w in meta["warnings"])
+
+
+def test_columns_no_warning_without_explicit_columns(df_no_missing):
+    """Ohne columns-Angabe (alle Spalten): kein Warning bei 0 NaN."""
+    step = ImputationStep(params={"strategy": "median"})
+    step.fit(df_no_missing)
+    step.transform(df_no_missing, df_no_missing.copy())
+    meta = step.get_metadata()
+    assert "warnings" not in meta
+
+
+def test_columns_metadata_only_contains_specified(df_with_missing):
+    """Metadata enthält nur die explizit angegebenen Spalten, nicht alle numerischen."""
+    step = ImputationStep(params={"strategy": "median", "columns": ["a"]})
+    step.fit(df_with_missing)
+    step.transform(df_with_missing, df_with_missing.copy())
+    meta = step.get_metadata()["imputed_values_per_column"]
+    assert "a" in meta
+    assert "b" not in meta

@@ -203,7 +203,7 @@ def test_handle_message_retry_on_invalid(monkeypatch):
 
     result = handle_message(session_id="s1", text="Test")
 
-    assert call_count["n"] == 2
+    assert call_count["n"] == 3  # 1× ungültig, 1× retry-gültig, 1× post_run
     assert result["type"] == "result"
 
 

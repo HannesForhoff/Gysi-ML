@@ -198,11 +198,13 @@ function toAssistantResponse(
       }
     }
     const run_id = toNonEmptyString(payload.run_id) ?? undefined
+    const post_run_explanation = toNonEmptyString(payload.post_run_explanation) ?? undefined
     return {
       type: 'result',
       message,
       status,
       ...(run_id ? { run_id } : {}),
+      ...(post_run_explanation ? { post_run_explanation } : {}),
       ...(step_results.length > 0 ? { step_results } : {}),
       ...(artifacts.length > 0 ? { artifacts } : {}),
       ...(spec_summary ? { spec_summary } : {}),
@@ -233,6 +235,12 @@ function toAssistantResponse(
 
   // Backend info: { type:'info', message } — Command-Antworten (z.B. /help)
   if (type === 'info') {
+    const message = toNonEmptyString(payload.message) ?? fallbackMessage
+    return { type: 'info', message }
+  }
+
+  // Backend assistant: { type:'assistant', message } — reine Textnachricht des Backends (z.B. info-Antworten)
+  if (type === 'assistant') {
     const message = toNonEmptyString(payload.message) ?? fallbackMessage
     return { type: 'info', message }
   }

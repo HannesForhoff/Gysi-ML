@@ -1,13 +1,23 @@
 import pandas as pd
 
+# Breites Set gängiger N/A-Sentinel-Werte.
+# Ergänzt die pandas-eigene Erkennung um praxisrelevante Platzhalter.
+# Beispiel: '-' in windspeed der bikes.csv steht für "fehlender Wert" (1984 Einträge).
+_EXTRA_NA_VALUES = ["-", "NA", "N/A", "n/a", "na", "?"]
+
 
 def load_bikes_dataset(path: str) -> pd.DataFrame:
     """Lädt das Bike-Dataset als DataFrame.
+
+    Defensive Ladelogik:
+    - na_values: breites Set gängiger Sentinel-Werte (z.B. '-' in windspeed)
+      → verhindert dass Spalten wegen Sentinel-Werten als StringDtype eingelesen werden
 
     Args:
         path: Pfad zur bikes.csv (Komma-separiert, Header in Zeile 0).
 
     Returns:
-        pd.DataFrame mit allen Spalten und Zeilen.
+        pd.DataFrame mit allen Spalten, Sentinel-Werten als NaN.
     """
-    return pd.read_csv(path, sep=",", header=0)
+    return pd.read_csv(path, sep=",", header=0, na_values=_EXTRA_NA_VALUES, keep_default_na=True)
+

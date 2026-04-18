@@ -12,6 +12,12 @@ type StatusPanelProps = {
   isLongRunning: boolean
 }
 
+function displayValue(v: unknown): string {
+  if (v === null || v === undefined) return '–'
+  if (typeof v === 'object') return JSON.stringify(v)
+  return String(v)
+}
+
 function uiLabel(ui: UiState): string {
   switch (ui.type) {
     case 'idle':
@@ -129,7 +135,7 @@ export function StatusPanel({
                 <span className="statusMeta" style={{ fontWeight: 600 }}>{sr.step_type}</span>
                 {Object.entries(sr.metadata).map(([k, v]) => (
                   <div key={k} className="statusMeta">
-                    {k}: {String(v)}
+                    {k}: {displayValue(v)}
                   </div>
                 ))}
               </li>

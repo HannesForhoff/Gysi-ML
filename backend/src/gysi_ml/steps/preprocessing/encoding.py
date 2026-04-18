@@ -12,18 +12,38 @@ class CategoricalEncodingStep(BaseStep):
             "type": "string",
             "enum": ["label", "onehot"],
             "default": "label",
-        }
+        },
+        "columns": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Liste der zu encodierenden Spalten. Wenn leer oder nicht angegeben: automatische Erkennung per dtype.",
+        },
     }
 
     def __init__(self, params: dict | None = None) -> None:
         super().__init__(params)
         self.method: str = self.params.get("method", "label")
+        self._columns: list[str] = self.params.get("columns") or []
         self._label_encoders: dict[str, dict] = {}
         self._onehot_categories: dict[str, list] = {}
         self._encoded_columns: list[str] = []
+        self._warnings: list[str] = []
 
     def fit(self, df_train: pd.DataFrame) -> None:
-        cat_cols = list(df_train.select_dtypes(include=["object", "category", "string"]).columns)
+        self._warnings = []
+        if self._columns:
+            cat_cols = []
+            for col in self._columns:
+                if col not in df_train.columns:
+                    continue
+                if df_train[[col]].select_dtypes(include=["object", "category", "string"]).empty:
+                    self._warnings.append(
+                        f"{col}: Kein kategorischer Dtype ({df_train[col].dtype}), wird übersprungen."
+                    )
+                    continue
+                cat_cols.append(col)
+        else:
+            cat_cols = list(df_train.select_dtypes(include=["object", "category", "string"]).columns)
         self._encoded_columns = cat_cols
         if self.method == "label":
             for col in cat_cols:
@@ -72,4 +92,7 @@ class CategoricalEncodingStep(BaseStep):
         return result_train, result_test
 
     def get_metadata(self) -> dict:
-        return {"encoded_columns": self._encoded_columns}
+        meta: dict = {"encoded_columns": self._encoded_columns}
+        if self._warnings:
+            meta["warnings"] = self._warnings
+        return meta
