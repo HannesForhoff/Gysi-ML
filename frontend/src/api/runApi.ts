@@ -93,13 +93,16 @@ function artifactTypeToLabel(type: string): string {
     split_train: 'Trainingsdaten (CSV)',
     split_test: 'Testdaten (CSV)',
     feature_importance: 'Feature Importance',
+    ebm_global_explanation: 'EBM Global Explanation',
+    correlation_filter: 'Korrelations-Filter (CSV)',
   }
   return labels[type] ?? (type || 'Artifact')
 }
 
 function artifactTypeToMime(type: string): string {
   if (type === 'split_train' || type === 'split_test') return 'text/csv'
-  if (type === 'feature_importance') return 'image/png'
+  if (type === 'correlation_filter') return 'text/csv'
+  if (type === 'feature_importance' || type === 'ebm_global_explanation') return 'image/png'
   return 'application/octet-stream'
 }
 

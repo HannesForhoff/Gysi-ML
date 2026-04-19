@@ -1,5 +1,6 @@
 """ProfilingService — Rohdatensatz-Profilierung (Story 7.1)."""
 import functools
+import os
 
 import pandas as pd
 
@@ -10,6 +11,70 @@ class ProfilingService:
     def profile_raw(self) -> str:
         """Profiliert den Rohdatensatz. Ergebnis ist gecacht."""
         return _profile_raw_cached(self._get_data_path())
+
+    def profile_current(self, session_id: str, db_path: str | None = None) -> str:
+        """Profiliert den aktuell verarbeiteten Datensatz nach dem letzten abgeschlossenen Run.
+
+        Berücksichtigt nur Runs, die zur aktuellen Spec-Version gehören.
+        Nach einem Rollback (neue Spec, noch kein Run) wird auf profile_raw() zurückgefallen.
+
+        Priorität:
+        1. Post-Split Train-CSV  ({run_id}_train.csv)    — spiegelt alle Transformationen wider
+        2. Pre-Split Snapshot    ({run_id}_snapshot.parquet) — für Pipelines ohne Split
+        3. Fallback              → profile_raw()
+
+        Kein lru_cache — sessionspezifisch.
+        """
+        from gysi_ml.persistence import run_repository, spec_repository
+
+        current_spec = spec_repository.get_latest_spec(session_id=session_id, db_path=db_path)
+        if current_spec is None:
+            return self.profile_raw()
+
+        current_spec_id = current_spec["spec_id"]
+
+        runs = run_repository.get_runs_for_session(session_id=session_id, db_path=db_path)
+        completed_runs = [
+            r for r in runs
+            if r["status"] == "completed" and r.get("spec_id") == current_spec_id
+        ]
+
+        if not completed_runs:
+            # Rollback-Fall: neue Spec hat noch keinen Run.
+            # change_summary enthält "Rollback auf vX" → Artefakte der Original-Version verwenden.
+            change_summary = current_spec.get("change_summary") or ""
+            if change_summary.startswith("Rollback auf "):
+                target_version = change_summary.removeprefix("Rollback auf ")
+                target_spec_id = spec_repository.get_spec_id_by_version(
+                    session_id=session_id, version=target_version, db_path=db_path
+                )
+                if target_spec_id:
+                    completed_runs = [
+                        r for r in runs
+                        if r["status"] == "completed" and r.get("spec_id") == target_spec_id
+                    ]
+
+        if not completed_runs:
+            return self.profile_raw()
+
+        latest = completed_runs[-1]
+        run_id = latest["run_id"]
+        version = latest.get("spec_version", "?")
+        artifacts_path = get_settings().artifacts_path
+
+        train_path = os.path.join(artifacts_path, f"{run_id}_train.csv")
+        if os.path.exists(train_path):
+            df = pd.read_csv(train_path)
+            header = f"## Verarbeiteter Datensatz — {version} (Train-Split)\n"
+            return header + "\n" + _format_profile(df)
+
+        snapshot_path = os.path.join(artifacts_path, f"{run_id}_snapshot.parquet")
+        if os.path.exists(snapshot_path):
+            df = pd.read_parquet(snapshot_path)
+            header = f"## Verarbeiteter Datensatz — {version}\n"
+            return header + "\n" + _format_profile(df)
+
+        return self.profile_raw()
 
     def profile_after_steps(self, session_id: str, db_path: str | None = None) -> str:
         """Profiliert den Datensatz nach ausgeführten Preprocessing-Steps.
@@ -108,48 +173,71 @@ def _compact_profile_cached(data_path: str) -> str:
     return "\n".join(lines)
 
 
+def _df_to_md_table(df: pd.DataFrame) -> str:
+    """Konvertiert einen DataFrame in eine Markdown-Tabelle."""
+    headers = list(df.columns)
+    index_name = df.index.name or ""
+    # Header-Zeile mit Index
+    header_row = "| " + index_name + " | " + " | ".join(headers) + " |"
+    sep_row = "| " + " | ".join(["---"] * (len(headers) + 1)) + " |"
+    rows = []
+    for idx, row in df.iterrows():
+        cells = [str(idx)] + [str(v) for v in row]
+        rows.append("| " + " | ".join(cells) + " |")
+    return "\n".join([header_row, sep_row] + rows)
+
+
 def _format_profile(df: pd.DataFrame) -> str:
     lines = []
 
     # 1. Grundinfos
-    lines.append(f"## Datensatz-Überblick\n")
-    lines.append(f"**Zeilen:** {len(df):,}  |  **Spalten:** {len(df.columns)}\n")
+    lines.append("## Datensatz-Überblick")
+    lines.append("")
+    lines.append(f"**Zeilen:** {len(df):,} &nbsp;|&nbsp; **Spalten:** {len(df.columns)}")
+    lines.append("")
 
-    # 2. Spalten-Übersicht
-    lines.append("### Spalten-Übersicht")
-    col_info = []
+    # 2. Spalten-Übersicht als Tabelle
+    lines.append("### Spalten")
+    lines.append("")
+    missing_counts = df.isnull().sum()
+    col_rows = []
     for col in df.columns:
         non_null = df[col].notna().sum()
-        col_info.append(f"- `{col}`: {df[col].dtype}, {non_null}/{len(df)} Non-Null")
-    lines.append("\n".join(col_info))
+        n_missing = missing_counts[col]
+        pct_missing = f"{n_missing / len(df) * 100:.1f}%" if n_missing > 0 else "—"
+        n_unique = df[col].nunique()
+        col_rows.append(f"| `{col}` | {df[col].dtype} | {non_null:,} | {n_missing:,} ({pct_missing}) | {n_unique:,} |")
 
-    # 3. Fehlende Werte
-    missing = df.isnull().sum()
-    missing = missing[missing > 0].sort_values(ascending=False)
-    if not missing.empty:
-        lines.append("\n### Fehlende Werte")
-        for col, count in missing.items():
-            pct = count / len(df) * 100
-            lines.append(f"- `{col}`: {count} ({pct:.1f}%)")
+    lines.append("| Spalte | Typ | Non-Null | Fehlend | Unique |")
+    lines.append("| --- | --- | --- | --- | --- |")
+    lines.extend(col_rows)
+    lines.append("")
+
+    # 3. Fehlende Werte — nur wenn vorhanden
+    missing = missing_counts[missing_counts > 0].sort_values(ascending=False)
+    if missing.empty:
+        lines.append("**Fehlende Werte:** keine ✅")
     else:
-        lines.append("\n### Fehlende Werte\nKeine fehlenden Werte ✅")
+        lines.append(f"**Fehlende Werte:** {len(missing)} Spalte(n) betroffen")
+    lines.append("")
 
-    # 4. Statistiken (numerische Spalten)
+    # 4. Statistiken (numerische Spalten) als Tabelle
     num_cols = df.select_dtypes(include="number")
     if not num_cols.empty:
-        lines.append("\n### Statistiken (numerische Spalten)")
+        lines.append("### Statistiken (numerische Spalten)")
+        lines.append("")
         desc = num_cols.describe().T[["min", "max", "mean", "50%", "std"]]
         desc.columns = ["Min", "Max", "Mean", "Median", "Std"]
-        lines.append(desc.to_string())
+        desc = desc.round(2)
+        desc.index.name = "Spalte"
+        lines.append(_df_to_md_table(desc))
+        lines.append("")
 
-    # 5. Erste 5 Zeilen
-    lines.append("\n### Erste 5 Zeilen")
-    lines.append(df.head(5).to_string())
-
-    # 6. Kardinalität
-    lines.append("\n### Unique-Werte (Kardinalität)")
-    for col in df.columns:
-        n_unique = df[col].nunique()
-        lines.append(f"- `{col}`: {n_unique} unique Werte")
+    # 5. Erste 5 Zeilen als Tabelle
+    lines.append("### Erste 5 Zeilen")
+    lines.append("")
+    preview = df.head(5).reset_index(drop=True)
+    preview.index.name = "#"
+    lines.append(_df_to_md_table(preview))
 
     return "\n".join(lines)

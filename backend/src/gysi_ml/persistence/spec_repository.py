@@ -54,7 +54,7 @@ def get_latest_spec(session_id: str, db_path: str | None = None) -> dict | None:
     try:
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT spec_id, session_id, version, spec_json, created_at "
+            "SELECT spec_id, session_id, version, spec_json, created_at, change_summary "
             "FROM spec_versions WHERE session_id = ? ORDER BY created_at DESC LIMIT 1",
             (session_id,),
         )
@@ -64,6 +64,28 @@ def get_latest_spec(session_id: str, db_path: str | None = None) -> dict | None:
         data = dict(row)
         data["spec"] = json.loads(data.pop("spec_json"))
         return data
+    finally:
+        conn.close()
+
+
+def get_spec_id_by_version(
+    session_id: str, version: str, db_path: str | None = None
+) -> str | None:
+    """Gibt die spec_id für eine bestimmte Versionsnummer in einer Session zurück.
+
+    Bei mehreren Einträgen mit derselben Versionsnummer wird der älteste zurückgegeben
+    (erster Run mit dieser Version).
+    """
+    conn = get_connection(db_path)
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT spec_id FROM spec_versions "
+            "WHERE session_id = ? AND version = ? ORDER BY created_at ASC LIMIT 1",
+            (session_id, version),
+        )
+        row = cursor.fetchone()
+        return row["spec_id"] if row else None
     finally:
         conn.close()
 

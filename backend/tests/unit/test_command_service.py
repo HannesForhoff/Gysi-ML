@@ -157,13 +157,13 @@ def test_status_with_spec_and_run(svc):
 
 def test_overview_delegates_to_profiling_service(svc):
     with patch(
-        "gysi_ml.services.profiling_service.ProfilingService.profile_raw",
-        return_value="## Datensatz-Überblick\n**Zeilen:** 1000",
-    ) as mock_raw:
+        "gysi_ml.services.profiling_service.ProfilingService.profile_current",
+        return_value="## Verarbeiteter Datensatz\n**Zeilen:** 1000",
+    ) as mock_current:
         result = svc.handle("/overview", session_id="s1")
 
-    mock_raw.assert_called_once()
-    assert "Datensatz-Überblick" in result
+    mock_current.assert_called_once_with(session_id="s1", db_path=None)
+    assert "Datensatz" in result
 
 
 # ---------------------------------------------------------------------------

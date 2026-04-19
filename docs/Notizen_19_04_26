@@ -1,0 +1,90 @@
+- rollback auf basis csv ermöglichen
+
+- One-Hot-Encoding eignet sich besonders für kategoriale Features mit wenigen eindeutigen Kategorien, um sie in numerische Form zu überführen, ohne eine Reihenfolge vorzugeben. Im Bike-Sharing-Datensatz sind typische Kandidaten für One-Hot-Encoding z.B. 'season', 'weathersit', 'holiday', 'workingday' und 'weekday'. Features mit vielen Kategorien oder ordinalen Eigenschaften (z.B. 'mnth' oder 'hr') sind weniger geeignet für One-Hot-Encoding
+    -> workday und weekday gibt es nicht als features
+
+mache das mal für weathersit
+Die Spalte "weathersit" wurde nicht kodiert, da sie keinen kategorischen Datentyp hat, sondern als float64 vorliegt. Das ist fachlich sinnvoll, da One-Hot-Encoding nur bei kategorialen Variablen angewendet werden sollte. Prüfen Sie, ob "weathersit" tatsächlich kategoriale Werte enthält, und wandeln Sie sie gegebenenfalls in einen kategorialen Datentyp um, bevor Sie das Encoding erneut durchführen.
+ -> spec verlauf zeigt trotzdem neue spec mit + encode_categorical (onehot) obwohl in der csv nichts verändert wurde -> sollte lieber keine enue version erzeugen da nichts gemacht wurde
+
+ Die Spalte "season" wurde nicht kodiert, da sie als numerischer Datentyp (int64) vorliegt und somit nicht als kategorisch erkannt wurde. Das One-Hot-Encoding wurde daher übersprungen. Fachlich ist das sinnvoll, denn One-Hot-Encoding ist nur für kategoriale Daten geeignet, nicht für numerische. Empfehlung: Die Spalte "season" zunächst in einen kategorischen Datentyp umwandeln, bevor das One-Hot-Encoding angewendet wird.
+  -> Preprocessing erweitern: Datentypen änderung von features
+
+  + time_feature_encoding (dteday): weekday 0-6, welche nummer ist welcher tag?
+  bei impute mssing werte von anderen features ableiten können (dteday für missingf values in month)
+
+  Preprocessing: funktion zum löschen von features (month wurde neu erstellt)
+
+
+filter mal die features die stark korrelieren
+G
+assistant
+2026-04-19T12:10:44.441Z
+Vorschlag (nicht bestätigt)
+Ich schlage vor, einen Korrelationsfilter mit einem Schwellenwert von 0.9 anzuwenden, um stark korrelierte numerische Features zu identifizieren. Da die Entscheidung, welche Features entfernt werden sollen, beim Nutzer liegt, bitte ich Sie, mir mitzuteilen, welche der korrelierten Features Sie entfernen möchten.
+correlation_filter — Entfernt numerische Features mit Pearson-Korrelation über 0.9, Auswahl der zu entfernenden Features durch Nutzer
+
+Ergebnis
+Run abgeschlossen
+correlation_filter_result (application/octet-stream)??? 
+ -> wieder csv ausgegeben statt feature namen die stark korrelieren. keine chance auszuwählen welche fleigen soll bzw keine ergebnisse welche korrelieren im chat, sondern nur in der seitenleiste
+
+
+Step 'catboost_feature_selection' benötigt einen vorherigen 'split'-Step, aber kein Split-Step wurde vor diesem Step gefunden??
+
+
+Der Datensatz wurde in einen Trainings- und einen Testdatensatz aufgeteilt, wobei 13.903 Zeilen im Training und 3.476 Zeilen im Test enthalten sind, entsprechend einem Testanteil von 20 % bei zufälliger Aufteilung (random_state=42). Dieses Vorgehen ist fachlich sinnvoll, da ein 80/20-Split eine gängige Praxis zur Modellvalidierung darstellt. Als nächster Schritt empfiehlt sich die Anwendung von Datenvorverarbeitung wie Skalierung oder Encoding auf den Trainingsdatensatz, bevor das Modelltraining beginnt??
+
+
+Rollback zu v4 abgeschlossen. Die Pipeline wurde auf diesen Stand zurückgesetzt. (eigentlich v1)
+
+wenn correlation filter angewendet wird werden vorherige preprocessing schritte gelöscht (in meinem fall impute missing und time feature encoding)
+
+manuelle feature auswahl hinzufügen
+
+sample selektierung -> alle wo es geregnet hat. (LLM muss kontext von features und werten bekommen; seperate ablage einer md ermöglichen damit LLM weis season = 2 bedeutet regen)
+
+Wrapper/Embedded Feature Selection
+
+mach mal eine catboost feature selection
+G
+assistant
+2026-04-19T12:36:38.595Z
+catboost/libs/metrics/metric.cpp:7032: metric/loss-function RMSE does not allow nan values in target data
+
+
+Trainiere einen Decision Tree mit max_depth=4 auf die Zielspalte cnt
+G
+assistant
+2026-04-19T12:39:31.756Z
+catboost/libs/metrics/metric.cpp:7032: metric/loss-function RMSE does not allow nan values in target data
+
+Trainiere einen Decision Tree mit max_depth=4 auf die Zielspalte cnt
+G
+assistant
+2026-04-19T12:40:56.725Z
+Input y contains NaN.
+ -> sowas besser erklären lassen (cnt enthält missing values)
+
+ gib mir mal die feature importance als plot
+  -> trainiert auf einmal eine ebm??
+
+- wenn unterscheidliche sachen trainiert wurden werden im ergebnis trotzdem alle artefakte ausgegeben (train test daten, decision tree feature importance, ebm global explanation) statt nur die ergebnisse von den sachen die im aktuellen prompt trainiert wurden
+
+
+
+
+trainiere eine ebm
+y cannot contain missing values
+
+U
+user
+2026-04-19T13:07:37.979Z
+impute die missing values in cnt mit dem median
+G
+assistant
+2026-04-19T13:07:41.479Z
+y cannot contain missing values
+
+generell möglichkeiten einbauen daten am anfang besser zu verstehen bevor man mit preprocessing started
+-> Einbau von verschiedenen Plots zb Boxplot von feature xy

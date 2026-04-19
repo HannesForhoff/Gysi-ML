@@ -51,7 +51,7 @@ class CommandService:
     def _handle_overview(self, session_id: str, db_path: str | None) -> str:
         from gysi_ml.services.profiling_service import ProfilingService
 
-        return ProfilingService().profile_raw()
+        return ProfilingService().profile_current(session_id=session_id, db_path=db_path)
 
     def _handle_status(self, session_id: str, db_path: str | None) -> str:
         from gysi_ml.persistence import run_repository, spec_repository

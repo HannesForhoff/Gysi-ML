@@ -1,5 +1,6 @@
 import React from 'react'
 import Markdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 import type { ChatMessage } from '../types'
 import { ProposalCard } from './ProposalCard'
@@ -11,6 +12,14 @@ type MessageListProps = {
   confirmDisabled: boolean
   activePendingProposalId: string | null
   isSending?: boolean
+}
+
+const mdComponents = {
+  table: ({ children, ...props }: React.HTMLAttributes<HTMLTableElement>) => (
+    <div className="mdTableWrapper">
+      <table {...props}>{children}</table>
+    </div>
+  ),
 }
 
 export function MessageList({ messages, onConfirm, confirmDisabled, activePendingProposalId, isSending }: MessageListProps) {
@@ -51,7 +60,7 @@ export function MessageList({ messages, onConfirm, confirmDisabled, activePendin
                   <ResultCard result={message.response} />
                 ) : message.role === 'assistant' ? (
                   <div className="messageContent">
-                    <Markdown>{message.content}</Markdown>
+                    <Markdown remarkPlugins={[remarkGfm]} components={mdComponents}>{message.content}</Markdown>
                   </div>
                 ) : (
                   <div className="messageContent">{message.content}</div>
@@ -73,7 +82,7 @@ export function MessageList({ messages, onConfirm, confirmDisabled, activePendin
                     <span className="messageTs">{message.ts}</span>
                   </div>
                   <div className="messageContent">
-                    <Markdown>{message.response.post_run_explanation}</Markdown>
+                    <Markdown remarkPlugins={[remarkGfm]} components={mdComponents}>{message.response.post_run_explanation}</Markdown>
                   </div>
                 </div>
               </div>

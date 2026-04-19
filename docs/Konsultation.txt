@@ -1,0 +1,12 @@
+Safeguards dokumentieren
+versch VaRIANTEN systemprompt; reflektierung, limitationen aufzeigen
+model objekt, veränderung decision tree bei anderer imputation im schritt davor aufzeigen
+was hat der user damit erreicht?
+größtes problem: llm in richtige richtung zu lenken 
+
+missions: ausgaben verbessern und übersichtlicher machen vor allem overview
+- branching tree einbauen
+- daten tabellarisch azeigen lassen möglich? wie aufwendig?
+beio version anzeigen was alles ausgeführt wurde 
+
+

@@ -44,10 +44,10 @@ def test_profile_raw_contains_all_sections(sample_csv):
 
     assert isinstance(result, str)
     assert "Datensatz-Überblick" in result       # Grundinfos
-    assert "Spalten-Übersicht" in result         # Spalten
+    assert "### Spalten" in result               # Spalten-Tabelle
     assert "Statistiken" in result               # Numerische Statistiken
     assert "Erste 5 Zeilen" in result            # Head
-    assert "Unique-Werte" in result              # Kardinalität
+    assert "Unique" in result                    # Kardinalität-Spaltenheader
     # Fehlende Werte: temp hat 1 fehlenden Wert
     assert "Fehlende Werte" in result
     assert "temp" in result
@@ -204,19 +204,207 @@ def test_profile_after_steps_run_data_none(sample_csv):
     assert "Differenz: 0 Zeilen entfernt" in result
 
 
-def test_command_service_overview_routes_correctly(sample_csv):
-    """AC 4 (Story 6.2): CommandService._handle_overview() delegiert immer an profile_raw()."""
+def test_command_service_overview_calls_profile_current(sample_csv):
+    """AC 4 (Story 6.2 updated): CommandService._handle_overview() delegiert an profile_current()."""
     from gysi_ml.services.command_service import CommandService
+    from gysi_ml.services.profiling_service import ProfilingService
 
     svc = CommandService()
 
-    # Immer profile_raw() — unabhängig von vorhandenen Runs
-    with patch("gysi_ml.services.profiling_service.get_settings") as mock_settings:
-        mock_settings.return_value.data_path = sample_csv
+    with patch.object(ProfilingService, "profile_current", return_value="## Verarbeiteter Datensatz\nFoo") as mock_current:
         result = svc._handle_overview("sess-test", None)
 
-    expected_raw = _ps_module._profile_raw_cached(sample_csv)
-    assert result == expected_raw
+    mock_current.assert_called_once_with(session_id="sess-test", db_path=None)
+    assert "Datensatz" in result
+
+
+# ---------------------------------------------------------------------------
+# profile_current — Fallback, Train-CSV, Snapshot
+# ---------------------------------------------------------------------------
+
+def test_profile_current_no_runs_falls_back_to_raw(sample_csv):
+    """Keine abgeschlossenen Runs für aktuelle Spec → Fallback auf profile_raw()."""
+    from gysi_ml.services.profiling_service import ProfilingService
+    import gysi_ml.persistence.run_repository as _run_repo
+    import gysi_ml.persistence.spec_repository as _spec_repo
+
+    mock_spec = {"spec_id": "spec-111", "version": "v1"}
+
+    with patch("gysi_ml.services.profiling_service.get_settings") as mock_settings, \
+         patch.object(_spec_repo, "get_latest_spec", return_value=mock_spec), \
+         patch.object(_run_repo, "get_runs_for_session", return_value=[]):
+        mock_settings.return_value.data_path = sample_csv
+        mock_settings.return_value.artifacts_path = "/nonexistent"
+        svc = ProfilingService()
+        result = svc.profile_current(session_id="s1", db_path=None)
+
+    expected = _ps_module._profile_raw_cached(sample_csv)
+    assert result == expected
+
+
+def test_profile_current_after_rollback_shows_target_artifacts(tmp_path, sample_csv):
+    """Rollback v2→v1 erzeugt v3: profile_current soll die Artefakte des v1-Runs zeigen."""
+    import textwrap
+    import gysi_ml.persistence.run_repository as _run_repo
+    import gysi_ml.persistence.spec_repository as _spec_repo
+    from gysi_ml.services.profiling_service import ProfilingService
+
+    v1_spec_id = "spec-v1"
+    v3_spec_id = "spec-v3-rollback"  # neue spec_id nach Rollback
+
+    # v1-Artefakt (Train-CSV) existiert auf Disk
+    v1_run_id = "run-v1"
+    train_csv = tmp_path / f"{v1_run_id}_train.csv"
+    train_csv.write_text(textwrap.dedent("""\
+        season,temp,cnt
+        1,0.24,100
+        2,0.40,200
+        3,0.60,300
+    """))
+
+    # Aktuelle Spec ist v3, hat change_summary "Rollback auf v1"
+    mock_spec_v3 = {"spec_id": v3_spec_id, "version": "v3", "change_summary": "Rollback auf v1"}
+    mock_runs = [
+        {"run_id": v1_run_id, "status": "completed", "spec_version": "v1", "spec_id": v1_spec_id},
+        {"run_id": "run-v2", "status": "completed", "spec_version": "v2", "spec_id": "spec-v2"},
+        # kein Run für v3_spec_id
+    ]
+
+    with patch("gysi_ml.services.profiling_service.get_settings") as mock_settings, \
+         patch.object(_spec_repo, "get_latest_spec", return_value=mock_spec_v3), \
+         patch.object(_spec_repo, "get_spec_id_by_version", return_value=v1_spec_id), \
+         patch.object(_run_repo, "get_runs_for_session", return_value=mock_runs):
+        mock_settings.return_value.data_path = sample_csv
+        mock_settings.return_value.artifacts_path = str(tmp_path)
+        svc = ProfilingService()
+        result = svc.profile_current(session_id="s1", db_path=None)
+
+    assert "Train-Split" in result
+    assert "**Zeilen:** 3" in result   # v1-Train-CSV hat 3 Zeilen
+    # Versionslabel der v1-Run-Artefakte (v1) wird zusammen mit dem Rollback angezeigt
+    assert "v1" in result
+
+
+def test_profile_current_after_rollback_falls_back_to_raw_when_target_has_no_run(sample_csv):
+    """Rollback auf Version ohne Run → Fallback auf profile_raw()."""
+    import gysi_ml.persistence.run_repository as _run_repo
+    import gysi_ml.persistence.spec_repository as _spec_repo
+    from gysi_ml.services.profiling_service import ProfilingService
+
+    mock_spec = {"spec_id": "spec-v3", "version": "v3", "change_summary": "Rollback auf v1"}
+    # v1 hat keinen Run
+    mock_runs = [{"run_id": "run-v2", "status": "completed", "spec_version": "v2", "spec_id": "spec-v2"}]
+
+    with patch("gysi_ml.services.profiling_service.get_settings") as mock_settings, \
+         patch.object(_spec_repo, "get_latest_spec", return_value=mock_spec), \
+         patch.object(_spec_repo, "get_spec_id_by_version", return_value="spec-v1"), \
+         patch.object(_run_repo, "get_runs_for_session", return_value=mock_runs):
+        mock_settings.return_value.data_path = sample_csv
+        mock_settings.return_value.artifacts_path = "/nonexistent"
+        svc = ProfilingService()
+        result = svc.profile_current(session_id="s1", db_path=None)
+
+    expected = _ps_module._profile_raw_cached(sample_csv)
+    assert result == expected
+
+
+def test_profile_current_no_spec_falls_back_to_raw(sample_csv):
+    """Keine Spec in der Session → Fallback auf profile_raw()."""
+    from gysi_ml.services.profiling_service import ProfilingService
+    import gysi_ml.persistence.spec_repository as _spec_repo
+
+    with patch("gysi_ml.services.profiling_service.get_settings") as mock_settings, \
+         patch.object(_spec_repo, "get_latest_spec", return_value=None):
+        mock_settings.return_value.data_path = sample_csv
+        mock_settings.return_value.artifacts_path = "/nonexistent"
+        svc = ProfilingService()
+        result = svc.profile_current(session_id="s1", db_path=None)
+
+    expected = _ps_module._profile_raw_cached(sample_csv)
+    assert result == expected
+
+
+def test_profile_current_uses_train_csv_when_available(tmp_path, sample_csv):
+    """Wenn _train.csv existiert → dessen Daten werden gezeigt."""
+    import textwrap
+    import gysi_ml.persistence.run_repository as _run_repo
+    import gysi_ml.persistence.spec_repository as _spec_repo
+    from gysi_ml.services.profiling_service import ProfilingService
+
+    run_id = "run-abc"
+    spec_id = "spec-abc"
+    train_csv = tmp_path / f"{run_id}_train.csv"
+    train_csv.write_text(textwrap.dedent("""\
+        season,temp,cnt
+        1,0.24,100
+        2,0.40,200
+    """))
+
+    mock_spec = {"spec_id": spec_id, "version": "v2"}
+    mock_runs = [{"run_id": run_id, "status": "completed", "spec_version": "v2", "spec_id": spec_id}]
+
+    with patch("gysi_ml.services.profiling_service.get_settings") as mock_settings, \
+         patch.object(_spec_repo, "get_latest_spec", return_value=mock_spec), \
+         patch.object(_run_repo, "get_runs_for_session", return_value=mock_runs):
+        mock_settings.return_value.data_path = sample_csv
+        mock_settings.return_value.artifacts_path = str(tmp_path)
+        svc = ProfilingService()
+        result = svc.profile_current(session_id="s1", db_path=None)
+
+    assert "v2" in result
+    assert "Train-Split" in result
+    assert "**Zeilen:** 2" in result  # train CSV hat 2 Zeilen
+
+
+def test_profile_current_uses_snapshot_when_no_train_csv(tmp_path, sample_csv):
+    """Wenn kein _train.csv, aber _snapshot.parquet existiert → Snapshot wird verwendet."""
+    import pandas as pd
+    import gysi_ml.persistence.run_repository as _run_repo
+    import gysi_ml.persistence.spec_repository as _spec_repo
+    from gysi_ml.services.profiling_service import ProfilingService
+
+    run_id = "run-def"
+    spec_id = "spec-def"
+    df_snap = pd.DataFrame({"season": [1, 2, 3], "temp": [0.1, 0.2, 0.3]})
+    snap_path = tmp_path / f"{run_id}_snapshot.parquet"
+    df_snap.to_parquet(snap_path, index=False)
+
+    mock_spec = {"spec_id": spec_id, "version": "v1"}
+    mock_runs = [{"run_id": run_id, "status": "completed", "spec_version": "v1", "spec_id": spec_id}]
+
+    with patch("gysi_ml.services.profiling_service.get_settings") as mock_settings, \
+         patch.object(_spec_repo, "get_latest_spec", return_value=mock_spec), \
+         patch.object(_run_repo, "get_runs_for_session", return_value=mock_runs):
+        mock_settings.return_value.data_path = sample_csv
+        mock_settings.return_value.artifacts_path = str(tmp_path)
+        svc = ProfilingService()
+        result = svc.profile_current(session_id="s1", db_path=None)
+
+    assert "v1" in result
+    assert "Train-Split" not in result
+    assert "**Zeilen:** 3" in result  # Snapshot hat 3 Zeilen
+
+
+def test_profile_current_falls_back_when_no_artifacts(tmp_path, sample_csv):
+    """Completed Run für aktuelle Spec, aber keine Artefakt-Dateien → Fallback auf profile_raw()."""
+    import gysi_ml.persistence.run_repository as _run_repo
+    import gysi_ml.persistence.spec_repository as _spec_repo
+    from gysi_ml.services.profiling_service import ProfilingService
+
+    spec_id = "spec-ghi"
+    mock_spec = {"spec_id": spec_id, "version": "v1"}
+    mock_runs = [{"run_id": "run-ghi", "status": "completed", "spec_version": "v1", "spec_id": spec_id}]
+
+    with patch("gysi_ml.services.profiling_service.get_settings") as mock_settings, \
+         patch.object(_spec_repo, "get_latest_spec", return_value=mock_spec), \
+         patch.object(_run_repo, "get_runs_for_session", return_value=mock_runs):
+        mock_settings.return_value.data_path = sample_csv
+        mock_settings.return_value.artifacts_path = str(tmp_path)  # leer
+        svc = ProfilingService()
+        result = svc.profile_current(session_id="s1", db_path=None)
+
+    expected = _ps_module._profile_raw_cached(sample_csv)
+    assert result == expected
 
 
 # ---------------------------------------------------------------------------

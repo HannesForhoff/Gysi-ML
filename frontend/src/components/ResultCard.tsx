@@ -170,21 +170,44 @@ export function ResultCard({ result }: ResultCardProps) {
         <ul className="resultArtifacts">
           {result.artifacts!.map((artifact) => {
             const safeUrl = sanitizeArtifactUrl(artifact.url)
+            const isImage = artifact.media_type?.startsWith('image/')
 
             return (
               <li key={artifact.id}>
                 {safeUrl ? (
-                  <a
-                    href={safeUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="resultArtifactLink"
-                  >
-                    {artifact.label}
-                    {artifact.media_type && (
-                      <span className="resultArtifactType"> ({artifact.media_type})</span>
-                    )}
-                  </a>
+                  isImage ? (
+                    <figure className="resultArtifactFigure">
+                      <img
+                        src={safeUrl}
+                        alt={artifact.label}
+                        className="resultArtifactImage"
+                      />
+                      <figcaption className="resultArtifactCaption">
+                        {artifact.label}
+                        <a
+                          href={safeUrl}
+                          download
+                          target="_blank"
+                          rel="noreferrer"
+                          className="resultArtifactDownload"
+                        >
+                          ↓ Download
+                        </a>
+                      </figcaption>
+                    </figure>
+                  ) : (
+                    <a
+                      href={safeUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="resultArtifactLink"
+                    >
+                      {artifact.label}
+                      {artifact.media_type && (
+                        <span className="resultArtifactType"> ({artifact.media_type})</span>
+                      )}
+                    </a>
+                  )
                 ) : (
                   <span className="resultArtifactInvalid">
                     {artifact.label} (ungültige URL)

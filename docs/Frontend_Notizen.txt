@@ -1,3 +1,10 @@
 - chat innerhlab des chatfensters skrollbar und nicht ganze webpage skrollen
 - wie kompliziert wäre es sich dynamisch die daten links neben dem chat anzeigen zu lassen
 - Interface anpassen (vor allem Überschrift)
+
+-backend
+- möglichkeit sich die daten nach jedem schritt anzuschauen (im projektordner für jede spec v1, v2, .. csv datei)
+
+- preprocessing datentypen umwandlung funktion
+- entwicklung von test cases 
+- verständlicher für komplett unwissende machen
