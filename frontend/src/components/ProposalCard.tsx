@@ -1,4 +1,5 @@
 import type { ProposalResponse } from '../types'
+import { getStepLabel } from '../utils/stepMeta'
 
 type ProposalCardProps = {
   proposal: ProposalResponse
@@ -19,12 +20,13 @@ export function ProposalCard({ proposal, onConfirm, disabled, isActive = true }:
       <ul className="proposalSteps">
         {proposal.steps.map((step, idx) => (
           <li key={`${step.step_type}-${idx}`} className="proposalStep">
-            <span className="proposalStepType">{step.step_type}</span>
-            {step.parameters_summary && (
-              <span className="proposalStepParams">
-                {' '}— {step.parameters_summary}
-              </span>
-            )}
+            <span className="proposalStepNum">{idx + 1}</span>
+            <div className="proposalStepBody">
+              <span className="proposalStepName">{getStepLabel(step.step_type)}</span>
+              {step.parameters_summary && (
+                <span className="proposalStepParams">{step.parameters_summary}</span>
+              )}
+            </div>
           </li>
         ))}
       </ul>

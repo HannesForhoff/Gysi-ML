@@ -105,7 +105,7 @@ def test_rollback_correct_parent_spec_id(client, settings):
         session_id=session_id, db_path=settings.db_path
     )
     new_entry = next(s for s in all_specs if s["spec_id"] == new_spec_id)
-    assert new_entry["parent_spec_id"] == v3["spec_id"]
+    assert new_entry["parent_spec_id"] == v1["spec_id"]
 
 
 # ---------------------------------------------------------------------------

@@ -7,9 +7,9 @@ import { confirmProposal, sendAssistantMessage } from './api/transport'
 import { ChatLayout } from './components/ChatLayout'
 import { Composer } from './components/Composer'
 import { DataViewPanel } from './components/DataViewPanel'
+import { InfoPanel } from './components/InfoPanel'
 import { MessageList } from './components/MessageList'
 import { SpecHistoryPanel } from './components/SpecHistoryPanel'
-import { StatusPanel } from './components/StatusPanel'
 import { useHealthPolling } from './hooks/useHealthPolling'
 import { useRunPolling } from './hooks/useRunPolling'
 import { chatReducer, createInitialChatState } from './state/chatReducer'
@@ -187,7 +187,7 @@ function App() {
   )
 
   const handleTabChange = useCallback(
-    (tab: 'chat' | 'data') => {
+    (tab: 'chat' | 'data' | 'info') => {
       dispatch({ type: 'SET_ACTIVE_TAB', tab })
     },
     [],
@@ -281,23 +281,20 @@ function App() {
           <div className={`headerStatus ${state.ui.type === 'backend_unreachable' ? 'headerStatus--disconnected' : ''}`}>
             <span className="headerStatusDot" />
             <span className="headerStatusText">
-              {state.ui.type === 'backend_unreachable' ? 'Getrennt' : 'Verbunden'}
+              {state.ui.type === 'backend_unreachable'
+                ? 'Getrennt'
+                : state.ui.type === 'sending_message'
+                  ? 'Sendet…'
+                  : state.ui.type === 'run_polling'
+                    ? 'Run läuft…'
+                    : state.ui.type === 'proposal_pending'
+                      ? 'Vorschlag ausstehend'
+                      : 'Verbunden'}
             </span>
           </div>
         </header>
 
         <ChatLayout
-          status={
-            <StatusPanel
-              transport={state.transport}
-              ui={state.ui}
-              specSummary={state.specSummary}
-              lastRun={state.lastRun}
-              artifacts={state.artifacts}
-              lastError={state.lastError}
-              isLongRunning={state.isLongRunning}
-            />
-          }
           history={
             <SpecHistoryPanel
               sessionId={state.sessionId}
@@ -315,6 +312,13 @@ function App() {
               activeDataRunId={state.activeDataRunId}
               sessionId={state.sessionId}
               backendBaseUrl={state.transport.backendBaseUrl}
+            />
+          }
+          infoPane={
+            <InfoPanel
+              specSummary={state.specSummary}
+              lastRun={state.lastRun}
+              artifacts={state.artifacts}
             />
           }
         >

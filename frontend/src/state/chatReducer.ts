@@ -39,7 +39,7 @@ export interface ChatState {
   isConfirming: boolean
   isLongRunning: boolean
   llmModel: string | null
-  activeTab: 'chat' | 'data'
+  activeTab: 'chat' | 'data' | 'info'
   activeDataRunId: string | null
 }
 
@@ -76,7 +76,7 @@ export type ChatAction =
   | { type: 'SPEC_TREE_LOADED'; specTree: VersionTree }
   | { type: 'ROLLBACK_SUCCEEDED'; infoMessage: ChatMessage; specTree: VersionTree; specSummary: SpecSummary | null; activeDataRunId: string | null }
   | { type: 'ROLLBACK_FAILED'; errorMessage: string; errorChatMessage: ChatMessage }
-  | { type: 'SET_ACTIVE_TAB'; tab: 'chat' | 'data' }
+  | { type: 'SET_ACTIVE_TAB'; tab: 'chat' | 'data' | 'info' }
 
 const WELCOME_MESSAGE: ChatMessage = {
   id: 'welcome',

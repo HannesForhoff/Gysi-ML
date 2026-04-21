@@ -241,3 +241,63 @@ def test_spec_tree_404_unknown_session(client):
     body = resp.json()
     assert body["code"] == "SESSION_NOT_FOUND"
     assert "does-not-exist" in body["detail"]
+
+
+# ---------------------------------------------------------------------------
+# VT-1.1 AC8: phase-Feld — Modeling- vs. Preprocessing-Detection
+# ---------------------------------------------------------------------------
+
+
+def test_spec_tree_phase_preprocessing(client, settings):
+    """Spec ohne Modeling-Steps → phase == 'preprocessing'."""
+    session_id = _create_session(client)
+    _add_spec(settings, session_id, steps=[{"type": "dedup", "enabled": True}])
+
+    resp = client.get(f"/v1/sessions/{session_id}/spec/tree")
+    assert resp.status_code == 200
+    node = resp.json()["versions"][0]
+    assert node["phase"] == "preprocessing"
+
+
+def test_spec_tree_phase_modeling_decision_tree(client, settings):
+    """Spec mit train_decision_tree (enabled) → phase == 'modeling'."""
+    session_id = _create_session(client)
+    _add_spec(
+        settings,
+        session_id,
+        steps=[
+            {"type": "split", "enabled": True},
+            {"type": "train_decision_tree", "enabled": True},
+        ],
+    )
+
+    resp = client.get(f"/v1/sessions/{session_id}/spec/tree")
+    assert resp.status_code == 200
+    node = resp.json()["versions"][0]
+    assert node["phase"] == "modeling"
+
+
+def test_spec_tree_phase_modeling_disabled_step(client, settings):
+    """Deaktivierter Modeling-Step zählt nicht → phase == 'preprocessing'."""
+    session_id = _create_session(client)
+    _add_spec(
+        settings,
+        session_id,
+        steps=[{"type": "train_decision_tree", "enabled": False}],
+    )
+
+    resp = client.get(f"/v1/sessions/{session_id}/spec/tree")
+    assert resp.status_code == 200
+    node = resp.json()["versions"][0]
+    assert node["phase"] == "preprocessing"
+
+
+def test_spec_tree_phase_empty_spec(client, settings):
+    """Leere Steps-Liste → phase == 'preprocessing'."""
+    session_id = _create_session(client)
+    _add_spec(settings, session_id, steps=[])
+
+    resp = client.get(f"/v1/sessions/{session_id}/spec/tree")
+    assert resp.status_code == 200
+    node = resp.json()["versions"][0]
+    assert node["phase"] == "preprocessing"

@@ -1,4 +1,5 @@
 """API-Endpunkte für Spec-Version-Abfragen."""
+import json
 from typing import Union
 
 from fastapi import APIRouter, Request
@@ -13,6 +14,16 @@ from gysi_ml.api.schemas import (
 from gysi_ml.persistence import run_repository, session_repository, spec_repository
 
 router = APIRouter(prefix="/v1")
+
+_MODELING_STEPS = {"train_decision_tree", "train_ebm", "catboost_feature_selection"}
+
+
+def _derive_phase(spec: dict) -> str:
+    """Leitet die Phase aus der Spec ab: 'modeling' wenn ein aktivierter Modeling-Step vorhanden ist."""
+    for step in spec.get("steps", []):
+        if step.get("enabled", True) and step.get("type") in _MODELING_STEPS:
+            return "modeling"
+    return "preprocessing"
 
 
 def _get_db_path(request: Request) -> str | None:
@@ -75,6 +86,8 @@ def get_spec_tree(
 
     nodes = []
     for spec in specs:
+        spec_dict = json.loads(spec["spec_json"]) if spec.get("spec_json") else {}
+        phase = _derive_phase(spec_dict)
         spec_runs = runs_by_spec.get(spec["spec_id"], [])
         last_run = spec_runs[-1] if spec_runs else None
         nodes.append(
@@ -87,6 +100,7 @@ def get_spec_tree(
                 has_runs=len(spec_runs) > 0,
                 last_run_status=last_run["status"] if last_run else None,
                 last_run_id=last_run["run_id"] if last_run else None,
+                phase=phase,
             )
         )
 

@@ -55,7 +55,7 @@ def get_latest_spec(session_id: str, db_path: str | None = None) -> dict | None:
         cursor = conn.cursor()
         cursor.execute(
             "SELECT spec_id, session_id, version, spec_json, created_at, change_summary "
-            "FROM spec_versions WHERE session_id = ? ORDER BY created_at DESC LIMIT 1",
+            "FROM spec_versions WHERE session_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1",
             (session_id,),
         )
         row = cursor.fetchone()
@@ -98,7 +98,7 @@ def get_all_specs_for_session(
     try:
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT spec_id, session_id, version, created_at, "
+            "SELECT spec_id, session_id, version, spec_json, created_at, "
             "parent_spec_id, change_summary "
             "FROM spec_versions WHERE session_id = ? ORDER BY created_at ASC",
             (session_id,),
@@ -160,11 +160,11 @@ def rollback_to(
         # bereits eine Spec dieser Session bestätigt hat.
         cursor.execute(
             "SELECT spec_id, version FROM spec_versions WHERE session_id = ? "
-            "ORDER BY created_at DESC LIMIT 1",
+            "ORDER BY created_at DESC, rowid DESC LIMIT 1",
             (session_id,),
         )
         current_row = cursor.fetchone()
-        parent_spec_id = current_row["spec_id"]
+        parent_spec_id = target_spec_id
         num = int(current_row["version"].lstrip("v"))
         new_version = f"v{num + 1}"
 

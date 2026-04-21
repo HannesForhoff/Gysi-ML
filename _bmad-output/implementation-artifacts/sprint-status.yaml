@@ -148,4 +148,17 @@ development_status:
   dv-2-3-spalten-feature-summary-header: done
   dv-2-4-rollback-integration-datenansicht-aktualisiert-sich: done
   dv-2-5-csv-download-button: done
-  epic-dv-2-retrospective: optional 
+  epic-dv-2-retrospective: optional
+
+  # ===========================================================================
+  # VERSION TREE — Epic VT-1 (2026-04-21 — NEU)
+  # Source: _bmad-output/implementation-artifacts/shared/vt-1-1-branching-fix-...
+  #         _bmad-output/implementation-artifacts/frontend/vt-1-2-svg-versionsbaum.md
+  # Reihenfolge: VT-1.1 (Fundament) → VT-1.2 (SVG-Rendering)
+  # VT-1.1 liegt in shared/ (full-stack), VT-1.2 in frontend/
+  # ===========================================================================
+
+  epic-vt-1: in-progress
+  vt-1-1-branching-fix-phase-feld-und-tree-algorithmus: done
+  vt-1-2-svg-versionsbaum: ready-for-dev
+  epic-vt-1-retrospective: optional

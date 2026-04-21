@@ -2,15 +2,15 @@ import type { ReactNode } from 'react'
 
 type ChatLayoutProps = {
   children: ReactNode
-  status: ReactNode
   history: ReactNode
   dataPane: ReactNode
-  activeTab: 'chat' | 'data'
-  onTabChange: (tab: 'chat' | 'data') => void
+  infoPane: ReactNode
+  activeTab: 'chat' | 'data' | 'info'
+  onTabChange: (tab: 'chat' | 'data' | 'info') => void
   dataTabEnabled: boolean
 }
 
-export function ChatLayout({ children, status, history, dataPane, activeTab, onTabChange, dataTabEnabled }: ChatLayoutProps) {
+export function ChatLayout({ children, history, dataPane, infoPane, activeTab, onTabChange, dataTabEnabled }: ChatLayoutProps) {
   return (
     <div className="layout">
       <main className="chatPane">
@@ -28,12 +28,17 @@ export function ChatLayout({ children, status, history, dataPane, activeTab, onT
           >
             Daten
           </button>
+          <button
+            className={`tabBtn${activeTab === 'info' ? ' tabBtn--active' : ''}`}
+            onClick={() => onTabChange('info')}
+          >
+            Artefakte & Steps
+          </button>
         </div>
         <div className="tabContent">
-          {activeTab === 'chat' ? children : dataPane}
+          {activeTab === 'chat' ? children : activeTab === 'data' ? dataPane : infoPane}
         </div>
       </main>
-      <aside className="statusPane">{status}</aside>
       <aside className="historyPane">{history}</aside>
     </div>
   )

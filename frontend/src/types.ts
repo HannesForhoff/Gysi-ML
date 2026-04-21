@@ -86,6 +86,7 @@ export interface VersionNode {
   has_runs: boolean
   last_run_status: string | null
   last_run_id: string | null
+  phase: string
 }
 
 export interface VersionTree {

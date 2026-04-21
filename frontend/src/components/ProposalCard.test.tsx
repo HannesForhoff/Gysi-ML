@@ -24,11 +24,11 @@ describe('ProposalCard', () => {
     ).toBeInTheDocument()
   })
 
-  it('rendert alle Steps mit step_type', () => {
+  it('rendert alle Steps mit lesbarem Label (Fallback auf step_type für unbekannte)', () => {
     render(<ProposalCard proposal={baseProposal} onConfirm={vi.fn()} />)
-    expect(screen.getByText('load_csv')).toBeInTheDocument()
-    expect(screen.getByText('impute_missing')).toBeInTheDocument()
-    expect(screen.getByText('train_test_split')).toBeInTheDocument()
+    expect(screen.getByText('load_csv')).toBeInTheDocument()          // kein Mapping → Fallback
+    expect(screen.getByText('Fehlende Werte auffüllen')).toBeInTheDocument() // impute_missing
+    expect(screen.getByText('train_test_split')).toBeInTheDocument()  // kein Mapping → Fallback
   })
 
   it('rendert parameters_summary wenn vorhanden', () => {
@@ -39,10 +39,11 @@ describe('ProposalCard', () => {
 
   it('rendert keinen Parameters-Text wenn parameters_summary fehlt', () => {
     render(<ProposalCard proposal={baseProposal} onConfirm={vi.fn()} />)
-    // impute_missing hat kein parameters_summary — kein "—" neben dem Step
+    // impute_missing hat kein parameters_summary – nur das Step-Label, kein params-Span
     const items = screen.getAllByRole('listitem')
-    const imputeItem = items.find((el) => el.textContent?.includes('impute_missing'))
-    expect(imputeItem?.textContent?.trim()).toBe('impute_missing')
+    const imputeItem = items.find((el) => el.textContent?.includes('Fehlende Werte'))
+    expect(imputeItem).toBeDefined()
+    expect(imputeItem!.querySelectorAll('.proposalStepParams')).toHaveLength(0)
   })
 
   it('rendert Button „Bestätigen & Ausführen"', () => {

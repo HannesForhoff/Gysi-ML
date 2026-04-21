@@ -65,10 +65,11 @@ describe('ResultCard — Metriken', () => {
 })
 
 describe('ResultCard — Artefakte', () => {
-  it('rendert Artefakte-Liste mit Label und Media-Type', () => {
+  it('rendert Artefakte-Liste mit Label (Bild als figure, Nicht-Bild mit Media-Type)', () => {
     render(<ResultCard result={doneResult} />)
     expect(screen.getByText('Plot (Placeholder)')).toBeInTheDocument()
-    expect(screen.getByText('(image/svg+xml)')).toBeInTheDocument()
+    // Bild-Artefakte werden als <figure> gerendert – Media-Type erscheint nicht als Text
+    expect(screen.queryByText('(image/svg+xml)')).not.toBeInTheDocument()
     expect(screen.getByText('Metrics (JSON)')).toBeInTheDocument()
     expect(screen.getByText('(application/json)')).toBeInTheDocument()
   })

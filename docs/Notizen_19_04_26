@@ -7,9 +7,6 @@ mache das mal für weathersit
 Die Spalte "weathersit" wurde nicht kodiert, da sie keinen kategorischen Datentyp hat, sondern als float64 vorliegt. Das ist fachlich sinnvoll, da One-Hot-Encoding nur bei kategorialen Variablen angewendet werden sollte. Prüfen Sie, ob "weathersit" tatsächlich kategoriale Werte enthält, und wandeln Sie sie gegebenenfalls in einen kategorialen Datentyp um, bevor Sie das Encoding erneut durchführen.
  -> spec verlauf zeigt trotzdem neue spec mit + encode_categorical (onehot) obwohl in der csv nichts verändert wurde -> sollte lieber keine enue version erzeugen da nichts gemacht wurde
 
- Die Spalte "season" wurde nicht kodiert, da sie als numerischer Datentyp (int64) vorliegt und somit nicht als kategorisch erkannt wurde. Das One-Hot-Encoding wurde daher übersprungen. Fachlich ist das sinnvoll, denn One-Hot-Encoding ist nur für kategoriale Daten geeignet, nicht für numerische. Empfehlung: Die Spalte "season" zunächst in einen kategorischen Datentyp umwandeln, bevor das One-Hot-Encoding angewendet wird.
-  -> Preprocessing erweitern: Datentypen änderung von features
-
   + time_feature_encoding (dteday): weekday 0-6, welche nummer ist welcher tag?
   bei impute mssing werte von anderen features ableiten können (dteday für missingf values in month)
 
@@ -88,3 +85,6 @@ y cannot contain missing values
 
 generell möglichkeiten einbauen daten am anfang besser zu verstehen bevor man mit preprocessing started
 -> Einbau von verschiedenen Plots zb Boxplot von feature xy
+
+
+time feature encoding führt keine neuen spalten (weekday und month) hinzu wenn vorher ein split gemacht wurde
