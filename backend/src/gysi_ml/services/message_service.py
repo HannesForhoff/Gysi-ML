@@ -45,9 +45,20 @@ def _merge_specs(current_spec: dict | None, new_spec: dict) -> dict:
     if not new_steps:
         return {**new_spec, "steps": current_steps}
 
-    # Map: step_type → Index in current_steps (für O(1)-Lookup)
-    type_to_idx: dict[str, int] = {
-        s["type"]: i for i, s in enumerate(current_steps)
+    def _merge_key(step: dict) -> str:
+        """Eindeutiger Merge-Schlüssel für einen Step.
+
+        impute_missing: Typ + Strategie → verschiedene Strategien sind separate Steps.
+        Alle anderen Step-Typen: nur der Typ (pro Typ max. ein Eintrag).
+        """
+        if step.get("type") == "impute_missing":
+            strategy = step.get("params", {}).get("strategy", "median")
+            return f"impute_missing:{strategy}"
+        return step.get("type", "")
+
+    # Map: merge_key → Index in merged (für O(1)-Lookup)
+    key_to_idx: dict[str, int] = {
+        _merge_key(s): i for i, s in enumerate(current_steps)
     }
 
     merged: list[dict] = list(current_steps)
@@ -57,12 +68,24 @@ def _merge_specs(current_spec: dict | None, new_spec: dict) -> dict:
             # Ungültiger Step ohne type-Feld — wird vom Spec-Validator abgefangen
             merged.append(new_step)
             continue
-        if step_type in type_to_idx:
-            # Step existiert bereits → Parameter aktualisieren, Position beibehalten
-            merged[type_to_idx[step_type]] = new_step
+        key = _merge_key(new_step)
+        if key in key_to_idx:
+            existing = merged[key_to_idx[key]]
+            new_columns: list = new_step.get("params", {}).get("columns") or []
+            existing_columns: list = existing.get("params", {}).get("columns") or []
+
+            if new_columns and existing_columns:
+                # Beide Steps haben explizite Zielspalten →
+                # Spalten zusammenführen (Reihenfolge beibehalten, Duplikate entfernen)
+                merged_columns = list(dict.fromkeys(existing_columns + new_columns))
+                merged_params = {**existing.get("params", {}), "columns": merged_columns}
+                merged[key_to_idx[key]] = {**existing, "params": merged_params}
+            else:
+                # Kein Spalten-Merge möglich → bestehenden Step ersetzen
+                merged[key_to_idx[key]] = new_step
         else:
-            # Neuer Step-Typ → anhängen und in Index aufnehmen
-            type_to_idx[step_type] = len(merged)
+            # Neuer Key → anhängen und in Index aufnehmen
+            key_to_idx[key] = len(merged)
             merged.append(new_step)
 
     return {**new_spec, "steps": merged}

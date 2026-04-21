@@ -32,7 +32,8 @@ def test_added_step():
         _step("outlier_handling", {"method": "IQR"}),
     )
     result = spec_diff(old, new)
-    assert "+ outlier_handling (IQR)" in result
+    assert "+ outlier_handling" in result
+    assert "IQR" in result
 
 
 # ---------------------------------------------------------------------------
@@ -138,3 +139,90 @@ def test_reactivated_step():
     new = _spec(_step("encoding", {"strategy": "onehot"}))
     result = spec_diff(old, new)
     assert "encoding: aktiviert" in result
+
+
+# ---------------------------------------------------------------------------
+# impute_missing: verschiedene Strategien als separate Steps
+# ---------------------------------------------------------------------------
+
+
+def test_second_impute_different_strategy_shown_as_added():
+    """Ein zweiter impute_missing mit anderer Strategie ist ein neuer Step, kein Ersatz."""
+    old = _spec(_step("impute_missing", {"strategy": "median", "columns": ["windspeed"]}))
+    new = _spec(
+        _step("impute_missing", {"strategy": "median", "columns": ["windspeed"]}),
+        _step("impute_missing", {"strategy": "mean", "columns": ["cnt"]}),
+    )
+    result = spec_diff(old, new)
+    # Neuer Step wird als Hinzufügung gezeigt
+    assert "+ impute_missing" in result
+    # Bestehender Median-Step wird NICHT als geändert angezeigt
+    assert "windspeed → cnt" not in result
+    assert "median → mean" not in result
+
+
+def test_same_strategy_column_merge_shown_as_change():
+    """Gleiche Strategie, neue Spalte hinzugefügt → Parameteränderung im Diff."""
+    old = _spec(_step("impute_missing", {"strategy": "median", "columns": ["windspeed"]}))
+    new = _spec(_step("impute_missing", {"strategy": "median", "columns": ["windspeed", "cnt"]}))
+    result = spec_diff(old, new)
+    assert "impute_missing" in result
+    assert "windspeed" in result or "cnt" in result
+
+
+# ---------------------------------------------------------------------------
+# Informative Hints — _format_step_hint
+# ---------------------------------------------------------------------------
+
+
+def test_added_impute_shows_columns_and_strategy():
+    """Neuer impute_missing-Step zeigt Spalten + Strategie."""
+    old = {"steps": []}
+    new = _spec(_step("impute_missing", {"strategy": "median", "columns": ["windspeed"]}))
+    result = spec_diff(old, new)
+    assert "windspeed" in result
+    assert "median" in result
+
+
+def test_added_outlier_without_columns_shows_all():
+    """outlier_handling ohne columns → '(IQR, alle Spalten)'."""
+    old = {"steps": []}
+    new = _spec(_step("outlier_handling", {"method": "iqr"}))
+    result = spec_diff(old, new)
+    assert "IQR" in result
+    assert "alle" in result
+
+
+def test_added_outlier_with_columns():
+    """outlier_handling mit columns → Spaltenname sichtbar."""
+    old = {"steps": []}
+    new = _spec(_step("outlier_handling", {"method": "iqr", "columns": ["windspeed"]}))
+    result = spec_diff(old, new)
+    assert "windspeed" in result
+
+
+def test_added_decision_tree_shows_max_depth():
+    """train_decision_tree zeigt max_depth."""
+    old = {"steps": []}
+    new = _spec(_step("train_decision_tree", {"max_depth": 4, "random_state": 42}))
+    result = spec_diff(old, new)
+    assert "max_depth=4" in result
+    assert "cnt" in result
+
+
+def test_added_split_shows_test_size():
+    """split zeigt test_size."""
+    old = {"steps": []}
+    new = _spec(_step("split", {"test_size": 0.2}))
+    result = spec_diff(old, new)
+    assert "test_size=0.2" in result
+
+
+def test_changed_list_param_readable():
+    """Geänderte Listen-Parameter werden ohne eckige Klammern angezeigt."""
+    old = _spec(_step("impute_missing", {"strategy": "median", "columns": ["windspeed"]}))
+    new = _spec(_step("impute_missing", {"strategy": "median", "columns": ["windspeed", "cnt"]}))
+    result = spec_diff(old, new)
+    # Keine eckigen Klammern
+    assert "[" not in result
+    assert "]" not in result

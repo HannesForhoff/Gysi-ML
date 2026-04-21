@@ -153,3 +153,56 @@ def test_current_spec_not_mutated():
     new = _spec(_step("train_decision_tree"))
     _merge_specs(current, new)
     assert current["steps"] == original_steps
+
+
+# ---------------------------------------------------------------------------
+# Spalten-Merge: impute_missing mit gleicher Strategie → Spalten zusammenführen
+# ---------------------------------------------------------------------------
+
+
+def test_impute_same_strategy_columns_merged():
+    """Zwei impute_missing-Steps mit gleicher Strategie → Spalten zusammenführen."""
+    current = _spec(_step("impute_missing", strategy="median", columns=["windspeed"]))
+    new = _spec(_step("impute_missing", strategy="median", columns=["cnt"]))
+    result = _merge_specs(current, new)
+    assert len(result["steps"]) == 1
+    assert result["steps"][0]["params"]["columns"] == ["windspeed", "cnt"]
+
+
+def test_impute_columns_deduplication():
+    """Doppelt genannte Spalte wird nur einmal aufgenommen."""
+    current = _spec(_step("impute_missing", strategy="median", columns=["windspeed"]))
+    new = _spec(_step("impute_missing", strategy="median", columns=["windspeed", "cnt"]))
+    result = _merge_specs(current, new)
+    assert result["steps"][0]["params"]["columns"] == ["windspeed", "cnt"]
+
+
+def test_impute_different_strategy_adds_new_step():
+    """Unterschiedliche Strategie → separater Step, kein Ersetzen."""
+    current = _spec(_step("impute_missing", strategy="median", columns=["windspeed"]))
+    new = _spec(_step("impute_missing", strategy="mean", columns=["cnt"]))
+    result = _merge_specs(current, new)
+    assert len(result["steps"]) == 2
+    types_and_strategies = [
+        (s["type"], s["params"]["strategy"]) for s in result["steps"]
+    ]
+    assert ("impute_missing", "median") in types_and_strategies
+    assert ("impute_missing", "mean") in types_and_strategies
+
+
+def test_impute_no_columns_replaces():
+    """Neuer Step ohne explizite Spalten (= alle) → ersetzt bestehenden Step."""
+    current = _spec(_step("impute_missing", strategy="median", columns=["windspeed"]))
+    new = _spec(_step("impute_missing", strategy="median"))
+    result = _merge_specs(current, new)
+    assert len(result["steps"]) == 1
+    assert result["steps"][0]["params"].get("columns") is None
+
+
+def test_impute_existing_no_columns_new_with_columns_replaces():
+    """Bestehender Step ohne Spalten + neuer Step mit Spalten → ersetzen."""
+    current = _spec(_step("impute_missing", strategy="median"))
+    new = _spec(_step("impute_missing", strategy="median", columns=["cnt"]))
+    result = _merge_specs(current, new)
+    assert len(result["steps"]) == 1
+    assert result["steps"][0]["params"]["columns"] == ["cnt"]

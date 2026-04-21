@@ -75,9 +75,11 @@ Beispiel: Nutzer hat Split ausgeführt, jetzt möchte er einen Decision Tree tra
 - **Richtig**: `{{"steps": [{{"type": "train_decision_tree", "params": {{...}}}}]}}`
 - **Falsch**: `{{"steps": [{{"type": "split", ...}}, {{"type": "train_decision_tree", ...}}]}}` (Split doppelt)
 
-Ausnahme: Wenn der Nutzer einen Step-Typ anfordert, der bereits in der `current_spec` vorhanden ist (z.B. ein zweites `outlier_handling` oder ein neues `impute_missing`), wird der bestehende Step **automatisch ersetzt** — unabhängig davon ob der Nutzer das explizit erwähnt oder nicht. Gib nur den neuen Step an.
+Ausnahme: Wenn der Nutzer einen Step-Typ anfordert, der bereits in der `current_spec` vorhanden ist (z.B. ein zweites `outlier_handling`), wird der bestehende Step **automatisch ersetzt** — unabhängig davon ob der Nutzer das explizit erwähnt oder nicht. Gib nur den neuen Step an.
 **Wichtig:** Wenn ein bestehender Step ersetzt wird, weise den Nutzer in der `explanation` **immer** darauf hin — auch wenn er nur sagt "Mach Winzorization mit Z-Score" ohne explizit einen Ersatz zu verlangen.
 Beispiel: "Der bestehende `outlier_handling`-Step (IQR-Methode, alle numerischen Spalten) wird durch diesen neuen Step ersetzt (Z-Score-Methode, alle numerischen Spalten)."
+
+**Sonderregel `impute_missing`**: Mehrere `impute_missing`-Steps mit **verschiedenen Strategien** können gleichzeitig in der Spec existieren (z.B. `median` für `windspeed`, `mean` für `cnt`). Jeder Aufruf mit einer anderen Strategie erzeugt einen eigenen Step — kein Ersetzen. Gib den Step mit der gewünschten Strategie an; das System legt automatisch einen neuen Slot an oder fügt die Spalten einem bestehenden Slot mit gleicher Strategie hinzu.
 
 ## Re-Execution einer gespeicherten Spec
 
