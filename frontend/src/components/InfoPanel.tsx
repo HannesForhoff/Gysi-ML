@@ -1,6 +1,7 @@
-import type { ArtifactRef, ResultResponse, SpecSummary } from '../types'
+import type { ArtifactRef, ResultResponse, SpecSummary, StepResult } from '../types'
 import { sanitizeArtifactUrl } from '../utils/sanitizeArtifactUrl'
-import { formatStepResult, getStepLabel } from '../utils/stepMeta'
+import { getStepLabel } from '../utils/stepMeta'
+import { StepDetail } from './StepDetail'
 
 type InfoPanelProps = {
   specSummary: SpecSummary | null
@@ -21,6 +22,9 @@ export function InfoPanel({ specSummary, lastRun, artifacts }: InfoPanelProps) {
   const hasSteps = (lastRun?.step_results?.length ?? 0) > 0
   const hasArtifacts = artifacts.length > 0
 
+  // step_results are in the same order as spec steps — match by index
+  const stepResults: (StepResult | undefined)[] = lastRun?.step_results ?? []
+
   return (
     <div className="infoPanel">
 
@@ -38,17 +42,27 @@ export function InfoPanel({ specSummary, lastRun, artifacts }: InfoPanelProps) {
         </div>
         {specSummary ? (
           <ul className="infoPipelineSteps">
-            {specSummary.steps.map((step, idx) => (
-              <li key={step.step_type} className="infoPipelineStep">
-                <span className="infoPipelineStepNum">{idx + 1}</span>
-                <span className="infoPipelineStepName">{getStepLabel(step.step_type)}</span>
-                <span
-                  className={`infoStepBadge ${step.enabled ? 'infoStepBadge--on' : 'infoStepBadge--off'}`}
-                >
-                  {step.enabled ? 'aktiv' : 'aus'}
-                </span>
-              </li>
-            ))}
+            {specSummary.steps.map((step, idx) => {
+              const sr = stepResults[idx]
+              return (
+                <li key={`${step.step_type}-${idx}`} className="infoPipelineStep">
+                  <div className="infoPipelineStepHeader">
+                    <span className="infoPipelineStepNum">{idx + 1}</span>
+                    <span className="infoPipelineStepName">{getStepLabel(step.step_type)}</span>
+                    <span
+                      className={`infoStepBadge ${step.enabled ? 'infoStepBadge--on' : 'infoStepBadge--off'}`}
+                    >
+                      {step.enabled ? 'aktiv' : 'aus'}
+                    </span>
+                  </div>
+                  {sr && step.enabled && (
+                    <div className="infoPipelineStepDetail">
+                      <StepDetail sr={sr} />
+                    </div>
+                  )}
+                </li>
+              )
+            })}
           </ul>
         ) : (
           <div className="infoEmpty">Noch keine Pipeline konfiguriert.</div>
@@ -76,7 +90,7 @@ export function InfoPanel({ specSummary, lastRun, artifacts }: InfoPanelProps) {
                 <span className="infoRunStepIcon">✓</span>
                 <div className="infoRunStepContent">
                   <span className="infoRunStepName">{getStepLabel(sr.step_type)}</span>
-                  <span className="infoRunStepDesc">{formatStepResult(sr)}</span>
+                  <StepDetail sr={sr} />
                 </div>
               </li>
             ))}

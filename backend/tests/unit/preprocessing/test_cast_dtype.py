@@ -105,7 +105,7 @@ def test_get_metadata(df_base):
     step = CastDtypeStep(params={"columns": {"season": "category"}})
     step.fit(df_base)
     meta = step.get_metadata()
-    assert meta == {"casts_applied": {"season": "category"}}
+    assert meta == {"casts_applied": {"season": {"old_dtype": "int64", "new_dtype": "category"}}}
 
 
 # ---------------------------------------------------------------------------

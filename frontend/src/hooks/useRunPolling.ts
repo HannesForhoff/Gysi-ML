@@ -133,6 +133,7 @@ function createResultMessage(result: RunStatusResponse): ChatMessage {
         status: 'done',
         metrics: result.metrics,
         artifacts: result.artifacts,
+        step_results: result.step_results,
       },
     }
   }

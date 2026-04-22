@@ -64,7 +64,11 @@ class EBMStep(BaseStep):
         return df_train, df_test
 
     def get_metadata(self) -> dict:
-        return {"metrics": self._metrics, "feature_names": self._feature_names}
+        return {
+            "target": self.TARGET_COL,
+            "metrics": self._metrics,
+            "feature_names": self._feature_names,
+        }
 
     def generate_artifact(self, artifacts_path: str, run_id: str) -> dict | None:
         if self.model is None:

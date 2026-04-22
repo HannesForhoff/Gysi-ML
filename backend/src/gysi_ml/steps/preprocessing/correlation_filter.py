@@ -97,6 +97,7 @@ class CorrelationFilterStep(BaseStep):
 
     def get_metadata(self) -> dict:
         return {
+            "threshold": self.threshold,
             "dropped_features": self._features_to_drop,
             "corr_pairs": self._corr_pairs,
             "independent_features": self._independent_features,

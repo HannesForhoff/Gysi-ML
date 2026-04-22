@@ -78,8 +78,13 @@ def _format_step_hint(step: dict) -> str:
         return f"({column})" if column else ""
 
     if step_type == "cast_dtype":
-        dtype = params.get("dtype", "")
-        return f"{cols_str} ({dtype})" if cols_str and dtype else f"({dtype})" if dtype else ""
+        columns = params.get("columns")
+        if isinstance(columns, dict) and columns:
+            parts = [f"{col} → {dtype}" for col, dtype in columns.items()]
+            if len(parts) <= 2:
+                return ", ".join(parts)
+            return ", ".join(parts[:2]) + ", …"
+        return ""
 
     # Fallback: erster Param-Wert
     if params:

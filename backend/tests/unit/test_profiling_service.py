@@ -34,6 +34,20 @@ def sample_csv(tmp_path) -> str:
     return str(csv_file)
 
 
+@pytest.fixture
+def sample_csv_with_windspeed_sentinel(tmp_path) -> str:
+    """Erstellt ein Test-CSV, in dem windspeed per '-' als Missing Value kodiert ist."""
+    csv_content = textwrap.dedent("""\
+        windspeed,cnt,temp
+        0.1,985,0.24
+        -,1234,0.40
+        0.3,2000,0.60
+    """)
+    csv_file = tmp_path / "test_bikes_windspeed.csv"
+    csv_file.write_text(csv_content)
+    return str(csv_file)
+
+
 # ---------------------------------------------------------------------------
 # AC 1: Vollständiges Profiling-Ergebnis
 # ---------------------------------------------------------------------------
@@ -78,7 +92,7 @@ def test_profile_raw_contains_numeric_statistics(sample_csv):
 
 def test_profile_raw_cache_reads_csv_only_once(sample_csv):
     """Zweimaliger Aufruf mit gleichem data_path liest CSV nur einmal."""
-    with patch("gysi_ml.services.profiling_service.pd.read_csv", wraps=pd.read_csv) as mock_read:
+    with patch("gysi_ml.utils.data_loader.pd.read_csv", wraps=pd.read_csv) as mock_read:
         from gysi_ml.services.profiling_service import ProfilingService
 
         # Ersten Aufruf machen
@@ -96,11 +110,18 @@ def test_profile_raw_cache_different_paths_read_separately(sample_csv, tmp_path)
     csv2 = tmp_path / "other.csv"
     csv2.write_text(csv2_content)
 
-    with patch("gysi_ml.services.profiling_service.pd.read_csv", wraps=pd.read_csv) as mock_read:
+    with patch("gysi_ml.utils.data_loader.pd.read_csv", wraps=pd.read_csv) as mock_read:
         _ps_module._profile_raw_cached(sample_csv)
         _ps_module._profile_raw_cached(str(csv2))
 
     assert mock_read.call_count == 2, "Verschiedene Pfade erzeugen separate Cache-Lese-Aufrufe"
+
+
+def test_profile_raw_uses_canonical_loader_for_windspeed_dtype(sample_csv_with_windspeed_sentinel):
+    """`/overview` soll den kanonischen Datentyp zeigen, nicht den CSV-Rohstring-Typ."""
+    result = _ps_module._profile_raw_cached(sample_csv_with_windspeed_sentinel)
+
+    assert "| `windspeed` | float64 |" in result
 
 
 # ---------------------------------------------------------------------------

@@ -55,8 +55,19 @@ def test_column_stats_numeric_fields(simple_df):
     assert age_stats["min"] is not None
     assert age_stats["max"] is not None
     assert age_stats["histogram"] is not None
-    assert len(age_stats["histogram"]["bins"]) == 11
-    assert len(age_stats["histogram"]["counts"]) == 10
+    assert age_stats["histogram"]["bins"] == [10.0, 20.0, 30.0, 40.0, 50.0, 51.0]
+    assert age_stats["histogram"]["counts"] == [1, 1, 1, 1, 1]
+
+
+def test_column_stats_continuous_numeric_fields_use_10_bins(simple_df):
+    stats = _compute_column_stats(simple_df, is_split=False)
+    score_stats = stats["columns"]["score"]
+    assert score_stats["min"] is not None
+    assert score_stats["max"] is not None
+    assert score_stats["histogram"] is not None
+    assert len(score_stats["histogram"]["bins"]) == len(score_stats["histogram"]["counts"]) + 1
+    assert score_stats["histogram"]["bins"][0] == 1.0
+    assert score_stats["histogram"]["bins"][-1] == 5.5
 
 
 def test_column_stats_missing_values():

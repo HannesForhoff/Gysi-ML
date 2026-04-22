@@ -206,3 +206,44 @@ def test_impute_existing_no_columns_new_with_columns_replaces():
     result = _merge_specs(current, new)
     assert len(result["steps"]) == 1
     assert result["steps"][0]["params"]["columns"] == ["cnt"]
+
+
+# ---------------------------------------------------------------------------
+# Spalten-Merge: cast_dtype mit dict-Columns → dict-Merge (kein TypeError)
+# ---------------------------------------------------------------------------
+
+
+def test_cast_dtype_new_column_added_to_existing():
+    """cast_dtype: neues Spalten-Mapping wird zum bestehenden hinzugefügt."""
+    current = _spec({"type": "cast_dtype", "params": {"columns": {"windspeed": "object"}}})
+    new = _spec({"type": "cast_dtype", "params": {"columns": {"cnt": "float64"}}})
+    result = _merge_specs(current, new)
+    assert len(result["steps"]) == 1
+    assert result["steps"][0]["params"]["columns"] == {"windspeed": "object", "cnt": "float64"}
+
+
+def test_cast_dtype_same_column_new_type_overwrites():
+    """cast_dtype: Neuer Typ für bestehende Spalte überschreibt alten (explizite Nutzeranforderung)."""
+    current = _spec({"type": "cast_dtype", "params": {"columns": {"windspeed": "object"}}})
+    new = _spec({"type": "cast_dtype", "params": {"columns": {"windspeed": "float64"}}})
+    result = _merge_specs(current, new)
+    assert len(result["steps"]) == 1
+    assert result["steps"][0]["params"]["columns"] == {"windspeed": "float64"}
+
+
+def test_cast_dtype_mixed_columns_merged_correctly():
+    """cast_dtype: Mix aus neuen und bestehenden Spalten wird korrekt zusammengeführt."""
+    current = _spec({"type": "cast_dtype", "params": {"columns": {"windspeed": "object", "season": "category"}}})
+    new = _spec({"type": "cast_dtype", "params": {"columns": {"cnt": "float64", "season": "int64"}}})
+    result = _merge_specs(current, new)
+    merged_cols = result["steps"][0]["params"]["columns"]
+    assert merged_cols == {"windspeed": "object", "season": "int64", "cnt": "float64"}
+
+
+def test_cast_dtype_no_columns_in_new_replaces():
+    """cast_dtype: Neuer Step ohne columns → ersetzt bestehenden."""
+    current = _spec({"type": "cast_dtype", "params": {"columns": {"windspeed": "object"}}})
+    new = _spec({"type": "cast_dtype", "params": {}})
+    result = _merge_specs(current, new)
+    assert len(result["steps"]) == 1
+    assert result["steps"][0]["params"] == {}

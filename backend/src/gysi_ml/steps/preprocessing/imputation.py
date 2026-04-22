@@ -80,7 +80,10 @@ class ImputationStep(BaseStep):
         return result_train, result_test
 
     def get_metadata(self) -> dict:
-        meta: dict = {"imputed_values_per_column": self._imputed_per_col}
+        meta: dict = {
+            "strategy": self.strategy,
+            "imputed_values_per_column": self._imputed_per_col,
+        }
         if self._warnings:
             meta["warnings"] = self._warnings
         return meta

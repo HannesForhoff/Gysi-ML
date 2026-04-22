@@ -6,6 +6,29 @@ type ResultCardProps = {
   result: ResultResponse
 }
 
+const METRIC_LABELS: Record<string, string> = {
+  rmse: 'RMSE',
+  mae: 'MAE',
+  r2: 'R²',
+  mse: 'MSE',
+  accuracy: 'Accuracy',
+}
+
+function formatMetricValue(key: string, value: number | string): string {
+  if (typeof value === 'number') {
+    // R² auf 4 Stellen, Rest auf 2
+    return key === 'r2' ? value.toFixed(4) : value.toFixed(2)
+  }
+  return String(value)
+}
+
+function mediaTypeLabel(mediaType: string): string {
+  if (mediaType === 'text/csv') return 'CSV'
+  if (mediaType.startsWith('image/')) return mediaType.split('/')[1]?.toUpperCase() ?? 'IMG'
+  const slash = mediaType.lastIndexOf('/')
+  return slash >= 0 ? mediaType.slice(slash + 1).toUpperCase() : mediaType.toUpperCase()
+}
+
 export function ResultCard({ result }: ResultCardProps) {
   const isDone = result.status === 'done'
   const statusLabel = isDone ? 'Ergebnis' : 'Fehlgeschlagen'
@@ -43,14 +66,17 @@ export function ResultCard({ result }: ResultCardProps) {
       )}
 
       {hasMetrics && (
-        <dl className="resultMetrics">
-          {Object.entries(result.metrics!).map(([key, value]) => (
-            <div key={key} className="resultMetricsRow">
-              <dt>{key}</dt>
-              <dd>{String(value)}</dd>
-            </div>
-          ))}
-        </dl>
+        <div className="resultMetricsBox">
+          <div className="resultMetricsBoxTitle">Modell-Ergebnisse</div>
+          <dl className="resultMetrics">
+            {Object.entries(result.metrics!).map(([key, value]) => (
+              <div key={key} className="resultMetricsRow">
+                <dt>{METRIC_LABELS[key] ?? key.toUpperCase()}</dt>
+                <dd>{formatMetricValue(key, value as number | string)}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
       )}
 
       {hasArtifacts && (
@@ -89,18 +115,14 @@ export function ResultCard({ result }: ResultCardProps) {
                       rel="noreferrer"
                       className="resultArtifactLink"
                     >
+                      <span className="resultArtifactFileIcon">📄</span>
                       {artifact.label}
-                      {artifact.media_type && (
-                        <span className="resultArtifactType"> ({artifact.media_type})</span>
-                      )}
+                      <span className="resultArtifactTypeBadge">{mediaTypeLabel(artifact.media_type)}</span>
                     </a>
                   )
                 ) : (
                   <span className="resultArtifactInvalid">
                     {artifact.label} (ungültige URL)
-                    {artifact.media_type && (
-                      <span className="resultArtifactType"> ({artifact.media_type})</span>
-                    )}
                   </span>
                 )}
               </li>

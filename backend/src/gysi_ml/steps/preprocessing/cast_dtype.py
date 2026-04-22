@@ -37,7 +37,7 @@ class CastDtypeStep(BaseStep):
         super().__init__(params)
         self._columns: dict[str, str] = dict(self.params.get("columns", {}))
         self._datetime_format: str | None = self.params.get("datetime_format", None)
-        self._cast_results: dict[str, str] = {}
+        self._cast_results: dict[str, dict[str, str]] = {}  # col → {old_dtype, new_dtype}
 
     # ------------------------------------------------------------------
     # Validation helpers
@@ -122,8 +122,9 @@ class CastDtypeStep(BaseStep):
         # Dry-run on a single-row sample to catch cast errors early
         sample = df_train.head(1)
         for col, target in self._columns.items():
+            old_dtype = str(df_train[col].dtype)
             self._cast_series(sample[col], target, col)
-            self._cast_results[col] = target
+            self._cast_results[col] = {"old_dtype": old_dtype, "new_dtype": target}
 
     def transform(
         self, df_train: pd.DataFrame, df_test: pd.DataFrame
@@ -131,4 +132,4 @@ class CastDtypeStep(BaseStep):
         return self._apply(df_train), self._apply(df_test)
 
     def get_metadata(self) -> dict:
-        return {"casts_applied": self._cast_results}
+        return {"casts_applied": self._cast_results}  # {col: {old_dtype, new_dtype}}

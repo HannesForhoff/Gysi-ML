@@ -5,6 +5,7 @@ import os
 import pandas as pd
 
 from gysi_ml.config import get_settings
+from gysi_ml.utils.data_loader import load_bikes_dataset
 
 
 class ProfilingService:
@@ -129,7 +130,7 @@ class ProfilingService:
 @functools.lru_cache(maxsize=1)
 def _get_raw_row_count_cached(data_path: str) -> int:
     """Gecachte Zeilen-Anzahl des Rohdatensatzes. Konsistent mit _profile_raw_cached."""
-    return len(pd.read_csv(data_path))
+    return len(load_bikes_dataset(data_path))
 
 
 @functools.lru_cache(maxsize=1)
@@ -140,14 +141,14 @@ def _profile_raw_cached(data_path: str) -> str:
     verschiedenen data_path-Werten würde der Cache jeweils den vorherigen Eintrag verdrängen.
     Für Multi-Datensatz-Szenarien auf maxsize=None erhöhen.
     """
-    df = pd.read_csv(data_path)
+    df = load_bikes_dataset(data_path)
     return _format_profile(df)
 
 
 @functools.lru_cache(maxsize=1)
 def _compact_profile_cached(data_path: str) -> str:
     """Kompakte Profil-Zusammenfassung für LLM-Prompt-Injection. Gecacht wie _profile_raw_cached."""
-    df = pd.read_csv(data_path)
+    df = load_bikes_dataset(data_path)
     rows, cols = df.shape
     missing = df.isnull().sum()
     missing_cols = missing[missing > 0]

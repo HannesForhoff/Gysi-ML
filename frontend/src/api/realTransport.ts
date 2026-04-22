@@ -200,6 +200,11 @@ function toAssistantResponse(
     }
     const run_id = toNonEmptyString(payload.run_id) ?? undefined
     const post_run_explanation = toNonEmptyString(payload.post_run_explanation) ?? undefined
+    const rawMetrics = payload.metrics
+    const metrics: Record<string, number | string> | undefined =
+      isRecord(rawMetrics) && Object.keys(rawMetrics).length > 0
+        ? (rawMetrics as Record<string, number | string>)
+        : undefined
     return {
       type: 'result',
       message,
@@ -207,6 +212,7 @@ function toAssistantResponse(
       ...(run_id ? { run_id } : {}),
       ...(post_run_explanation ? { post_run_explanation } : {}),
       ...(step_results.length > 0 ? { step_results } : {}),
+      ...(metrics ? { metrics } : {}),
       ...(artifacts.length > 0 ? { artifacts } : {}),
       ...(spec_summary ? { spec_summary } : {}),
     }

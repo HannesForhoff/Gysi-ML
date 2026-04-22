@@ -50,7 +50,8 @@ class RareCategoryBucketingStep(BaseStep):
 
     def get_metadata(self) -> dict:
         return {
+            "min_frequency": self.min_frequency,
             "rare_categories_per_column": {
                 col: len(cats) for col, cats in self._rare_categories.items()
-            }
+            },
         }

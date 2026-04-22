@@ -144,6 +144,7 @@ class MessageResponse(BaseModel):
     spec: Optional[dict] = None
     runs: Optional[list[dict]] = None
     better_run_id: Optional[str] = None
+    metrics: Optional[dict] = None
     step_results: Optional[list] = None
     artifacts: Optional[list] = None
     post_run_explanation: Optional[str] = None

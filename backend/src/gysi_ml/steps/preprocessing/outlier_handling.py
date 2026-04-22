@@ -109,7 +109,12 @@ class OutlierHandlingStep(BaseStep):
         return result_train, result_test
 
     def get_metadata(self) -> dict:
-        metadata: dict = {"outliers_treated": self._outliers_treated}
+        metadata: dict = {
+            "method": self.method,
+            "outliers_treated": self._outliers_treated,
+        }
+        if self.method == "zscore":
+            metadata["zscore_threshold"] = self.zscore_threshold
         if self._skipped_cols:
             metadata["skipped_columns"] = self._skipped_cols
         if self.method == "iqr" and self._bounds:

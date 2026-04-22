@@ -71,13 +71,23 @@ def _merge_specs(current_spec: dict | None, new_spec: dict) -> dict:
         key = _merge_key(new_step)
         if key in key_to_idx:
             existing = merged[key_to_idx[key]]
-            new_columns: list = new_step.get("params", {}).get("columns") or []
-            existing_columns: list = existing.get("params", {}).get("columns") or []
+            new_columns = new_step.get("params", {}).get("columns") or []
+            existing_columns = existing.get("params", {}).get("columns") or []
 
             if new_columns and existing_columns:
-                # Beide Steps haben explizite Zielspalten →
-                # Spalten zusammenführen (Reihenfolge beibehalten, Duplikate entfernen)
-                merged_columns = list(dict.fromkeys(existing_columns + new_columns))
+                if isinstance(new_columns, dict) and isinstance(existing_columns, dict):
+                    # Dict-Merge für Steps wie cast_dtype: {col: dtype}.
+                    # Bestehende Einträge bleiben erhalten; neue Spalten werden hinzugefügt.
+                    # Für gleiche Spalte ÜBERSCHREIBT der neue Wert den alten
+                    # (User hat explizit neuen Typ angefordert).
+                    merged_columns = {**existing_columns, **new_columns}
+                else:
+                    # Listen-Merge für Steps wie impute_missing: [col1, col2].
+                    # Reihenfolge beibehalten, Duplikate entfernen.
+                    merged_columns = list(dict.fromkeys(
+                        (existing_columns if isinstance(existing_columns, list) else [])
+                        + (new_columns if isinstance(new_columns, list) else [])
+                    ))
                 merged_params = {**existing.get("params", {}), "columns": merged_columns}
                 merged[key_to_idx[key]] = {**existing, "params": merged_params}
             else:
@@ -380,6 +390,7 @@ def handle_message(
             "explanation": explanation,
             "post_run_explanation": post_run_explanation,
             "step_results": step_results,
+            "metrics": run_result.get("metrics") or None,
             "artifacts": run_result.get("artifacts", []),
             "spec": spec_for_response,
             "version": version_for_response,

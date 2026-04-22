@@ -9,6 +9,10 @@ export const STEP_LABELS: Record<string, string> = {
   correlation_filter: 'Korrelationsfilter',
   rare_category_bucketing: 'Seltene Kategorien bündeln',
   time_feature_encoding: 'Zeitmerkmale ableiten',
+  cast_dtype: 'Datentypen anpassen',
+  train_decision_tree: 'Decision Tree trainiert',
+  train_ebm: 'EBM trainiert',
+  catboost_feature_selection: 'CatBoost Feature Selection',
   train_model: 'Modell trainieren',
   evaluate_model: 'Modell auswerten',
 }
@@ -128,7 +132,42 @@ export function formatStepResult(sr: StepResult): string {
       }
       return parts.length > 0 ? parts.join(' | ') : 'Zeit-Feature-Encoding abgeschlossen.'
     }
+    case 'train_decision_tree': {
+      const features = m.feature_names as string[] | undefined
+      if (features && features.length > 0) {
+        return `${features.length} Features`
+      }
+      return 'Modell trainiert.'
+    }
+    case 'train_ebm': {
+      const features = m.feature_names as string[] | undefined
+      if (features && features.length > 0) {
+        return `${features.length} Features`
+      }
+      return 'Modell trainiert.'
+    }
+    case 'catboost_feature_selection': {
+      const selected = m.selected_features as string[] | undefined
+      const removed = m.removed_features as string[] | undefined
+      const parts: string[] = []
+      if (selected && selected.length > 0) parts.push(`${selected.length} ausgewählt`)
+      if (removed && removed.length > 0) parts.push(`${removed.length} entfernt`)
+      return parts.length > 0 ? parts.join(', ') : 'Feature Selection abgeschlossen.'
+    }
+    case 'cast_dtype': {
+      const casts = m.casts_applied as
+        | Record<string, { old_dtype: string; new_dtype: string }>
+        | undefined
+      if (casts && typeof casts === 'object') {
+        const entries = Object.entries(casts)
+        if (entries.length === 0) return 'Keine Konvertierungen durchgeführt.'
+        return entries
+          .map(([col, { old_dtype, new_dtype }]) => `${col}: ${old_dtype} → ${new_dtype}`)
+          .join(', ')
+      }
+      return 'Datentypen angepasst.'
+    }
     default:
-      return JSON.stringify(m)
+      return ''
   }
 }

@@ -15,6 +15,7 @@ def csv_file(tmp_path):
         "instant": range(1, 201),   # 200 Zeilen für Paginierungstest
         "cnt": range(100, 300),
         "temp": [0.5] * 200,
+        "windspeed": ["-", *[0.1 + (i % 5) * 0.1 for i in range(1, 200)]],
         "dteday": ["2012-01-01"] * 200,
     })
     path = tmp_path / "bikes.csv"
@@ -111,6 +112,19 @@ def test_column_stats_absent_at_offset_nonzero(client):
     resp = client.get(f"/v1/sessions/{session_id}/runs/{run_id}/data?offset=10&limit=10")
     body = resp.json()
     assert body["column_stats"] is None
+
+
+def test_get_raw_data_interprets_dash_sentinel_as_missing_value(client):
+    session_id = _create_session(client)
+
+    resp = client.get(f"/v1/sessions/{session_id}/raw-data?offset=0&limit=10")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    windspeed_idx = body["columns"].index("windspeed")
+
+    assert body["rows"][0][windspeed_idx] is None
+    assert body["column_stats"]["windspeed"]["missing_count"] == 1
 
 
 # ---------------------------------------------------------------------------
@@ -220,14 +234,14 @@ def test_csv_download_returns_200_with_csv_content_type(client):
 
 
 def test_csv_download_has_content_disposition_header(client):
-    """AC2: Content-Disposition mit korrektem Dateinamen."""
+    """AC2: Content-Disposition nutzt die spec_version-basierte Benennung."""
     session_id = _create_session(client)
     run_id = _run_pipeline(client, session_id)
     resp = client.get(f"/v1/sessions/{session_id}/runs/{run_id}/data/download")
     assert resp.status_code == 200
     content_disposition = resp.headers.get("content-disposition", "")
     assert "attachment" in content_disposition
-    assert f"gysi_data_{run_id[:8]}.csv" in content_disposition
+    assert 'filename="bikes_v1.csv"' in content_disposition
 
 
 def test_csv_download_body_is_valid_csv_with_header(client):

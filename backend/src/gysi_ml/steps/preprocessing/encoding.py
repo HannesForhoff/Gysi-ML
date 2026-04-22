@@ -92,7 +92,10 @@ class CategoricalEncodingStep(BaseStep):
         return result_train, result_test
 
     def get_metadata(self) -> dict:
-        meta: dict = {"encoded_columns": self._encoded_columns}
+        meta: dict = {
+            "method": self.method,
+            "encoded_columns": self._encoded_columns,
+        }
         if self._warnings:
             meta["warnings"] = self._warnings
         return meta

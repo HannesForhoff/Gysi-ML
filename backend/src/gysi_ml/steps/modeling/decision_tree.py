@@ -55,7 +55,12 @@ class DecisionTreeStep(BaseStep):
         return df_train, df_test
 
     def get_metadata(self) -> dict:
-        return {"metrics": self._metrics, "feature_names": self._feature_names}
+        return {
+            "target": self.TARGET_COL,
+            "max_depth": self.params.get("max_depth"),
+            "metrics": self._metrics,
+            "feature_names": self._feature_names,
+        }
 
     def generate_artifact(self, artifacts_path: str, run_id: str) -> dict | None:
         if self.model is None or not self._feature_names:

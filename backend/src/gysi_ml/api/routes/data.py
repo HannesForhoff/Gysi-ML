@@ -15,6 +15,7 @@ from gysi_ml.api.schemas import DataPageResponse, ErrorResponse
 from gysi_ml.config import get_settings
 from gysi_ml.persistence import run_repository
 from gysi_ml.services.snapshot_service import _compute_column_stats
+from gysi_ml.utils.data_loader import load_bikes_dataset
 
 router = APIRouter(prefix="/v1")
 
@@ -61,7 +62,7 @@ def get_raw_data(
         )
 
     effective_limit = min(limit, _MAX_LIMIT)
-    df = pd.read_csv(csv_path)
+    df = load_bikes_dataset(str(csv_path))
     total_rows = len(df)
     page = df.iloc[offset : offset + effective_limit]
     page = page.where(page.notna(), other=None)
@@ -194,7 +195,7 @@ def download_raw_data_csv(
             ).model_dump(),
         )
 
-    df = pd.read_csv(csv_path)
+    df = load_bikes_dataset(str(csv_path))
     buffer = io.StringIO()
     df.to_csv(buffer, index=False)
     buffer.seek(0)
@@ -221,7 +222,7 @@ def download_run_data_csv(
 ) -> Union[StreamingResponse, JSONResponse]:
     """Streamt den Run-Snapshot als CSV-Datei.
 
-    Content-Disposition: attachment; filename="gysi_data_{run_id[:8]}.csv"
+    Content-Disposition: attachment; filename="bikes_{spec_version}.csv"
     Session-Zugehörigkeit wird geprüft.
     """
     db_path = _get_db_path(request)
