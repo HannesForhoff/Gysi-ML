@@ -10,6 +10,7 @@ export const STEP_LABELS: Record<string, string> = {
   rare_category_bucketing: 'Seltene Kategorien bündeln',
   time_feature_encoding: 'Zeitmerkmale ableiten',
   cast_dtype: 'Datentypen anpassen',
+  plot_distribution: 'Verteilungsplot',
   train_decision_tree: 'Decision Tree trainiert',
   train_ebm: 'EBM trainiert',
   catboost_feature_selection: 'CatBoost Feature Selection',
@@ -166,6 +167,17 @@ export function formatStepResult(sr: StepResult): string {
           .join(', ')
       }
       return 'Datentypen angepasst.'
+    }
+    case 'plot_distribution': {
+      const feature = m.feature as string | undefined
+      const groupBy = m.group_by as string | undefined
+      const n = m.n_values as number | undefined
+      const mean = m.mean as number | undefined
+      const parts: string[] = []
+      if (feature) parts.push(groupBy ? `${feature} nach ${groupBy}` : feature)
+      if (n != null) parts.push(`n=${n}`)
+      if (mean != null && !groupBy) parts.push(`Ø ${mean}`)
+      return parts.length > 0 ? parts.join(' — ') : 'Plot erstellt.'
     }
     default:
       return ''

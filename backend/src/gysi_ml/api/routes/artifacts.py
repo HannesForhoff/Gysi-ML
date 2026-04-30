@@ -59,9 +59,15 @@ async def get_artifact(artifact_id: str, request: Request):
                 code="ARTIFACT_FILE_MISSING",
             ).model_dump(),
         )
-    filename = _TYPE_TO_DOWNLOAD_FILENAME.get(
-        record.get("type", ""), os.path.basename(file_path)
-    )
+    artifact_type = record.get("type", "")
+    if artifact_type == "plot_distribution":
+        # Entfernt UUID-Prefix ({36 Zeichen}-{1 Underscore}) → "distribution_cnt_by_season.png"
+        basename = os.path.basename(file_path)
+        # basename pattern: {run_id}_plot_distribution_{feature}[_by_{group}].png
+        # run_id ist UUID4 = 36 Zeichen, dann "_"
+        filename = basename[37:] if len(basename) > 37 else basename
+    else:
+        filename = _TYPE_TO_DOWNLOAD_FILENAME.get(artifact_type, os.path.basename(file_path))
     mime_type, _ = mimetypes.guess_type(file_path)
     media_type = mime_type or "application/octet-stream"
     return FileResponse(file_path, media_type=media_type, filename=filename)

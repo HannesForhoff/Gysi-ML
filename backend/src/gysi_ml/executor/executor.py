@@ -239,11 +239,15 @@ class PipelineExecutor:
                         created_at=artifact_created_at,
                         db_path=db_path,
                     )
-                    context.artifacts.append({
+                    artifact_entry: dict = {
                         "artifact_id": artifact_id,
                         "type": item["type"],
                         "created_at": artifact_created_at,
-                    })
+                    }
+                    # Optionales Label (z.B. von plot_distribution für feature-spezifischen Titel)
+                    if "label" in item:
+                        artifact_entry["label"] = item["label"]
+                    context.artifacts.append(artifact_entry)
             except Exception as exc:
                 finished_at = _utc_now()
                 run_repository.update_run_status(

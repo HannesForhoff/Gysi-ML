@@ -95,6 +95,7 @@ function artifactTypeToLabel(type: string): string {
     feature_importance: 'Feature Importance',
     ebm_global_explanation: 'EBM Global Explanation',
     correlation_filter: 'Korrelations-Filter (CSV)',
+    plot_distribution: 'Verteilungsplot',
   }
   return labels[type] ?? (type || 'Artifact')
 }
@@ -102,7 +103,7 @@ function artifactTypeToLabel(type: string): string {
 function artifactTypeToMime(type: string): string {
   if (type === 'split_train' || type === 'split_test') return 'text/csv'
   if (type === 'correlation_filter') return 'text/csv'
-  if (type === 'feature_importance' || type === 'ebm_global_explanation') return 'image/png'
+  if (type === 'feature_importance' || type === 'ebm_global_explanation' || type === 'plot_distribution') return 'image/png'
   return 'application/octet-stream'
 }
 

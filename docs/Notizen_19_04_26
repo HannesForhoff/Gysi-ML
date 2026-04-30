@@ -88,3 +88,10 @@ generell möglichkeiten einbauen daten am anfang besser zu verstehen bevor man m
 
 
 time feature encoding führt keine neuen spalten (weekday und month) hinzu wenn vorher ein split gemacht wurde
+
+wenn man modell trainieren will und vorher nicht in cnt imputed hat kommt ein fehler
+ -> wenn man dann imputed und dann nochmal trainieren will kommt der gleiche fehler
+
+ für zukunft: bessere guidance für den nutzer bieten
+
+ nach ploit distribution schlägt llm in erklärung vor für weitere anaylsen historgramme oder boxplots zu machen obwohl ja genau das gerade gemacht wurde

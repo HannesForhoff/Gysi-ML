@@ -158,7 +158,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
 
       const artifacts =
         response.type === 'result' && response.artifacts
-          ? response.artifacts
+          ? [
+              ...state.artifacts,
+              ...response.artifacts.filter(
+                (a) => !state.artifacts.some((sa) => sa.id === a.id),
+              ),
+            ]
           : state.artifacts
 
       const lastRun = response.type === 'result' ? response : state.lastRun
@@ -255,7 +260,14 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           ...state,
           ui: { type: 'run_done' },
           lastRun,
-          artifacts: action.artifacts ?? state.artifacts,
+          artifacts: action.artifacts
+            ? [
+                ...state.artifacts,
+                ...action.artifacts.filter(
+                  (a) => !state.artifacts.some((sa) => sa.id === a.id),
+                ),
+              ]
+            : state.artifacts,
           activeDataRunId: state.runId,
           runId: null,
           isLongRunning: false,

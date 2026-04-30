@@ -133,8 +133,13 @@ def test_handle_message_execute_action(monkeypatch):
         "gysi_ml.services.message_service.call_llm",
         lambda **kw: _VALID_EXECUTE_RESPONSE,
     )
+    # Persistente Steps → create_spec_version + execute_with_spec_id
+    monkeypatch.setattr(
+        "gysi_ml.services.message_service.spec_repository.create_spec_version",
+        lambda **kw: {"spec_id": "spec-mock", "version": "v1", "spec": kw.get("spec", {})},
+    )
     fake_executor = MagicMock()
-    fake_executor.execute.return_value = {"run_id": "run-123"}
+    fake_executor.execute_with_spec_id.return_value = {"run_id": "run-123"}
     monkeypatch.setattr(
         "gysi_ml.services.message_service.PipelineExecutor",
         lambda **kw: fake_executor,

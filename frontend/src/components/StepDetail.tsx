@@ -405,6 +405,43 @@ export function StepDetail({ sr }: StepDetailProps) {
       )
     }
 
+    case 'plot_distribution': {
+      const feature = m.feature as string | undefined
+      const groupBy = m.group_by as string | undefined
+      const nValues = m.n_values as number | undefined
+      const mean = m.mean as number | undefined
+      const median = m.median as number | undefined
+      return (
+        <div className="stepDetail">
+          {feature && (
+            <Row label="Feature">
+              <span className="stepDetailChip">{feature}</span>
+            </Row>
+          )}
+          {groupBy && (
+            <Row label="Gruppiert nach">
+              <span className="stepDetailChip">{groupBy}</span>
+            </Row>
+          )}
+          {nValues != null && (
+            <Row label="n">
+              <span className="stepDetailText">{nValues.toLocaleString('de-DE')}</span>
+            </Row>
+          )}
+          {!groupBy && mean != null && (
+            <Row label="Mittelwert">
+              <span className="stepDetailText">{mean.toFixed(2)}</span>
+            </Row>
+          )}
+          {!groupBy && median != null && (
+            <Row label="Median">
+              <span className="stepDetailText">{median.toFixed(2)}</span>
+            </Row>
+          )}
+        </div>
+      )
+    }
+
     default:
       return null
   }

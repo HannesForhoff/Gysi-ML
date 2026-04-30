@@ -20,6 +20,10 @@ log = logging.getLogger(__name__)
 
 LLM_NOT_CONFIGURED = "llm_not_configured"
 
+# Steps die keine Daten verändern — werden ausgeführt, aber nicht in die
+# akkumulierte Session-Spec aufgenommen und erzeugen keine neue Spec-Version.
+TRANSIENT_STEP_TYPES: frozenset[str] = frozenset({"plot_distribution"})
+
 
 def _merge_specs(current_spec: dict | None, new_spec: dict) -> dict:
     """Fügt neue Steps aus new_spec in die bestehende Spec ein.
@@ -332,19 +336,51 @@ def handle_message(
             spec_for_response = existing_spec["spec"]
             version_for_response = existing_spec["version"]
         else:
-            # Neue Steps mit akkumulierter Session-Spec zusammenführen,
-            # damit der Executor immer die vollständige Pipeline erhält.
+            # Transiente Steps (z.B. plot_distribution) ändern keine Daten — sie werden
+            # ausgeführt, aber nicht in die akkumulierte Session-Spec aufgenommen.
+            # Dadurch entsteht keine neue Spec-Version wenn nur Plots angefordert werden.
+            persistent_steps = [s for s in clean_steps if s.get("type") not in TRANSIENT_STEP_TYPES]
+            transient_steps = [s for s in clean_steps if s.get("type") in TRANSIENT_STEP_TYPES]
+
+            # Nur persistente Steps mit der akkumulierten Session-Spec zusammenführen
+            persistent_spec = {**spec, "steps": persistent_steps}
             try:
-                merged_spec = _merge_specs(current_spec, spec)
+                merged_persistent = _merge_specs(current_spec, persistent_spec)
             except Exception as exc:  # pragma: no cover
                 log.exception("Spec-Merge fehlgeschlagen")
                 return {
                     "type": "error",
                     "message": f"Interner Fehler beim Zusammenführen der Pipeline-Spec: {exc}",
                 }
-            result = executor.execute(spec=merged_spec, session_id=session_id, db_path=db_path)
-            spec_for_response = result.get("spec", merged_spec)
-            version_for_response = result.get("spec_version")
+
+            # Ausführungs-Spec: persistente Steps + transiente Steps ans Ende
+            exec_spec = {**merged_persistent, "steps": merged_persistent.get("steps", []) + transient_steps}
+
+            if persistent_steps or current_spec_entry is None:
+                # Echte Pipeline-Änderung: neue Spec-Version anlegen (nur aus persistenten Steps)
+                spec_entry = spec_repository.create_spec_version(
+                    session_id=session_id, spec=merged_persistent, db_path=db_path
+                )
+                result = executor.execute_with_spec_id(
+                    spec=exec_spec,
+                    spec_id=spec_entry["spec_id"],
+                    session_id=session_id,
+                    db_path=db_path,
+                )
+                spec_for_response = merged_persistent
+                version_for_response = spec_entry["version"]
+            else:
+                # Nur transiente Steps: bestehende Spec-Version wiederverwenden — keine neue Version
+                result = executor.execute_with_spec_id(
+                    spec=exec_spec,
+                    spec_id=current_spec_entry["spec_id"],
+                    session_id=session_id,
+                    db_path=db_path,
+                )
+                spec_for_response = merged_persistent
+                version_for_response = current_spec_entry["version"]
+
+            full_exec_spec = exec_spec
 
         if "error" in result:
             return {"type": "error", "message": result.get("detail", result.get("error"))}
@@ -356,10 +392,13 @@ def handle_message(
         # "clean_steps" enthält exakt die Steps die der Nutzer in dieser Anfrage angefragt hat.
         # Fallback bei Re-Run (clean_steps leer): alle Steps verwenden.
         new_step_types = {s["type"] for s in clean_steps}
+        # Für die Post-Run-Erklärung die vollständige Ausführungs-Spec verwenden
+        # (inkl. transienter Steps wie plot_distribution, die nicht in spec_for_response stehen)
+        explanation_base_spec = locals().get("full_exec_spec", spec_for_response)
         if new_step_types:
             new_step_results = [r for r in step_results if r.get("step_type") in new_step_types]
-            new_steps_spec = {**spec_for_response, "steps": [
-                s for s in spec_for_response.get("steps", []) if s.get("type") in new_step_types
+            new_steps_spec = {**explanation_base_spec, "steps": [
+                s for s in explanation_base_spec.get("steps", []) if s.get("type") in new_step_types
             ]}
         else:
             # Re-Run: alle Steps erklären

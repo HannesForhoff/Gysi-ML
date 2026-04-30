@@ -115,8 +115,10 @@ export function InfoPanel({ specSummary, lastRun, artifacts }: InfoPanelProps) {
               const isImage = artifact.media_type?.startsWith('image/')
               return (
                 <li key={artifact.id} className="infoArtifactItem">
-                  <span className="infoArtifactIcon">{isImage ? '🖼' : '📎'}</span>
-                  <span className="infoArtifactLabel">{artifact.label}</span>
+                  <div className="infoArtifactMain">
+                    <span className="infoArtifactIcon">{isImage ? '🖼' : '📎'}</span>
+                    <span className="infoArtifactLabel">{artifact.label}</span>
+                  </div>
                   <span className="infoArtifactType">{mediaTypeShort(artifact.media_type)}</span>
                   {safeUrl ? (
                     <a
