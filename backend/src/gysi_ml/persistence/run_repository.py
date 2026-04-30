@@ -23,6 +23,27 @@ def create_run(
         conn.close()
 
 
+def update_run_spec_ref(
+    run_id: str,
+    spec_id: str,
+    spec_version: str,
+    db_path: str | None = None,
+) -> None:
+    """Aktualisiert spec_id und spec_version eines Runs nachträglich.
+
+    Wird nach verzögerter Spec-Versionierung aufgerufen (erst nach Wirksamkeitsprüfung).
+    """
+    conn = get_connection(db_path)
+    try:
+        with conn:
+            conn.execute(
+                "UPDATE runs SET spec_id = ?, spec_version = ? WHERE run_id = ?",
+                (spec_id, spec_version, run_id),
+            )
+    finally:
+        conn.close()
+
+
 def update_run_status(
     run_id: str,
     status: str,

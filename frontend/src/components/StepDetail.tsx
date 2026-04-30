@@ -217,6 +217,7 @@ export function StepDetail({ sr }: StepDetailProps) {
         | undefined
       const independent = m.independent_features as string[] | undefined
       const threshold = m.threshold as number | undefined
+      const analysisOnly = m.analysis_only as boolean | undefined
       return (
         <div className="stepDetail">
           {threshold != null && (
@@ -233,7 +234,7 @@ export function StepDetail({ sr }: StepDetailProps) {
                     <span className="stepDetailCorrOp">↔</span>
                     <span>{p.col_b}</span>
                     <span className="stepDetailCorrVal">r={p.value.toFixed(2)}</span>
-                    <span className="stepDetailCorrDropped">→ {p.dropped} entfernt</span>
+                    <span className="stepDetailCorrDropped">→ {p.dropped} {analysisOnly ? 'Vorschlag' : 'entfernt'}</span>
                   </div>
                 ))}
               </div>
@@ -387,17 +388,63 @@ export function StepDetail({ sr }: StepDetailProps) {
     }
 
     case 'catboost_feature_selection': {
+      const importances = m.feature_importances as
+        | Array<{ name: string; importance: number; selected: boolean }>
+        | undefined
       const selected = m.selected_features as string[] | undefined
       const removed = m.removed_features as string[] | undefined
+      const warnings = m.warnings as string[] | undefined
+      const analysisOnly = m.analysis_only as boolean | undefined
+      const topN = selected?.length ?? 0
+
+      if (importances && importances.length > 0) {
+        return (
+          <div className="stepDetail">
+            {warnings && warnings.length > 0 && (
+              <Row label="Warnung">
+                <span className="stepDetailText">{warnings.join(' · ')}</span>
+              </Row>
+            )}
+            {analysisOnly && (
+              <Row label="Modus">
+                <span className="stepDetailText">Analyse — noch keine Features entfernt</span>
+              </Row>
+            )}
+            <Row label="Top-N Vorschlag">
+              <span className="stepDetailText">{topN} Features behalten</span>
+            </Row>
+            <Row label="Importance">
+              <div className="stepDetailCorrPairs">
+                {importances.map((f, i) => (
+                  <div key={i} className="stepDetailCorrPair">
+                    <span className={f.selected ? '' : 'stepDetailCorrDropped'}>{f.name}</span>
+                    <span className="stepDetailCorrVal">{f.importance.toFixed(2)}%</span>
+                    <span className={f.selected ? 'stepDetailCorrOp' : 'stepDetailCorrDropped'}>
+                      {f.selected ? '✓' : analysisOnly ? 'Vorschlag: entfernen' : '✗ entfernt'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </Row>
+          </div>
+        )
+      }
+
+      // Fallback ohne Importances (alte Runs)
       return (
         <div className="stepDetail">
+          {warnings && warnings.length > 0 && (
+            <Row label="Warnung">
+              <span className="stepDetailText">{warnings.join(' · ')}</span>
+            </Row>
+          )}
           {selected && selected.length > 0 && (
             <Row label={`Ausgewählt (${selected.length})`}>
               <ChipRow chips={selected} variant="added" />
             </Row>
           )}
           {removed && removed.length > 0 && (
-            <Row label={`Entfernt (${removed.length})`}>
+            <Row label={analysisOnly ? `Vorschlag: entfernen (${removed.length})` : `Entfernt (${removed.length})`}>
               <ChipRow chips={removed} variant="removed" />
             </Row>
           )}

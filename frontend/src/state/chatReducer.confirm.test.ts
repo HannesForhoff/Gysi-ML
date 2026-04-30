@@ -48,6 +48,33 @@ describe('chatReducer — CONFIRM_SUCCEEDED', () => {
     const next = chatReducer(state, { type: 'CONFIRM_SUCCEEDED', runId: 'run-001' })
     expect(next.pendingProposalId).toBeNull()
   })
+
+  it('aktualisiert specSummary wenn in der Action vorhanden (Bug 1.13 Fix B)', () => {
+    const state: ChatState = { ...pendingState(), isConfirming: true }
+    const newSummary = {
+      spec_version_id: 'v5',
+      steps: [
+        { step_type: 'impute_missing', enabled: true },
+        { step_type: 'correlation_filter', enabled: true },
+      ],
+    }
+    const next = chatReducer(state, {
+      type: 'CONFIRM_SUCCEEDED',
+      runId: 'run-001',
+      specSummary: newSummary,
+    })
+    expect(next.specSummary).toEqual(newSummary)
+  })
+
+  it('behält vorhandenes specSummary wenn Action kein specSummary hat', () => {
+    const existingSummary = {
+      spec_version_id: 'v4',
+      steps: [{ step_type: 'dedup', enabled: true }],
+    }
+    const state: ChatState = { ...pendingState(), isConfirming: true, specSummary: existingSummary }
+    const next = chatReducer(state, { type: 'CONFIRM_SUCCEEDED', runId: 'run-001' })
+    expect(next.specSummary).toEqual(existingSummary)
+  })
 })
 
 describe('chatReducer — CONFIRM_FAILED', () => {

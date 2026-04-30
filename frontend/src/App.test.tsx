@@ -229,4 +229,55 @@ describe('gysi-ml frontend (Story 1.1 smoke tests)', () => {
     // Nach Mock-Confirm wechselt UI auf run_polling
     await screen.findByText(/Run läuft…/)
   })
+
+  it('Bug 1.13: Draft-Text überlebt Tab-Wechsel zu "Artefakte & Steps" und zurück', async () => {
+    vi.resetModules()
+    vi.doUnmock('./api/transport')
+    const { default: App } = await import('./App')
+
+    const user = userEvent.setup()
+    render(<App />)
+
+    const textarea = screen.getByLabelText('Composer')
+    await user.type(textarea, 'Hallo Welt')
+    expect(textarea).toHaveValue('Hallo Welt')
+
+    await user.click(screen.getByRole('button', { name: 'Artefakte & Steps' }))
+    await user.click(screen.getByRole('button', { name: 'Chat' }))
+
+    expect(screen.getByLabelText('Composer')).toHaveValue('Hallo Welt')
+  })
+
+  it('Bug 1.13: Draft-Text überlebt Tab-Wechsel zu "Daten" und zurück', async () => {
+    // IntersectionObserver wird von DataViewPanel (infinite scroll) benötigt, ist aber in jsdom nicht implementiert
+    const observerMock = vi.fn(() => ({ observe: vi.fn(), unobserve: vi.fn(), disconnect: vi.fn() }))
+    vi.stubGlobal('IntersectionObserver', observerMock)
+
+    vi.resetModules()
+    vi.doMock('./api/transport', () => ({
+      sendAssistantMessage: vi.fn().mockResolvedValue({
+        sessionId: 'mock-session',
+        response: { type: 'result', message: 'Antwort vom Mock', status: 'done' },
+      }),
+    }))
+    const { default: App } = await import('./App')
+
+    const user = userEvent.setup()
+    render(<App />)
+
+    // Erste Nachricht senden, damit die Session gesetzt wird und der Daten-Tab aktiv wird
+    const textarea = screen.getByLabelText('Composer')
+    await user.type(textarea, 'hallo{enter}')
+    await screen.findByText('Antwort vom Mock')
+
+    // Draft eintippen, ohne abzusenden
+    await user.type(textarea, 'Draft bleibt erhalten')
+    expect(textarea).toHaveValue('Draft bleibt erhalten')
+
+    // Zum Daten-Tab wechseln und zurück
+    await user.click(screen.getByRole('button', { name: 'Daten' }))
+    await user.click(screen.getByRole('button', { name: 'Chat' }))
+
+    expect(screen.getByLabelText('Composer')).toHaveValue('Draft bleibt erhalten')
+  })
 })

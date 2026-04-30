@@ -212,3 +212,113 @@ def test_execute_with_spec_id_invalid_order_returns_error(executor, db):
     )
     assert result["error"] == "invalid_spec_order"
     assert result["code"] == "INVALID_SPEC_ORDER"
+
+
+# ---------------------------------------------------------------------------
+# Deferred spec-version creation — Wirksamkeitsprüfung (Bug 1.12)
+# ---------------------------------------------------------------------------
+
+
+def test_execute_no_spec_version_when_encode_skipped(executor, db):
+    """encode_categorical mit encoded_columns=[] → Ausführung war No-Op → keine Spec-Version."""
+    from gysi_ml.persistence.database import get_connection
+
+    @register_step("encode_categorical")
+    class SkippedEncodeStep(BaseStep):
+        description = "Mocked no-op encode"
+        param_schema = {}
+
+        def fit(self, df_train):
+            pass
+
+        def transform(self, df_train, df_test):
+            return df_train, df_test
+
+        def get_metadata(self):
+            return {
+                "encoded_columns": [],
+                "method": "onehot",
+                "warnings": ["season: Kein kategorischer Dtype (int64), wird übersprungen."],
+            }
+
+    spec = {"steps": [{"type": "encode_categorical", "params": {}}]}
+    result = executor.execute(spec=spec, session_id="s1", db_path=db)
+
+    assert result["status"] == "completed"
+    assert result.get("spec_version") is None  # keine Version angelegt
+
+    conn = get_connection(db)
+    count = conn.execute(
+        "SELECT COUNT(*) as c FROM spec_versions WHERE session_id = ?", ("s1",)
+    ).fetchone()["c"]
+    conn.close()
+    assert count == 0
+
+
+def test_execute_creates_spec_version_when_encode_effective(executor, db):
+    """encode_categorical mit encoded_columns=['season'] → Spec-Version wird angelegt."""
+    from gysi_ml.persistence.database import get_connection
+
+    @register_step("encode_categorical")
+    class EffectiveEncodeStep(BaseStep):
+        description = "Mocked effective encode"
+        param_schema = {}
+
+        def fit(self, df_train):
+            pass
+
+        def transform(self, df_train, df_test):
+            return df_train, df_test
+
+        def get_metadata(self):
+            return {"encoded_columns": ["season"], "method": "onehot"}
+
+    spec = {"steps": [{"type": "encode_categorical", "params": {}}]}
+    result = executor.execute(spec=spec, session_id="s1", db_path=db)
+
+    assert result["status"] == "completed"
+    assert result.get("spec_version") == "v1"
+
+    conn = get_connection(db)
+    count = conn.execute(
+        "SELECT COUNT(*) as c FROM spec_versions WHERE session_id = ?", ("s1",)
+    ).fetchone()["c"]
+    conn.close()
+    assert count == 1
+
+
+def test_execute_mixed_steps_creates_spec_version_when_one_effective(executor, db):
+    """Wenn mindestens ein Step wirksam war (dummy), wird Spec-Version angelegt."""
+    from gysi_ml.persistence.database import get_connection
+
+    _register_dummy()
+
+    @register_step("encode_categorical")
+    class SkippedEncodeStep(BaseStep):
+        description = "Mocked no-op encode"
+        param_schema = {}
+
+        def fit(self, df_train):
+            pass
+
+        def transform(self, df_train, df_test):
+            return df_train, df_test
+
+        def get_metadata(self):
+            return {"encoded_columns": [], "method": "onehot"}
+
+    spec = {"steps": [
+        {"type": "dummy", "params": {}},
+        {"type": "encode_categorical", "params": {}},
+    ]}
+    result = executor.execute(spec=spec, session_id="s1", db_path=db)
+
+    assert result["status"] == "completed"
+    assert result.get("spec_version") == "v1"  # dummy war wirksam
+
+    conn = get_connection(db)
+    count = conn.execute(
+        "SELECT COUNT(*) as c FROM spec_versions WHERE session_id = ?", ("s1",)
+    ).fetchone()["c"]
+    conn.close()
+    assert count == 1

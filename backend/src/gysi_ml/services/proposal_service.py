@@ -5,8 +5,9 @@ import pandas as pd
 from gysi_ml.config import get_settings
 from gysi_ml.executor.executor import PipelineExecutor
 from gysi_ml.executor.pipeline_context import PipelineContext
-from gysi_ml.persistence import proposal_repository
+from gysi_ml.persistence import proposal_repository, spec_repository
 from gysi_ml.persistence import step_state_repository
+from gysi_ml.services.message_service import _merge_specs
 from gysi_ml.steps.registry import get_step_class
 from gysi_ml.utils.data_loader import load_bikes_dataset
 
@@ -78,6 +79,13 @@ def confirm_proposal(
         proposal_id=proposal_id, status="confirmed", db_path=db_path
     )
 
+    # 4a. Akkumulierte Session-Spec laden und mit Proposal-Spec mergen (Bug A)
+    current_spec_entry = spec_repository.get_latest_spec(
+        session_id=session_id, db_path=db_path
+    )
+    current_spec = current_spec_entry["spec"] if current_spec_entry else None
+    spec = _merge_specs(current_spec, spec)
+
     # 5. Step-by-Step-Modus (erster Aufruf — kein aktiver State)
     if mode == "step_by_step":
         return _run_step_by_step(
@@ -100,10 +108,16 @@ def confirm_proposal(
             "type": "error",
             "message": result.get("detail", result.get("error")),
         }
+    run_result = result.get("result", {})
     return {
         "type": "result",
         "run_id": result["run_id"],
         "explanation": "Proposal bestätigt und ausgeführt.",
+        "step_results": run_result.get("step_results", []),
+        "metrics": run_result.get("metrics") or None,
+        "artifacts": run_result.get("artifacts", []),
+        "spec": spec,
+        "version": result.get("spec_version"),
     }
 
 

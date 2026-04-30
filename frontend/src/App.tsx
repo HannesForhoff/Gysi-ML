@@ -74,6 +74,7 @@ function App() {
 
   const [isRollingBack, setIsRollingBack] = useState(false)
   const [rollbackTargetId, setRollbackTargetId] = useState<string | null>(null)
+  const [draftText, setDraftText] = useState('')
 
   // Prevent double-fetch of specTree when session changes
   const specTreeSessionRef = useRef<string | null>(null)
@@ -119,6 +120,7 @@ function App() {
     async (text: string) => {
       if (state.ui.type === 'sending_message') return
 
+      setDraftText('')
       const userMessage = createMessage('user', text)
       dispatch({ type: 'SEND_REQUEST_STARTED', userMessage })
 
@@ -177,7 +179,11 @@ function App() {
           return
         }
 
-        dispatch({ type: 'CONFIRM_SUCCEEDED', runId: result.runId })
+        dispatch({
+          type: 'CONFIRM_SUCCEEDED',
+          runId: result.runId,
+          ...(result.specSummary ? { specSummary: result.specSummary } : {}),
+        })
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unbekannter Fehler'
         dispatch({ type: 'CONFIRM_FAILED', errorMessage })
@@ -329,7 +335,7 @@ function App() {
             activePendingProposalId={state.pendingProposalId}
             isSending={isSending}
           />
-          <Composer disabled={isSending} onSend={handleSend} />
+          <Composer disabled={isSending} onSend={handleSend} value={draftText} onChange={setDraftText} />
         </ChatLayout>
       </div>
     </div>

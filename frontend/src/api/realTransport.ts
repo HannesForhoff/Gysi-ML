@@ -314,7 +314,24 @@ export async function sendRealConfirm(
     return { runId: null, error: 'Confirm-Response enthält keine run_id.' }
   }
 
-  return { runId }
+  let specSummary: SpecSummary | undefined
+  if (isRecord(body.spec) && body.version) {
+    const rawSteps = Array.isArray((body.spec as Record<string, unknown>).steps)
+      ? ((body.spec as Record<string, unknown>).steps as unknown[])
+      : []
+    specSummary = {
+      spec_version_id: toNonEmptyString(body.version) ?? 'unknown',
+      steps: rawSteps.map((s) => {
+        const step = isRecord(s) ? s : {}
+        return {
+          step_type: toNonEmptyString(step.step_type ?? step.type) ?? 'unknown',
+          enabled: typeof step.enabled === 'boolean' ? step.enabled : true,
+        }
+      }),
+    }
+  }
+
+  return { runId, ...(specSummary ? { specSummary } : {}) }
 }
 
 function artifactTypeToLabel(type: string): string {

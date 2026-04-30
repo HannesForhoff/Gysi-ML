@@ -1,0 +1,34 @@
+> from typing import Callable, TypeVar
+  
+> from gysi_ml.steps.base import BaseStep
+  
+> _registry: dict[str, type[BaseStep]] = {}
+  
+> S = TypeVar("S", bound=type[BaseStep])
+  
+  
+> def register_step(step_type: str) -> Callable[[S], S]:
+>     """Decorator-Factory: registriert eine BaseStep-Subklasse unter `step_type`."""
+  
+>     def decorator(cls: S) -> S:
+>         _registry[step_type] = cls
+>         return cls
+  
+>     return decorator
+  
+  
+> def get_step_class(step_type: str) -> type[BaseStep]:
+>     """Gibt die registrierte Klasse zurück. Wirft KeyError bei unbekanntem Typ."""
+>     if step_type not in _registry:
+>         raise KeyError(f"Unbekannter Step-Typ: '{step_type}'")
+>     return _registry[step_type]
+  
+  
+> def list_step_types() -> list[str]:
+>     """Gibt alle registrierten Step-Typen zurück."""
+>     return list(_registry.keys())
+  
+  
+> def get_all_steps() -> dict[str, type[BaseStep]]:
+>     """Gibt die gesamte Registry zurück (für Capabilities-Endpunkt)."""
+>     return dict(_registry)

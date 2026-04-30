@@ -1,0 +1,140 @@
+> import pandas as pd
+  
+> from gysi_ml.steps.base import BaseStep
+> from gysi_ml.steps.registry import register_step
+  
+  
+> @register_step("outlier_handling")
+> class OutlierHandlingStep(BaseStep):
+>     description = "Behandelt Ausreißer via IQR oder Z-Score (Winsorization / Capping)"
+>     param_schema = {
+>         "method": {
+>             "type": "string",
+>             "enum": ["iqr", "zscore"],
+>             "default": "iqr",
+>             "description": (
+>                 "Ausreißer-Erkennungsmethode. "
+>                 "'iqr' = IQR-Methode / Winzsorizierung / Winsorization: Capping auf [Q1-1.5×IQR, Q3+1.5×IQR]. "
+>                 "'zscore' = Z-Score / Standardabweichungs-Methode: Capping auf [µ-k×σ, µ+k×σ] (k = zscore_threshold)."
+>             ),
+>         },
+>         "zscore_threshold": {"type": "number", "default": 3.0},
+>         "columns": {
+>             "type": "array",
+>             "items": {"type": "string"},
+>             "default": [],
+>             "description": "Numerische Spalten die behandelt werden sollen. Leer = alle numerischen Spalten.",
+>         },
+>     }
+  
+>     def __init__(self, params: dict | None = None) -> None:
+>         super().__init__(params)
+>         self.method: str = self.params.get("method", "iqr")
+>         self.zscore_threshold: float = float(self.params.get("zscore_threshold", 3.0))
+>         self._columns: list[str] = list(self.params.get("columns") or [])
+>         self._bounds: dict[str, tuple[float, float]] = {}
+>         self._stats: dict[str, tuple[float, float]] = {}
+>         self._q1q3: dict[str, tuple[float, float]] = {}  # (q1, q3) pro Spalte, nur IQR
+>         self._outliers_treated: dict[str, int] = {}
+>         self._skipped_cols: dict[str, str] = {}
+  
+>     def fit(self, df_train: pd.DataFrame) -> None:
+>         self._bounds = {}
+>         self._stats = {}
+>         self._q1q3 = {}
+>         self._skipped_cols = {}
+>         numeric_cols = df_train.select_dtypes(include="number").columns.tolist()
+  
+>         if self._columns:
+>             non_existent = [c for c in self._columns if c not in df_train.columns]
+>             if non_existent:
+>                 raise ValueError(f"outlier_handling: Spalten nicht gefunden: {non_existent}")
+>             non_numeric = [c for c in self._columns if c not in numeric_cols]
+>             if non_numeric:
+>                 raise ValueError(f"outlier_handling: Nicht-numerische Spalten: {non_numeric}")
+>             target_cols = list(self._columns)
+>         else:
+>             target_cols = numeric_cols
+  
+>         if self.method == "iqr":
+>             for col in target_cols:
+>                 q1 = float(df_train[col].quantile(0.25))
+>                 q3 = float(df_train[col].quantile(0.75))
+>                 iqr = q3 - q1
+>                 if iqr == 0:
+>                     self._skipped_cols[col] = "IQR=0 (binäre oder konstante Spalte)"
+>                     continue
+>                 self._bounds[col] = (q1 - 1.5 * iqr, q3 + 1.5 * iqr)
+>                 self._q1q3[col] = (q1, q3)
+>         elif self.method == "zscore":
+>             for col in target_cols:
+>                 mean = float(df_train[col].mean())
+>                 std = float(df_train[col].std())
+>                 self._stats[col] = (mean, std)
+  
+>     def transform(
+>         self, df_train: pd.DataFrame, df_test: pd.DataFrame
+>     ) -> tuple[pd.DataFrame, pd.DataFrame]:
+>         result_train = df_train.copy()
+>         result_test = df_test.copy()
+>         self._outliers_treated = {}
+  
+>         if self.method == "iqr":
+>             for col, (lower, upper) in self._bounds.items():
+>                 if col not in result_train.columns:
+!                     continue
+>                 n = int(
+>                     ((result_train[col] < lower) | (result_train[col] > upper)).sum()
+>                 ) + int(
+>                     ((result_test[col] < lower) | (result_test[col] > upper)).sum()
+>                 )
+>                 self._outliers_treated[col] = n
+>                 result_train[col] = result_train[col].clip(lower=lower, upper=upper)
+>                 result_test[col] = result_test[col].clip(lower=lower, upper=upper)
+>         elif self.method == "zscore":
+>             for col, (mean, std) in self._stats.items():
+>                 if col not in result_train.columns or std == 0:
+!                     continue
+>                 lower = mean - self.zscore_threshold * std
+>                 upper = mean + self.zscore_threshold * std
+>                 n = int(
+>                     ((result_train[col] < lower) | (result_train[col] > upper)).sum()
+>                 ) + int(
+>                     ((result_test[col] < lower) | (result_test[col] > upper)).sum()
+>                 )
+>                 self._outliers_treated[col] = n
+>                 result_train[col] = result_train[col].clip(lower=lower, upper=upper)
+>                 result_test[col] = result_test[col].clip(lower=lower, upper=upper)
+  
+>         return result_train, result_test
+  
+>     def get_metadata(self) -> dict:
+>         metadata: dict = {
+>             "method": self.method,
+>             "outliers_treated": self._outliers_treated,
+>         }
+>         if self.method == "zscore":
+>             metadata["zscore_threshold"] = self.zscore_threshold
+>         if self._skipped_cols:
+>             metadata["skipped_columns"] = self._skipped_cols
+>         if self.method == "iqr" and self._bounds:
+>             metadata["bounds"] = {
+>                 col: {
+>                     "lower": round(lo, 4),
+>                     "upper": round(hi, 4),
+>                     "q1": round(self._q1q3[col][0], 4),
+>                     "q3": round(self._q1q3[col][1], 4),
+>                 }
+>                 for col, (lo, hi) in self._bounds.items()
+>             }
+>         elif self.method == "zscore" and self._stats:
+>             metadata["bounds"] = {
+>                 col: {
+>                     "lower": round(mean - self.zscore_threshold * std, 4),
+>                     "upper": round(mean + self.zscore_threshold * std, 4),
+>                     "mean": round(mean, 4),
+>                     "std": round(std, 4),
+>                 }
+>                 for col, (mean, std) in self._stats.items()
+>             }
+>         return metadata

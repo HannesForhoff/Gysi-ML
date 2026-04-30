@@ -1,0 +1,60 @@
+> """API-Endpunkt für Spec-Rollback (Story 8.3)."""
+> from typing import Union
+  
+> from fastapi import APIRouter, Request
+> from fastapi.responses import JSONResponse
+> from pydantic import BaseModel
+  
+> from gysi_ml.api.schemas import ErrorResponse
+> from gysi_ml.persistence import session_repository, spec_repository
+  
+> router = APIRouter(prefix="/v1")
+  
+  
+> class RollbackRequest(BaseModel):
+>     target_spec_id: str
+  
+  
+> @router.post(
+>     "/sessions/{session_id}/rollback",
+>     response_model=None,
+>     responses={404: {"model": ErrorResponse}},
+> )
+> def rollback_spec(
+>     session_id: str, body: RollbackRequest, request: Request
+> ) -> Union[dict, JSONResponse]:
+!     db_path = getattr(request.app.state, "db_path", None)
+  
+!     session = session_repository.get_session(session_id=session_id, db_path=db_path)
+!     if session is None:
+!         return JSONResponse(
+!             status_code=404,
+!             content=ErrorResponse(
+!                 error="session_not_found",
+!                 detail=f"Session '{session_id}' nicht gefunden.",
+!                 code="SESSION_NOT_FOUND",
+!             ).model_dump(),
+!         )
+  
+!     new_spec = spec_repository.rollback_to(
+!         session_id=session_id,
+!         target_spec_id=body.target_spec_id,
+!         db_path=db_path,
+!     )
+  
+!     if new_spec is None:
+!         return JSONResponse(
+!             status_code=404,
+!             content=ErrorResponse(
+!                 error="spec_not_found",
+!                 detail=f"Spec-Version '{body.target_spec_id}' nicht gefunden oder gehört nicht zu dieser Session.",
+!                 code="SPEC_NOT_FOUND",
+!             ).model_dump(),
+!         )
+  
+!     return {
+!         "type": "rollback",
+!         "new_spec_id": new_spec["spec_id"],
+!         "new_version": new_spec["version"],
+!         "change_summary": new_spec["change_summary"],
+!     }

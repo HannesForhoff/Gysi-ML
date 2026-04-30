@@ -144,3 +144,62 @@ def test_create_spec_version_old_version_preserved(db):
     v2 = get_spec_by_version(session_id=session_id, version="v2", db_path=db)
     assert v2 is not None
     assert v2["spec"] == spec_v2
+
+
+# ---------------------------------------------------------------------------
+# Idempotenz-Tests (Bug 1.12 – Problem A)
+# ---------------------------------------------------------------------------
+
+
+def test_create_spec_version_idempotent(db):
+    """Identische Spec-Steps → keine neue DB-Version, bestehende zurückgegeben."""
+    session_id = _insert_session(db)
+    spec = {"steps": [{"type": "dedup"}]}
+    v1 = create_spec_version(session_id=session_id, spec=spec, db_path=db)
+    v2 = create_spec_version(session_id=session_id, spec=spec, db_path=db)
+    assert v1["version"] == v2["version"]
+    assert v1["spec_id"] == v2["spec_id"]
+
+
+def test_create_spec_version_idempotent_returns_required_fields(db):
+    """Idempotenz-Rückgabe enthält alle erwarteten Felder."""
+    session_id = _insert_session(db)
+    spec = {"steps": [{"type": "split", "params": {"test_size": 0.2}}]}
+    create_spec_version(session_id=session_id, spec=spec, db_path=db)
+    entry = create_spec_version(session_id=session_id, spec=spec, db_path=db)
+    assert "spec_id" in entry
+    assert "session_id" in entry
+    assert "version" in entry
+    assert "spec" in entry
+    assert "created_at" in entry
+
+
+def test_create_spec_version_different_steps_creates_new_version(db):
+    """Geänderte Steps → neue Version wird angelegt (Idempotenz greift nicht)."""
+    session_id = _insert_session(db)
+    spec_v1 = {"steps": [{"type": "dedup"}]}
+    spec_v2 = {"steps": [{"type": "dedup"}, {"type": "split", "params": {"test_size": 0.2}}]}
+    v1 = create_spec_version(session_id=session_id, spec=spec_v1, db_path=db)
+    v2 = create_spec_version(session_id=session_id, spec=spec_v2, db_path=db)
+    assert v2["version"] == "v2"
+    assert v2["spec_id"] != v1["spec_id"]
+
+
+def test_create_spec_version_idempotent_no_extra_db_rows(db):
+    """Identische Spec → kein zusätzlicher Datenbankzeile angelegt."""
+    session_id = _insert_session(db)
+    spec = {"steps": [{"type": "dedup"}]}
+    create_spec_version(session_id=session_id, spec=spec, db_path=db)
+    create_spec_version(session_id=session_id, spec=spec, db_path=db)
+
+    conn = get_connection(db)
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT COUNT(*) as cnt FROM spec_versions WHERE session_id = ?",
+            (session_id,),
+        )
+        row = cursor.fetchone()
+        assert row["cnt"] == 1
+    finally:
+        conn.close()

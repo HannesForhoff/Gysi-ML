@@ -59,3 +59,30 @@ def test_build_retry_prompt_is_string():
     result = build_retry_prompt("some error")
     assert isinstance(result, str)
     assert len(result) > 0
+
+
+def test_build_system_prompt_rollback_section_with_history():
+    """spec_history → Rollback-Abschnitt mit Versionstabelle im Prompt."""
+    history = [
+        {"version": "v1", "created_at": "2026-04-25 10:42:00", "change_summary": None},
+        {"version": "v2", "created_at": "2026-04-25 10:48:00", "change_summary": "impute_missing hinzugefügt"},
+    ]
+    prompt = build_system_prompt(_SAMPLE_CAPABILITIES, spec_history=history)
+    assert "v1" in prompt
+    assert "v2" in prompt
+    assert "Initialversion" in prompt
+    assert "impute_missing hinzugefügt" in prompt
+    assert "target_version" in prompt
+
+
+def test_build_system_prompt_rollback_section_empty_without_history():
+    """Ohne spec_history kein Versionstabellen-Block im Prompt."""
+    prompt = build_system_prompt(_SAMPLE_CAPABILITIES)
+    assert "Verfügbare Spec-Versionen" not in prompt
+
+
+def test_build_system_prompt_rollback_section_no_hallucination_instruction():
+    """Rollback-Abschnitt enthält Hinweis gegen Halluzination von UUIDs."""
+    history = [{"version": "v1", "created_at": "2026-04-25 10:00:00", "change_summary": None}]
+    prompt = build_system_prompt(_SAMPLE_CAPABILITIES, spec_history=history)
+    assert "NIEMALS" in prompt or "Halluziniere" in prompt

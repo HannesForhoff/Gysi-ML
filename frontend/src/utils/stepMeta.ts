@@ -75,39 +75,39 @@ export function formatStepResult(sr: StepResult): string {
       return 'Ausreißer-Behandlung abgeschlossen.'
     }
     case 'encode_categorical': {
-      const cols = m.encoded_columns
+      const cols = m.encoded_columns as string[] | undefined
       if (Array.isArray(cols) && cols.length > 0) {
-        return `Kodiert: ${(cols as string[]).join(', ')}`
+        return `Kodiert: ${cols.join(', ')}`
       }
-      return 'Encoding abgeschlossen.'
+      const warnings = m.warnings as string[] | undefined
+      if (warnings && warnings.length > 0) {
+        return `Übersprungen: ${warnings.join(' ')}`
+      }
+      return 'Übersprungen – keine kategorialen Spalten gefunden.'
     }
     case 'correlation_filter': {
       const dropped = m.dropped_features as string[] | undefined
+      const threshold = m.threshold as number | undefined
+      const analysisOnly = m.analysis_only as boolean | undefined
       const pairs = m.corr_pairs as
         | Array<{ col_a: string; col_b: string; value: number; dropped: string }>
         | undefined
-      const independent = m.independent_features as string[] | undefined
 
-      const parts: string[] = []
+      const thr = threshold != null ? threshold : 0.9
+      const pairCount = pairs?.length ?? 0
 
-      if (pairs && pairs.length > 0) {
-        const pairStr = pairs
-          .map((p) => `${p.col_a}↔${p.col_b} (r=${p.value}, entfernt: ${p.dropped})`)
-          .join(' | ')
-        parts.push(`Korrelierte Paare: ${pairStr}`)
+      if (analysisOnly) {
+        if (pairCount === 0) {
+          return `Keine hochkorrelierten Features gefunden (|r| < ${thr})`
+        }
+        return `${pairCount} korrelierte Paar${pairCount === 1 ? '' : 'e'} gefunden (|r| ≥ ${thr}) — noch keine Features entfernt`
       }
 
+      // Drop-Modus (User hat Entscheidung getroffen)
       if (dropped && dropped.length > 0) {
-        parts.push(`Entfernt: ${dropped.join(', ')}`)
-      } else {
-        parts.push('Keine hochkorrelierten Features gefunden.')
+        return `${dropped.length} Feature${dropped.length === 1 ? '' : 's'} entfernt: ${dropped.join(', ')}`
       }
-
-      if (independent && independent.length > 0) {
-        parts.push(`Eigenständig: ${independent.join(', ')}`)
-      }
-
-      return parts.join(' — ')
+      return 'Keine Features entfernt.'
     }
     case 'rare_category_bucketing': {
       const perCol = m.rare_categories_per_column
@@ -148,12 +148,17 @@ export function formatStepResult(sr: StepResult): string {
       return 'Modell trainiert.'
     }
     case 'catboost_feature_selection': {
+      const analysisOnly = m.analysis_only as boolean | undefined
       const selected = m.selected_features as string[] | undefined
       const removed = m.removed_features as string[] | undefined
+      if (analysisOnly) {
+        const total = (selected?.length ?? 0) + (removed?.length ?? 0)
+        return `Analyse abgeschlossen — ${total} Features bewertet, noch keine Entfernung`
+      }
       const parts: string[] = []
       if (selected && selected.length > 0) parts.push(`${selected.length} ausgewählt`)
-      if (removed && removed.length > 0) parts.push(`${removed.length} entfernt`)
-      return parts.length > 0 ? parts.join(', ') : 'Feature Selection abgeschlossen.'
+      if (removed && removed.length > 0) parts.push(`entfernt: ${removed.join(', ')}`)
+      return parts.length > 0 ? parts.join(' — ') : 'Feature Selection abgeschlossen.'
     }
     case 'cast_dtype': {
       const casts = m.casts_applied as
@@ -182,4 +187,18 @@ export function formatStepResult(sr: StepResult): string {
     default:
       return ''
   }
+}
+
+/**
+ * Gibt true zurück wenn ein Step zwar ausgeführt wurde, aber
+ * nichts am Datensatz verändert hat (= übersprungen / ohne Wirkung).
+ * Wird in ResultCard genutzt um das Icon auf ⚠ zu wechseln.
+ */
+export function isStepSkipped(sr: StepResult): boolean {
+  const m = sr.metadata
+  if (sr.step_type === 'encode_categorical') {
+    const cols = m.encoded_columns as string[] | undefined
+    return Array.isArray(cols) && cols.length === 0
+  }
+  return false
 }

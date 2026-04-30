@@ -1478,6 +1478,13 @@
   margin-top: 2px;
 }
 
+.resultStepIcon--skipped {
+  color: #d69e2e;
+  font-size: 12px;
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
 .resultStepContent {
   display: flex;
   flex-direction: column;

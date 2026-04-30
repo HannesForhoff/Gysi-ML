@@ -118,7 +118,7 @@ def test_fit_threshold_0_drops_all_but_first():
 
 
 def test_transform_removes_correlated_feature(df_with_correlated):
-    step = CorrelationFilterStep(params={"threshold": 0.9})
+    step = CorrelationFilterStep(params={"threshold": 0.9, "analysis_only": False})
     step.fit(df_with_correlated)
     result_train, result_test = step.transform(df_with_correlated, df_with_correlated.copy())
     for dropped in step._features_to_drop:
@@ -127,7 +127,7 @@ def test_transform_removes_correlated_feature(df_with_correlated):
 
 
 def test_transform_keeps_uncorrelated_features(df_uncorrelated):
-    step = CorrelationFilterStep(params={"threshold": 0.9})
+    step = CorrelationFilterStep(params={"threshold": 0.9, "analysis_only": False})
     step.fit(df_uncorrelated)
     result_train, _ = step.transform(df_uncorrelated, df_uncorrelated.copy())
     assert set(result_train.columns) == {"a", "b", "c"}
@@ -138,7 +138,7 @@ def test_transform_fit_only_on_train():
     values = [1.0, 2.0, 3.0, 4.0, 5.0]
     df_train = pd.DataFrame({"a": values, "b": values})
     df_test = pd.DataFrame({"a": [9.0, 8.0], "b": [1.0, 0.0]})  # auf Test keine Korrelation
-    step = CorrelationFilterStep(params={"threshold": 0.9})
+    step = CorrelationFilterStep(params={"threshold": 0.9, "analysis_only": False})
     step.fit(df_train)
     _, result_test = step.transform(df_train, df_test)
     # "b" wurde laut Train-Fit entfernt — auch im Test
@@ -146,7 +146,7 @@ def test_transform_fit_only_on_train():
 
 
 def test_transform_drops_from_both_splits(df_with_correlated):
-    step = CorrelationFilterStep(params={"threshold": 0.9})
+    step = CorrelationFilterStep(params={"threshold": 0.9, "analysis_only": False})
     step.fit(df_with_correlated)
     result_train, result_test = step.transform(df_with_correlated, df_with_correlated.copy())
     assert list(result_train.columns) == list(result_test.columns)
@@ -158,7 +158,7 @@ def test_transform_drops_from_both_splits(df_with_correlated):
 
 
 def test_metadata_dropped_features(df_with_correlated):
-    step = CorrelationFilterStep(params={"threshold": 0.9})
+    step = CorrelationFilterStep(params={"threshold": 0.9, "analysis_only": False})
     step.fit(df_with_correlated)
     step.transform(df_with_correlated, df_with_correlated.copy())
     meta = step.get_metadata()
@@ -313,11 +313,68 @@ def test_explicit_features_to_drop_empty_uses_fallback():
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# analysis_only-Modus (Stufe 1 — nur Analyse, kein Drop)
+# ---------------------------------------------------------------------------
+
+
+def test_analysis_only_default_is_true():
+    """Ohne explizite Parameter ist analysis_only=True."""
+    step = CorrelationFilterStep(params={"threshold": 0.9})
+    assert step._analysis_only is True
+
+
+def test_analysis_only_false_when_features_to_drop_given():
+    """Wenn features_to_drop angegeben, ist analysis_only implizit False."""
+    step = CorrelationFilterStep(params={"threshold": 0.9, "features_to_drop": ["b"]})
+    assert step._analysis_only is False
+
+
+def test_analysis_only_transform_does_not_drop(df_with_correlated):
+    """Im analysis_only-Modus werden keine Spalten entfernt."""
+    step = CorrelationFilterStep(params={"threshold": 0.9, "analysis_only": True})
+    step.fit(df_with_correlated)
+    result_train, result_test = step.transform(df_with_correlated, df_with_correlated.copy())
+    assert list(result_train.columns) == list(df_with_correlated.columns)
+    assert list(result_test.columns) == list(df_with_correlated.columns)
+
+
+def test_analysis_only_metadata_flag(df_with_correlated):
+    """Metadata enthält analysis_only=True nach Analyse-Modus-Ausführung."""
+    step = CorrelationFilterStep(params={"threshold": 0.9, "analysis_only": True})
+    step.fit(df_with_correlated)
+    meta = step.get_metadata()
+    assert meta["analysis_only"] is True
+
+
+def test_analysis_only_corr_pairs_still_computed(df_with_correlated):
+    """Auch im Analyse-Modus werden die korrelierten Paare berechnet."""
+    step = CorrelationFilterStep(params={"threshold": 0.9, "analysis_only": True})
+    step.fit(df_with_correlated)
+    pairs = step.get_metadata()["corr_pairs"]
+    assert len(pairs) >= 1
+
+
+def test_analysis_only_generate_artifact_returns_none(df_with_correlated):
+    """Im Analyse-Modus wird kein Artefakt generiert."""
+    step = CorrelationFilterStep(params={"threshold": 0.9, "analysis_only": True})
+    step.fit(df_with_correlated)
+    step.transform(df_with_correlated, df_with_correlated.copy())
+    with tempfile.TemporaryDirectory() as tmpdir:
+        result = step.generate_artifact(tmpdir, "analysis-run")
+    assert result is None
+
+
+# ---------------------------------------------------------------------------
+# generate_artifact (Drop-Modus — analysis_only=False)
+# ---------------------------------------------------------------------------
+
+
 def test_generate_artifact_returns_none_before_transform():
-    """Vor transform() gibt generate_artifact() None zurück."""
+    """Vor transform() gibt generate_artifact() None zurück (Drop-Modus)."""
     values = [1.0, 2.0, 3.0, 4.0, 5.0]
     df = pd.DataFrame({"a": values, "b": values})
-    step = CorrelationFilterStep(params={"threshold": 0.9})
+    step = CorrelationFilterStep(params={"threshold": 0.9, "analysis_only": False})
     step.fit(df)
     # Kein transform() → kein Artefakt
     result = step.generate_artifact("/tmp", "test-run")
@@ -325,8 +382,8 @@ def test_generate_artifact_returns_none_before_transform():
 
 
 def test_generate_artifact_creates_csv(df_with_correlated):
-    """Nach transform() wird ein CSV im artifacts_path erstellt."""
-    step = CorrelationFilterStep(params={"threshold": 0.9})
+    """Nach transform() im Drop-Modus wird ein CSV im artifacts_path erstellt."""
+    step = CorrelationFilterStep(params={"threshold": 0.9, "analysis_only": False})
     step.fit(df_with_correlated)
     step.transform(df_with_correlated, df_with_correlated.copy())
 
@@ -340,8 +397,8 @@ def test_generate_artifact_creates_csv(df_with_correlated):
 
 
 def test_generate_artifact_csv_path_contains_run_id(df_with_correlated):
-    """Der Dateiname des Artefakts enthält die run_id."""
-    step = CorrelationFilterStep(params={"threshold": 0.9})
+    """Der Dateiname des Artefakts enthält die run_id (Drop-Modus)."""
+    step = CorrelationFilterStep(params={"threshold": 0.9, "analysis_only": False})
     step.fit(df_with_correlated)
     step.transform(df_with_correlated, df_with_correlated.copy())
 
@@ -353,7 +410,7 @@ def test_generate_artifact_csv_path_contains_run_id(df_with_correlated):
 
 def test_generate_artifact_csv_has_correct_columns(df_with_correlated):
     """Das gespeicherte CSV enthält nur die nicht-entfernten Spalten."""
-    step = CorrelationFilterStep(params={"threshold": 0.9})
+    step = CorrelationFilterStep(params={"threshold": 0.9, "analysis_only": False})
     step.fit(df_with_correlated)
     df_result_train, _ = step.transform(df_with_correlated, df_with_correlated.copy())
 
@@ -366,8 +423,8 @@ def test_generate_artifact_csv_has_correct_columns(df_with_correlated):
 
 
 def test_generate_artifact_no_drops_still_creates_csv(df_uncorrelated):
-    """Auch wenn keine Features entfernt wurden, wird ein CSV erzeugt."""
-    step = CorrelationFilterStep(params={"threshold": 0.9})
+    """Auch wenn keine Features entfernt wurden, wird ein CSV erzeugt (Drop-Modus)."""
+    step = CorrelationFilterStep(params={"threshold": 0.9, "analysis_only": False})
     step.fit(df_uncorrelated)
     step.transform(df_uncorrelated, df_uncorrelated.copy())
 

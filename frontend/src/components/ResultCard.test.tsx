@@ -169,3 +169,41 @@ describe('ResultCard — formatStepResult time_feature_encoding', () => {
     expect(screen.getByText('Zeit-Feature-Encoding abgeschlossen.')).toBeInTheDocument()
   })
 })
+
+describe('ResultCard — encode_categorical Step-Icon (Bug 1.12)', () => {
+  function makeEncodeResult(metadata: Record<string, unknown>): ResultResponse {
+    return {
+      type: 'result',
+      message: '',
+      status: 'done',
+      step_results: [{ step_type: 'encode_categorical', metadata }],
+    }
+  }
+
+  it('zeigt ✓ wenn encoded_columns nicht leer ist', () => {
+    render(<ResultCard result={makeEncodeResult({ encoded_columns: ['season'], method: 'onehot' })} />)
+    expect(screen.getByText('✓')).toBeInTheDocument()
+    expect(screen.queryByText('⚠')).not.toBeInTheDocument()
+  })
+
+  it('zeigt ⚠ wenn encoded_columns leer ist (Step wurde übersprungen)', () => {
+    render(<ResultCard result={makeEncodeResult({ encoded_columns: [], method: 'onehot', warnings: ['season: Kein kategorischer Dtype (int64), wird übersprungen.'] })} />)
+    expect(screen.getByText('⚠')).toBeInTheDocument()
+    expect(screen.queryByText('✓')).not.toBeInTheDocument()
+  })
+
+  it('zeigt Warn-Icon-Klasse wenn Step übersprungen wurde', () => {
+    const { container } = render(<ResultCard result={makeEncodeResult({ encoded_columns: [], method: 'onehot' })} />)
+    expect(container.querySelector('.resultStepIcon--skipped')).toBeInTheDocument()
+  })
+
+  it('zeigt Detail-Text mit Warnung wenn encoded_columns leer und warnings vorhanden', () => {
+    render(<ResultCard result={makeEncodeResult({ encoded_columns: [], method: 'onehot', warnings: ['season: Kein kategorischer Dtype (int64), wird übersprungen.'] })} />)
+    expect(screen.getByText(/Übersprungen:/)).toBeInTheDocument()
+  })
+
+  it('zeigt Fallback-Detail wenn encoded_columns leer und keine warnings', () => {
+    render(<ResultCard result={makeEncodeResult({ encoded_columns: [], method: 'onehot' })} />)
+    expect(screen.getByText('Übersprungen – keine kategorialen Spalten gefunden.')).toBeInTheDocument()
+  })
+})

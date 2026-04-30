@@ -1,0 +1,77 @@
+> import sqlite3
+> import uuid
+> from datetime import datetime, timezone
+> from typing import Optional
+  
+> from gysi_ml.persistence.database import get_connection
+  
+  
+> def _row_to_dict(row: sqlite3.Row) -> dict:
+>     return dict(row)
+  
+  
+> def create_session(name: Optional[str], db_path: str | None = None) -> dict:
+>     session_id = str(uuid.uuid4())
+>     created_at = datetime.now(timezone.utc).isoformat()
+>     conn = get_connection(db_path)
+>     try:
+>         cursor = conn.cursor()
+>         cursor.execute(
+>             "INSERT INTO sessions (session_id, name, created_at, status) VALUES (?, ?, ?, ?)",
+>             (session_id, name, created_at, "active"),
+>         )
+>         conn.commit()
+>         cursor.execute(
+>             "SELECT session_id, name, created_at, status FROM sessions WHERE session_id = ?",
+>             (session_id,),
+>         )
+>         return _row_to_dict(cursor.fetchone())
+>     finally:
+>         conn.close()
+  
+  
+> def get_session(session_id: str, db_path: str | None = None) -> dict | None:
+>     conn = get_connection(db_path)
+>     try:
+>         cursor = conn.cursor()
+>         cursor.execute(
+>             "SELECT session_id, name, created_at, status FROM sessions WHERE session_id = ?",
+>             (session_id,),
+>         )
+>         row = cursor.fetchone()
+>         return _row_to_dict(row) if row else None
+>     finally:
+>         conn.close()
+  
+  
+> def list_sessions(db_path: str | None = None) -> list[dict]:
+>     conn = get_connection(db_path)
+>     try:
+>         cursor = conn.cursor()
+>         cursor.execute(
+>             "SELECT session_id, name, created_at, status FROM sessions ORDER BY created_at ASC"
+>         )
+>         return [_row_to_dict(row) for row in cursor.fetchall()]
+>     finally:
+>         conn.close()
+  
+  
+> def close_session(session_id: str, db_path: str | None = None) -> dict | None:
+>     conn = get_connection(db_path)
+>     try:
+>         cursor = conn.cursor()
+>         cursor.execute(
+>             "UPDATE sessions SET status = ? WHERE session_id = ?",
+>             ("closed", session_id),
+>         )
+>         conn.commit()
+>         if cursor.rowcount == 0:
+>             return None
+>         cursor.execute(
+>             "SELECT session_id, name, created_at, status FROM sessions WHERE session_id = ?",
+>             (session_id,),
+>         )
+>         row = cursor.fetchone()
+>         return _row_to_dict(row) if row else None
+>     finally:
+>         conn.close()

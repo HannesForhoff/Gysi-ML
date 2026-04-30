@@ -98,9 +98,20 @@ def _merge_specs(current_spec: dict | None, new_spec: dict) -> dict:
                 # Kein Spalten-Merge möglich → bestehenden Step ersetzen
                 merged[key_to_idx[key]] = new_step
         else:
-            # Neuer Key → anhängen und in Index aufnehmen
-            key_to_idx[key] = len(merged)
-            merged.append(new_step)
+            # Neuer Key → Abhängigkeits-aware Einfügen.
+            # cast_dtype muss immer VOR encode_categorical stehen, damit
+            # Typ-Konvertierungen vor dem Encoding wirksam sind.
+            if step_type == "cast_dtype" and "encode_categorical" in key_to_idx:
+                encode_idx = key_to_idx["encode_categorical"]
+                merged.insert(encode_idx, new_step)
+                # Alle Indizes >= encode_idx um 1 verschieben
+                for k in key_to_idx:
+                    if key_to_idx[k] >= encode_idx:
+                        key_to_idx[k] += 1
+                key_to_idx[key] = encode_idx
+            else:
+                key_to_idx[key] = len(merged)
+                merged.append(new_step)
 
     return {**new_spec, "steps": merged}
 
@@ -167,8 +178,16 @@ def handle_message(
         session_id=session_id, db_path=db_path
     )
     current_spec = current_spec_entry["spec"] if current_spec_entry else None
+    spec_history = spec_repository.get_all_specs_for_session(
+        session_id=session_id, db_path=db_path
+    )
     df_stats = _compute_column_stats(data_path or settings.data_path)
-    system_prompt = build_system_prompt(capabilities, current_spec=current_spec, df_stats=df_stats)
+    system_prompt = build_system_prompt(
+        capabilities,
+        current_spec=current_spec,
+        df_stats=df_stats,
+        spec_history=spec_history or None,
+    )
 
     # 3. Gesprächshistorie laden und messages-Array aufbauen
     history = message_repository.get_messages_for_session(
@@ -231,8 +250,19 @@ def handle_message(
 
     if action == "rollback":
         target_spec_id = parsed.get("target_spec_id")
+        target_version = parsed.get("target_version")
+
+        if target_version:
+            resolved_id = spec_repository.get_spec_id_by_version(
+                session_id=session_id, version=target_version, db_path=db_path
+            )
+            if not resolved_id:
+                return {"type": "error", "message": f"Version '{target_version}' nicht gefunden."}
+            target_spec_id = resolved_id
+
         if not target_spec_id:
-            return {"type": "error", "message": "Rollback: target_spec_id fehlt."}
+            return {"type": "error", "message": "Rollback: target_version oder target_spec_id fehlt."}
+
         new_spec = spec_repository.rollback_to(
             session_id=session_id, target_spec_id=target_spec_id, db_path=db_path
         )

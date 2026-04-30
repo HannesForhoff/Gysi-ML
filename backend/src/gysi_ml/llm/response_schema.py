@@ -10,6 +10,7 @@ LLM_RESPONSE_SCHEMA: dict = {
     "properties": {
         "action": {"type": "string", "enum": ["execute", "propose", "modify_spec", "compare_runs", "rollback", "abort_step_by_step", "info"]},
         "target_spec_id": {"type": "string"},
+        "target_version": {"type": "string"},
         "spec": {
             "type": "object",
             "required": ["steps"],

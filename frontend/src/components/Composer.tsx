@@ -1,22 +1,22 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useRef } from 'react'
 
 type ComposerProps = {
   disabled: boolean
   onSend: (text: string) => void
+  value: string
+  onChange: (text: string) => void
 }
 
-export function Composer({ disabled, onSend }: ComposerProps) {
-  const [text, setText] = useState('')
+export function Composer({ disabled, onSend, value, onChange }: ComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
 
   const send = useCallback(() => {
-    const trimmed = text.trim()
+    const trimmed = value.trim()
     if (disabled || trimmed.length === 0) return
 
-    onSend(text)
-    setText('')
+    onSend(value)
     queueMicrotask(() => textareaRef.current?.focus())
-  }, [disabled, onSend, text])
+  }, [disabled, onSend, value])
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -43,8 +43,8 @@ export function Composer({ disabled, onSend }: ComposerProps) {
           ref={textareaRef}
           className="composerTextarea"
           aria-label="Composer"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
           onKeyDown={onKeyDown}
           placeholder="Nachricht…"
           autoFocus
@@ -52,7 +52,7 @@ export function Composer({ disabled, onSend }: ComposerProps) {
         <button
           type="submit"
           className="sendButton"
-          disabled={disabled || text.trim().length === 0}
+          disabled={disabled || value.trim().length === 0}
           aria-label="Send"
         >
           {disabled ? 'Senden…' : 'Senden'}

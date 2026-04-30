@@ -1,0 +1,247 @@
+> import json
+  
+> import pandas as pd
+  
+> from gysi_ml.config import get_settings
+> from gysi_ml.executor.executor import PipelineExecutor
+> from gysi_ml.executor.pipeline_context import PipelineContext
+> from gysi_ml.persistence import proposal_repository
+> from gysi_ml.persistence import step_state_repository
+> from gysi_ml.steps.registry import get_step_class
+> from gysi_ml.utils.data_loader import load_bikes_dataset
+  
+  
+> def confirm_proposal(
+>     session_id: str,
+>     proposal_id: str,
+>     confirmed_steps: list[int] | None = None,
+>     mode: str = "all",
+>     db_path: str | None = None,
+>     data_path: str | None = None,
+>     artifacts_path: str | None = None,
+> ) -> dict:
+>     """Bestätigt und führt einen offenen Proposal aus.
+  
+>     Returns:
+>         dict mit 'type' und 'run_id' bei Erfolg, oder Fehler-dict.
+>     """
+>     settings = get_settings()
+  
+      # Im Step-by-Step-Modus: Fortführung mit aktivem State braucht keine neue Proposal-Validierung
+>     if mode == "step_by_step":
+!         active_state = step_state_repository.get_step_state_by_session(
+!             session_id=session_id, db_path=db_path
+!         )
+!         if active_state:
+!             return _run_step_by_step(
+!                 session_id=session_id,
+!                 proposal_id=proposal_id,
+!                 spec={},  # State liefert die Steps
+!                 db_path=db_path,
+!                 data_path=data_path or settings.data_path,
+!                 artifacts_path=artifacts_path or settings.artifacts_path,
+!             )
+  
+      # 1. Proposal laden und Session-Zugehörigkeit prüfen
+>     proposal = proposal_repository.get_proposal(proposal_id=proposal_id, db_path=db_path)
+>     if proposal is None or proposal["session_id"] != session_id:
+>         return {"error": "proposal_not_found"}
+  
+      # 2. Status prüfen — nur pending Proposals dürfen bestätigt werden
+>     if proposal["status"] != "pending":
+>         return {"error": "no_pending_proposal"}
+  
+      # 3. Spec aus Proposal laden
+>     spec = json.loads(proposal["spec_json"])
+  
+      # 3a. Selektive Step-Validierung VOR Status-Änderung
+>     if confirmed_steps is not None:
+>         if len(confirmed_steps) == 0:
+>             return {
+>                 "type": "error",
+>                 "message": "Mindestens ein Step muss ausgewählt sein.",
+>                 "error_code": "no_steps_selected",
+>             }
+>         steps = spec.get("steps", [])
+>         if any(i < 0 or i >= len(steps) for i in confirmed_steps):
+>             return {
+>                 "type": "error",
+>                 "message": "Step-Index außerhalb des gültigen Bereichs.",
+>                 "error_code": "step_index_out_of_range",
+>             }
+>         for i, step in enumerate(steps):
+>             step["enabled"] = i in confirmed_steps
+>         spec["steps"] = steps
+  
+      # 4. Proposal-Status → confirmed (erst nach erfolgreicher Validierung)
+>     proposal_repository.update_proposal_status(
+>         proposal_id=proposal_id, status="confirmed", db_path=db_path
+>     )
+  
+      # 5. Step-by-Step-Modus (erster Aufruf — kein aktiver State)
+>     if mode == "step_by_step":
+!         return _run_step_by_step(
+!             session_id=session_id,
+!             proposal_id=proposal_id,
+!             spec=spec,
+!             db_path=db_path,
+!             data_path=data_path or settings.data_path,
+!             artifacts_path=artifacts_path or settings.artifacts_path,
+!         )
+  
+>     executor = PipelineExecutor(
+>         data_path=data_path or settings.data_path,
+>         artifacts_path=artifacts_path or settings.artifacts_path,
+>     )
+>     result = executor.execute(spec=spec, session_id=session_id, db_path=db_path)
+  
+>     if "error" in result:
+>         return {
+>             "type": "error",
+>             "message": result.get("detail", result.get("error")),
+>         }
+>     return {
+>         "type": "result",
+>         "run_id": result["run_id"],
+>         "explanation": "Proposal bestätigt und ausgeführt.",
+>     }
+  
+  
+  # ---------------------------------------------------------------------------
+  # Step-by-Step Helpers
+  # ---------------------------------------------------------------------------
+  
+  
+> def _run_step_by_step(
+>     session_id: str,
+>     proposal_id: str,
+>     spec: dict,
+>     db_path: str | None,
+>     data_path: str,
+>     artifacts_path: str,
+> ) -> dict:
+>     """Führt einen einzelnen Step aus und verwaltet den Step-by-Step-State."""
+>     active_state = step_state_repository.get_step_state_by_session(
+>         session_id=session_id, db_path=db_path
+>     )
+  
+>     if active_state:
+!         remaining = active_state["remaining_steps"]
+!         completed = active_state["completed_steps"]
+!         state_id: str | None = active_state["state_id"]
+>     else:
+>         steps = spec.get("steps", [])
+>         active_steps = [s for s in steps if s.get("enabled", True)]
+>         remaining = active_steps
+>         completed = []
+>         state_id = None
+  
+>     if not remaining:
+!         if state_id:
+!             step_state_repository.delete_step_state(state_id=state_id, db_path=db_path)
+!         return _build_final_summary(completed)
+  
+>     current_step = remaining[0]
+>     next_remaining = remaining[1:]
+  
+>     step_result = _execute_single_step(
+>         current_step=current_step,
+>         completed_steps=completed,
+>         data_path=data_path,
+>         artifacts_path=artifacts_path,
+>     )
+  
+>     completed_step = {
+>         "type": current_step["type"],
+>         "params": current_step.get("params", {}),
+>         "summary": step_result.get("summary", f"Step '{current_step['type']}' ausgeführt."),
+>         "metadata": step_result.get("metadata"),
+>     }
+>     new_completed = completed + [completed_step]
+  
+>     if state_id:
+!         step_state_repository.update_step_state(
+!             state_id=state_id,
+!             remaining_steps=next_remaining,
+!             completed_steps=new_completed,
+!             db_path=db_path,
+!         )
+>     else:
+>         new_state = step_state_repository.create_step_state(
+>             session_id=session_id,
+>             proposal_id=proposal_id,
+>             remaining_steps=next_remaining,
+>             completed_steps=new_completed,
+>             confirmed_indices=[],
+>             db_path=db_path,
+>         )
+>         state_id = new_state["state_id"]
+  
+>     if not next_remaining:
+!         step_state_repository.delete_step_state(state_id=state_id, db_path=db_path)
+!         return _build_final_summary(new_completed)
+  
+>     next_step_type = next_remaining[0]["type"]
+>     next_action = f"Nächster Schritt: {next_step_type}. Bestätigen, überspringen oder anpassen?"
+  
+>     return {
+>         "type": "step_result",
+>         "completed_step": completed_step,
+>         "remaining_steps": next_remaining,
+>         "next_action": next_action,
+>         "state_id": state_id,
+>         "is_final": False,
+>     }
+  
+  
+> def _execute_single_step(
+>     current_step: dict,
+>     completed_steps: list[dict],
+>     data_path: str,
+>     artifacts_path: str,
+> ) -> dict:
+>     """Rekonstruiert DataFrame und führt current_step aus. Gibt summary+metadata zurück."""
+>     df = load_bikes_dataset(data_path)
+>     context = PipelineContext(df_full=df)
+  
+>     all_steps = completed_steps + [current_step]
+>     for step_spec in all_steps:
+>         step_type = step_spec["type"]
+>         params = step_spec.get("params", {})
+>         step_cls = get_step_class(step_type)
+>         step = step_cls(params=params)
+>         if getattr(step_cls, "is_splitter", False):
+>             step.fit(context.df_full)
+>             context.df_train, context.df_test = step.transform(context.df_full, context.df_full)
+>             context.is_split = True
+>         elif context.is_split:
+>             step.fit(context.df_train)
+>             context.df_train, context.df_test = step.transform(context.df_train, context.df_test)
+!         else:
+!             step.fit(context.df_full)
+              # Pre-Split: leerer Test-DataFrame verhindert Doppelzählung in Metadata (Bug 1B)
+!             result_train, _ = step.transform(
+!                 context.df_full, pd.DataFrame(columns=context.df_full.columns)
+!             )
+!             context.df_full = result_train
+  
+>     metadata = step.get_metadata()
+>     return {
+>         "summary": f"Step '{current_step['type']}' erfolgreich ausgeführt.",
+>         "metadata": metadata if metadata else None,
+>     }
+  
+  
+> def _build_final_summary(completed_steps: list[dict]) -> dict:
+!     types_str = ", ".join(s["type"] for s in completed_steps)
+!     last = completed_steps[-1] if completed_steps else {"type": "", "summary": "", "metadata": None}
+!     return {
+!         "type": "step_result",
+!         "completed_step": last,
+!         "remaining_steps": [],
+!         "next_action": None,
+!         "state_id": None,
+!         "is_final": True,
+!         "completed_steps_summary": completed_steps,
+!         "message": f"Alle Steps abgeschlossen: {types_str}",
+!     }

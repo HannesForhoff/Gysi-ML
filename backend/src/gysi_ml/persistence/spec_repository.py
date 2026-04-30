@@ -16,6 +16,11 @@ def create_spec_version(
     """
     # Vorgänger laden: liefert version + spec für Diff in einem Schritt
     previous = get_latest_spec(session_id=session_id, db_path=db_path)
+
+    # Idempotenz-Check: Keine neue Version wenn Spec-Steps unverändert
+    if previous is not None and previous["spec"].get("steps") == spec.get("steps"):
+        return {k: previous[k] for k in ("spec_id", "session_id", "version", "spec", "created_at")}
+
     if previous is None:
         version = "v1"
     else:

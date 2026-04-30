@@ -861,3 +861,156 @@ def test_compare_runs_run_b_not_found_returns_error(monkeypatch):
     assert result["type"] == "error"
     assert "run-missing" in result["message"]
 
+
+# ---------------------------------------------------------------------------
+# Tests für Rollback via Chat / LLM (Bug 1.15)
+# ---------------------------------------------------------------------------
+
+_VALID_ROLLBACK_WITH_VERSION_RESPONSE = json.dumps(
+    {
+        "action": "rollback",
+        "target_version": "v2",
+        "spec": {"steps": []},
+        "explanation": "Rollback zu v2.",
+    }
+)
+
+_VALID_ROLLBACK_WITH_SPEC_ID_RESPONSE = json.dumps(
+    {
+        "action": "rollback",
+        "target_spec_id": "spec-id-v1",
+        "spec": {"steps": []},
+        "explanation": "Rollback zu spec-id-v1.",
+    }
+)
+
+_ROLLBACK_MISSING_BOTH_RESPONSE = json.dumps(
+    {
+        "action": "rollback",
+        "spec": {"steps": []},
+        "explanation": "Rollback ohne Ziel.",
+    }
+)
+
+
+def _common_rollback_patches(monkeypatch):
+    """Setzt Standard-Patches für Rollback-Tests."""
+    monkeypatch.setattr(
+        "gysi_ml.services.message_service.get_settings", lambda: _settings()
+    )
+    monkeypatch.setattr(
+        "gysi_ml.services.message_service.get_capabilities",
+        lambda: {"steps": []},
+    )
+    monkeypatch.setattr(
+        "gysi_ml.services.message_service.message_repository.get_messages_for_session",
+        lambda **kw: [],
+    )
+    monkeypatch.setattr(
+        "gysi_ml.services.message_service.spec_repository.get_all_specs_for_session",
+        lambda **kw: [],
+    )
+
+
+def test_rollback_with_target_version_resolves_to_spec_id(monkeypatch):
+    """target_version wird über get_spec_id_by_version aufgelöst → rollback_to korrekt aufgerufen."""
+    _common_rollback_patches(monkeypatch)
+    monkeypatch.setattr(
+        "gysi_ml.services.message_service.call_llm",
+        lambda **kw: _VALID_ROLLBACK_WITH_VERSION_RESPONSE,
+    )
+    monkeypatch.setattr(
+        "gysi_ml.services.message_service.spec_repository.get_spec_id_by_version",
+        lambda **kw: "resolved-spec-id-v2",
+    )
+    monkeypatch.setattr(
+        "gysi_ml.services.message_service.spec_repository.rollback_to",
+        lambda **kw: {
+            "spec_id": "new-spec-id",
+            "version": "v3",
+            "change_summary": "Rollback auf v2",
+        },
+    )
+
+    result = handle_message(session_id="s1", text="Mach Rollback auf v2")
+
+    assert result["type"] == "rollback"
+    assert result["new_version"] == "v3"
+    assert "Rollback" in result["change_summary"]
+
+
+def test_rollback_with_target_version_not_found_returns_error(monkeypatch):
+    """target_version existiert nicht in Session → type='error'."""
+    _common_rollback_patches(monkeypatch)
+    monkeypatch.setattr(
+        "gysi_ml.services.message_service.call_llm",
+        lambda **kw: _VALID_ROLLBACK_WITH_VERSION_RESPONSE,
+    )
+    monkeypatch.setattr(
+        "gysi_ml.services.message_service.spec_repository.get_spec_id_by_version",
+        lambda **kw: None,
+    )
+
+    result = handle_message(session_id="s1", text="Rollback auf v2")
+
+    assert result["type"] == "error"
+    assert "v2" in result["message"]
+
+
+def test_rollback_with_spec_id_backward_compat(monkeypatch):
+    """target_spec_id ohne target_version → backward-kompatibel, rollback_to korrekt aufgerufen."""
+    _common_rollback_patches(monkeypatch)
+    monkeypatch.setattr(
+        "gysi_ml.services.message_service.call_llm",
+        lambda **kw: _VALID_ROLLBACK_WITH_SPEC_ID_RESPONSE,
+    )
+    monkeypatch.setattr(
+        "gysi_ml.services.message_service.spec_repository.rollback_to",
+        lambda **kw: {
+            "spec_id": "new-spec-id",
+            "version": "v2",
+            "change_summary": "Rollback auf v1",
+        },
+    )
+
+    result = handle_message(session_id="s1", text="Rollback auf spec-id-v1")
+
+    assert result["type"] == "rollback"
+    assert result["new_version"] == "v2"
+
+
+def test_rollback_missing_both_version_and_spec_id_returns_error(monkeypatch):
+    """Weder target_version noch target_spec_id → type='error'."""
+    _common_rollback_patches(monkeypatch)
+    monkeypatch.setattr(
+        "gysi_ml.services.message_service.call_llm",
+        lambda **kw: _ROLLBACK_MISSING_BOTH_RESPONSE,
+    )
+
+    result = handle_message(session_id="s1", text="Rollback")
+
+    assert result["type"] == "error"
+    assert "target_version" in result["message"] or "target_spec_id" in result["message"]
+
+
+def test_rollback_spec_id_not_found_after_version_resolution(monkeypatch):
+    """rollback_to gibt None zurück (ungültige spec_id nach Auflösung) → type='error'."""
+    _common_rollback_patches(monkeypatch)
+    monkeypatch.setattr(
+        "gysi_ml.services.message_service.call_llm",
+        lambda **kw: _VALID_ROLLBACK_WITH_VERSION_RESPONSE,
+    )
+    monkeypatch.setattr(
+        "gysi_ml.services.message_service.spec_repository.get_spec_id_by_version",
+        lambda **kw: "some-id",
+    )
+    monkeypatch.setattr(
+        "gysi_ml.services.message_service.spec_repository.rollback_to",
+        lambda **kw: None,
+    )
+
+    result = handle_message(session_id="s1", text="Rollback auf v2")
+
+    assert result["type"] == "error"
+    assert "some-id" in result["message"]
+

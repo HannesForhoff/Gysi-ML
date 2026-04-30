@@ -22,8 +22,8 @@ export function InfoPanel({ specSummary, lastRun, artifacts }: InfoPanelProps) {
   const hasSteps = (lastRun?.step_results?.length ?? 0) > 0
   const hasArtifacts = artifacts.length > 0
 
-  // step_results are in the same order as spec steps — match by index
-  const stepResults: (StepResult | undefined)[] = lastRun?.step_results ?? []
+  // step_results werden per step_type gematcht, nicht per Index (Bug 1.13 Fix C)
+  const stepResults: StepResult[] = lastRun?.step_results ?? []
 
   return (
     <div className="infoPanel">
@@ -43,7 +43,7 @@ export function InfoPanel({ specSummary, lastRun, artifacts }: InfoPanelProps) {
         {specSummary ? (
           <ul className="infoPipelineSteps">
             {specSummary.steps.map((step, idx) => {
-              const sr = stepResults[idx]
+              const sr = stepResults.find(r => r.step_type === step.step_type)
               return (
                 <li key={`${step.step_type}-${idx}`} className="infoPipelineStep">
                   <div className="infoPipelineStepHeader">

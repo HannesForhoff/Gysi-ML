@@ -1,0 +1,113 @@
+> import sqlite3
+> import uuid
+> from datetime import datetime, timezone
+  
+> from gysi_ml.persistence.database import get_connection
+  
+  
+> def _row_to_dict(row: sqlite3.Row) -> dict:
+>     return dict(row)
+  
+  
+> def create_proposal(
+>     session_id: str,
+>     spec_json: str,
+>     explanation: str,
+>     db_path: str | None = None,
+> ) -> dict:
+>     """Legt einen neuen Proposal mit status='pending' an."""
+>     proposal_id = str(uuid.uuid4())
+>     created_at = datetime.now(timezone.utc).isoformat()
+>     conn = get_connection(db_path)
+>     try:
+>         cursor = conn.cursor()
+>         cursor.execute(
+>             """
+>             INSERT INTO proposals (proposal_id, session_id, spec_json, explanation, status, created_at)
+>             VALUES (?, ?, ?, ?, ?, ?)
+>             """,
+>             (proposal_id, session_id, spec_json, explanation, "pending", created_at),
+>         )
+>         conn.commit()
+>         cursor.execute(
+>             "SELECT proposal_id, session_id, spec_json, explanation, status, created_at"
+>             " FROM proposals WHERE proposal_id = ?",
+>             (proposal_id,),
+>         )
+>         return _row_to_dict(cursor.fetchone())
+>     finally:
+>         conn.close()
+  
+  
+> def get_pending_proposal(session_id: str, db_path: str | None = None) -> dict | None:
+>     """Gibt den offenen (pending) Proposal einer Session zurück oder None."""
+>     conn = get_connection(db_path)
+>     try:
+>         cursor = conn.cursor()
+>         cursor.execute(
+>             "SELECT proposal_id, session_id, spec_json, explanation, status, created_at"
+>             " FROM proposals WHERE session_id = ? AND status = 'pending'",
+>             (session_id,),
+>         )
+>         row = cursor.fetchone()
+>         return _row_to_dict(row) if row else None
+>     finally:
+>         conn.close()
+  
+  
+> def get_proposal(proposal_id: str, db_path: str | None = None) -> dict | None:
+>     """Gibt einen Proposal anhand seiner ID zurück oder None."""
+>     conn = get_connection(db_path)
+>     try:
+>         cursor = conn.cursor()
+>         cursor.execute(
+>             "SELECT proposal_id, session_id, spec_json, explanation, status, created_at"
+>             " FROM proposals WHERE proposal_id = ?",
+>             (proposal_id,),
+>         )
+>         row = cursor.fetchone()
+>         return _row_to_dict(row) if row else None
+>     finally:
+>         conn.close()
+  
+  
+> _VALID_STATUSES = {"confirmed", "rejected"}
+  
+  
+> def update_proposal_status(
+>     proposal_id: str,
+>     status: str,
+>     db_path: str | None = None,
+> ) -> None:
+>     """Aktualisiert den Status eines Proposals (z.B. 'confirmed' oder 'rejected')."""
+>     if status not in _VALID_STATUSES:
+>         raise ValueError(f"Ungültiger Proposal-Status: {status!r} (erlaubt: {_VALID_STATUSES})")
+>     conn = get_connection(db_path)
+>     try:
+>         cursor = conn.cursor()
+>         cursor.execute(
+>             "UPDATE proposals SET status = ? WHERE proposal_id = ?",
+>             (status, proposal_id),
+>         )
+>         conn.commit()
+>     finally:
+>         conn.close()
+  
+  
+> def reject_pending_proposals(session_id: str, db_path: str | None = None) -> int:
+>     """Setzt alle pending Proposals einer Session auf 'rejected'.
+  
+>     Returns:
+>         Anzahl der aktualisierten Rows.
+>     """
+>     conn = get_connection(db_path)
+>     try:
+>         cursor = conn.cursor()
+>         cursor.execute(
+>             "UPDATE proposals SET status = 'rejected' WHERE session_id = ? AND status = 'pending'",
+>             (session_id,),
+>         )
+>         conn.commit()
+>         return cursor.rowcount
+>     finally:
+>         conn.close()

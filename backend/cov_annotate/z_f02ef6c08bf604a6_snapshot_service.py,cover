@@ -1,0 +1,146 @@
+> """SnapshotService — Datensatz-Snapshot nach Pipeline-Run (Story DV-1.1)."""
+> from __future__ import annotations
+  
+> import json
+> import logging
+> import math
+> from pathlib import Path
+  
+> import numpy as np
+> import pandas as pd
+  
+> logger = logging.getLogger(__name__)
+  
+  
+> class SnapshotService:
+>     def save_snapshot(
+>         self,
+>         run_id: str,
+>         df: pd.DataFrame,
+>         is_split: bool,
+>         artifacts_path: str,
+>     ) -> None:
+>         """Speichert Parquet-Snapshot und Column-Stats für einen abgeschlossenen Run.
+  
+>         Exceptions werden nicht intern abgefangen — der Aufrufer ist verantwortlich.
+>         Diese Methode ist der einzige Public Entry Point der Klasse.
+>         """
+>         base = Path(artifacts_path)
+>         base.mkdir(parents=True, exist_ok=True)
+  
+>         parquet_path = base / f"{run_id}_snapshot.parquet"
+>         logger.debug("Speichere Parquet-Snapshot: %s", parquet_path)
+>         df.to_parquet(parquet_path, index=False)
+  
+>         stats = _compute_column_stats(df, is_split=is_split)
+>         stats_path = base / f"{run_id}_column_stats.json"
+>         logger.debug("Speichere Column-Stats: %s", stats_path)
+>         stats_path.write_text(json.dumps(stats, allow_nan=False), encoding="utf-8")
+  
+  
+> def _compute_column_stats(df: pd.DataFrame, *, is_split: bool) -> dict:
+>     """Berechnet Spalten-Statistiken für alle Spalten des DataFrames.
+  
+>     Numerische Spalten erhalten zusätzlich min, max und Histogramm (10 Bins).
+>     Nicht-numerische Spalten erhalten min=null, max=null, histogram=null.
+>     """
+>     n = len(df)
+>     columns: dict[str, dict] = {}
+  
+>     for col in df.columns:
+>         series = df[col]
+>         missing_count = int(series.isna().sum())
+>         missing_pct = round(missing_count / n * 100, 4) if n else 0.0
+>         distinct_count = int(series.nunique(dropna=False))
+>         distinct_pct = round(distinct_count / n * 100, 4) if n else 0.0
+  
+>         col_stats: dict = {
+>             "missing_count": missing_count,
+>             "missing_pct": missing_pct,
+>             "distinct_count": distinct_count,
+>             "distinct_pct": distinct_pct,
+>             "min": None,
+>             "max": None,
+>             "histogram": None,
+>         }
+  
+>         numeric_series = pd.to_numeric(series, errors="coerce").dropna()
+>         if not numeric_series.empty:
+>             col_stats["min"] = float(numeric_series.min())
+>             col_stats["max"] = float(numeric_series.max())
+>             col_stats["histogram"] = _compute_histogram(numeric_series)
+  
+>         columns[col] = col_stats
+  
+>     return {"is_split": is_split, "columns": columns}
+  
+  
+> _DISCRETE_BIN_THRESHOLD = 20
+  
+  
+> def _compute_histogram(series: pd.Series) -> dict:
+>     """Berechnet Histogramm-Bins für eine numerische Series.
+  
+>     Für Spalten mit ≤ 20 diskreten Integer-Werten wird jeder vorkommende Wert
+>     als eigener Bin verwendet (diskrete Darstellung).
+>     Sonst: 10 gleichmäßige Bins via numpy.
+>     """
+>     unique_vals = sorted(series.unique())
+>     use_discrete = (
+>         len(unique_vals) <= _DISCRETE_BIN_THRESHOLD
+>         and all(float(v).is_integer() for v in unique_vals)
+>     )
+  
+>     if use_discrete:
+>         int_vals = [int(v) for v in unique_vals]
+>         counts = [int((series == v).sum()) for v in int_vals]
+          # bins hat len(counts)+1 Einträge: jeder Bin ist [v, v+1)
+>         bins = [float(v) for v in int_vals] + [float(int_vals[-1] + 1)]
+>         return {"bins": bins, "counts": counts}
+  
+>     counts_arr, bin_edges = np.histogram(series, bins=_nice_bin_edges(series, target_bins=10))
+>     return {
+>         "bins": [_fmt_bin(float(b)) for b in bin_edges.tolist()],
+>         "counts": counts_arr.tolist(),
+>     }
+  
+  
+> def _nice_bin_edges(series: pd.Series, target_bins: int) -> np.ndarray:
+>     """Berechnet gerundete Bin-Grenzen (nice numbers) für kontinuierliche Daten.
+  
+>     Verwendet den klassischen 1-2-5-Algorithmus um saubere Schrittweiten zu
+>     erzeugen (z.B. 100, 200, 500 statt 98.6, 197.2).
+>     """
+>     data_min = float(series.min())
+>     data_max = float(series.max())
+  
+>     if data_min == data_max:
+!         return np.array([data_min - 0.5, data_max + 0.5])
+  
+>     raw_step = (data_max - data_min) / target_bins
+>     magnitude = 10 ** math.floor(math.log10(raw_step))
+>     normalized = raw_step / magnitude
+>     if normalized <= 1:
+!         nice_step = magnitude
+>     elif normalized <= 2:
+!         nice_step = 2 * magnitude
+>     elif normalized <= 5:
+>         nice_step = 5 * magnitude
+!     else:
+!         nice_step = 10 * magnitude
+  
+>     nice_min = math.floor(data_min / nice_step) * nice_step
+>     nice_max = math.ceil(data_max / nice_step) * nice_step
+  
+>     edges = np.arange(nice_min, nice_max + nice_step * 0.5, nice_step)
+      # Sicherheit: mindestens 2 Kanten
+>     if len(edges) < 2:
+!         edges = np.array([nice_min, nice_max])
+>     return edges
+  
+  
+> def _fmt_bin(v: float) -> float:
+>     """Gibt ganzzahlige Werte ohne Dezimalstellen zurück, sonst 6 Stellen."""
+>     if v == int(v):
+>         return float(int(v))
+>     return round(v, 6)

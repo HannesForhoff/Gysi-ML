@@ -1,4 +1,4 @@
-import type { AssistantResponse } from '../types'
+import type { AssistantResponse, SpecSummary } from '../types'
 
 export interface SendAssistantMessageInput {
   userText: string
@@ -18,4 +18,5 @@ export interface ConfirmInput {
 export interface ConfirmResult {
   runId: string | null
   error?: string
+  specSummary?: SpecSummary
 }

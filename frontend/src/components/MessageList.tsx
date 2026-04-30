@@ -6,6 +6,53 @@ import type { ChatMessage } from '../types'
 import { ProposalCard } from './ProposalCard'
 import { ResultCard } from './ResultCard'
 
+type CorrPairAll = {
+  col_a: string
+  col_b: string
+  value: number
+  above_threshold: boolean
+  suggestion: string | null
+}
+
+type FeatureImportanceEntry = {
+  name: string
+  importance: number
+  selected: boolean
+}
+
+function buildFeatureImportanceTableMarkdown(
+  importances: FeatureImportanceEntry[],
+  topN: number,
+): string {
+  const rows = importances.map((f, i) => {
+    const rank = i + 1
+    const status = f.selected ? '✓ behalten' : '⚠ Vorschlag: entfernen'
+    return `| ${rank} | \`${f.name}\` | ${f.importance.toFixed(2)} % | ${status} |`
+  })
+  return [
+    `**CatBoost Feature-Importance** (Top-${topN} Vorschlag — noch nichts entfernt)`,
+    '',
+    '| # | Feature | Importance | Vorschlag |',
+    '|---|---------|------------|-----------|',
+    ...rows,
+  ].join('\n')
+}
+
+function buildCorrTableMarkdown(pairs: CorrPairAll[], threshold: number): string {
+  const rows = pairs.map((p) => {
+    const val = p.value.toFixed(4)
+    const suggestion = p.above_threshold && p.suggestion ? `${p.suggestion} entfernen?` : '—'
+    return `| \`${p.col_a}\` | \`${p.col_b}\` | ${val} | ${suggestion} |`
+  })
+  return [
+    `**Korrelationsanalyse** (Schwellwert: |r| ≥ ${threshold})`,
+    '',
+    '| Spalte A | Spalte B | r-Wert | Vorschlag |',
+    '|----------|----------|--------|-----------|',
+    ...rows,
+  ].join('\n')
+}
+
 type MessageListProps = {
   messages: ChatMessage[]
   onConfirm: (proposalId: string) => void
@@ -68,6 +115,64 @@ export function MessageList({ messages, onConfirm, confirmDisabled, activePendin
               </div>
             </div>
           </li>
+          {(() => {
+            if (message.response?.type !== 'result') return null
+            const catboostStep = message.response.step_results?.find(
+              (sr) =>
+                sr.step_type === 'catboost_feature_selection' &&
+                sr.metadata?.analysis_only === true,
+            )
+            const importances = catboostStep?.metadata?.feature_importances as
+              | FeatureImportanceEntry[]
+              | undefined
+            if (!importances || importances.length === 0) return null
+            const topN = importances.filter((f) => f.selected).length
+            return (
+              <li className="message" data-role="assistant" data-testid="feature-importance-table">
+                <div className="messageRow">
+                  <div className="avatar" aria-hidden="true">G</div>
+                  <div className="bubble">
+                    <div className="bubbleMeta">
+                      <span className="messageRole">assistant</span>
+                      <span className="messageTs">{message.ts}</span>
+                    </div>
+                    <div className="messageContent">
+                      <Markdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+                        {buildFeatureImportanceTableMarkdown(importances, topN)}
+                      </Markdown>
+                    </div>
+                  </div>
+                </div>
+              </li>
+            )
+          })()}
+          {(() => {
+            if (message.response?.type !== 'result') return null
+            const corrStep = message.response.step_results?.find(
+              (sr) => sr.step_type === 'correlation_filter' && sr.metadata?.analysis_only === true,
+            )
+            const allPairs = corrStep?.metadata?.all_corr_pairs as CorrPairAll[] | undefined
+            if (!allPairs || allPairs.length === 0) return null
+            const threshold = (corrStep?.metadata?.threshold as number | undefined) ?? 0.9
+            return (
+              <li className="message" data-role="assistant" data-testid="correlation-table">
+                <div className="messageRow">
+                  <div className="avatar" aria-hidden="true">G</div>
+                  <div className="bubble">
+                    <div className="bubbleMeta">
+                      <span className="messageRole">assistant</span>
+                      <span className="messageTs">{message.ts}</span>
+                    </div>
+                    <div className="messageContent">
+                      <Markdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+                        {buildCorrTableMarkdown(allPairs, threshold)}
+                      </Markdown>
+                    </div>
+                  </div>
+                </div>
+              </li>
+            )
+          })()}
           {message.response?.type === 'result' && message.response.post_run_explanation && (
             <li
               className="message"

@@ -272,4 +272,48 @@ describe('sendRealConfirm', () => {
     expect(result.runId).toBeNull()
     expect(result.error).toContain('run_id')
   })
+
+  it('Erfolgsfall mit spec+version: specSummary wird korrekt geparst (Bug 1.13 Fix B)', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        type: 'result',
+        run_id: 'run-99',
+        version: 'v5',
+        spec: {
+          steps: [
+            { type: 'impute_missing', enabled: true },
+            { type: 'correlation_filter', enabled: true },
+          ],
+        },
+        step_results: [],
+        artifacts: [],
+      }),
+    )
+
+    const result = await sendRealConfirm('http://localhost:8000', 'session-abc', 'proposal-xyz')
+
+    expect(result.runId).toBe('run-99')
+    expect(result.specSummary).toBeDefined()
+    expect(result.specSummary!.spec_version_id).toBe('v5')
+    expect(result.specSummary!.steps).toHaveLength(2)
+    expect(result.specSummary!.steps[0].step_type).toBe('impute_missing')
+    expect(result.specSummary!.steps[1].step_type).toBe('correlation_filter')
+  })
+
+  it('Erfolgsfall ohne spec/version: specSummary bleibt undefined', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ type: 'result', run_id: 'run-55' }),
+    )
+
+    const result = await sendRealConfirm('http://localhost:8000', 'session-abc', 'proposal-xyz')
+
+    expect(result.runId).toBe('run-55')
+    expect(result.specSummary).toBeUndefined()
+  })
 })

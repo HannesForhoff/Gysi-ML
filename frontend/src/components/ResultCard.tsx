@@ -1,6 +1,6 @@
 import type { ResultResponse } from '../types'
 import { sanitizeArtifactUrl } from '../utils/sanitizeArtifactUrl'
-import { formatStepResult, getStepLabel } from '../utils/stepMeta'
+import { formatStepResult, getStepLabel, isStepSkipped } from '../utils/stepMeta'
 
 type ResultCardProps = {
   result: ResultResponse
@@ -53,15 +53,20 @@ export function ResultCard({ result }: ResultCardProps) {
 
       {hasStepResults && (
         <ul className="resultStepResults">
-          {result.step_results!.map((sr, idx) => (
-            <li key={idx} className="resultStepResult">
-              <span className="resultStepIcon">✓</span>
-              <div className="resultStepContent">
-                <span className="resultStepType">{getStepLabel(sr.step_type)}</span>
-                <span className="resultStepDetail">{formatStepResult(sr)}</span>
-              </div>
-            </li>
-          ))}
+          {result.step_results!.map((sr, idx) => {
+            const skipped = isStepSkipped(sr)
+            return (
+              <li key={idx} className="resultStepResult">
+                <span className={skipped ? 'resultStepIcon resultStepIcon--skipped' : 'resultStepIcon'}>
+                  {skipped ? '⚠' : '✓'}
+                </span>
+                <div className="resultStepContent">
+                  <span className="resultStepType">{getStepLabel(sr.step_type)}</span>
+                  <span className="resultStepDetail">{formatStepResult(sr)}</span>
+                </div>
+              </li>
+            )
+          })}
         </ul>
       )}
 

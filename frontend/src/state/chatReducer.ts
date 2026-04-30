@@ -60,7 +60,7 @@ export type ChatAction =
   | { type: 'HEALTH_CHECK_RECOVERED'; llmModel?: string | null }
   | { type: 'SPEC_SUMMARY_LOADED'; specSummary: SpecSummary }
   | { type: 'CONFIRM_STARTED' }
-  | { type: 'CONFIRM_SUCCEEDED'; runId: string }
+  | { type: 'CONFIRM_SUCCEEDED'; runId: string; specSummary?: SpecSummary }
   | { type: 'CONFIRM_FAILED'; errorMessage: string }
   | {
       type: 'RUN_POLL_SUCCEEDED'
@@ -236,6 +236,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         runId: action.runId,
         pendingProposalId: null,
         ui: { type: 'run_polling' },
+        ...(action.specSummary ? { specSummary: action.specSummary } : {}),
       }
 
     case 'CONFIRM_FAILED':

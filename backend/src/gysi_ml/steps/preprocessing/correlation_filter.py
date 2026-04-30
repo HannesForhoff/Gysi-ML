@@ -8,17 +8,26 @@ from gysi_ml.steps.registry import register_step
 
 @register_step("correlation_filter")
 class CorrelationFilterStep(BaseStep):
-    description = "Entfernt hochkorrelierte numerische Features (Pearson)"
+    description = "Analysiert hochkorrelierte numerische Features (Pearson) und entfernt sie auf Nutzeranweisung"
     param_schema = {
         "threshold": {"type": "number", "default": 0.9},
+        "analysis_only": {
+            "type": "boolean",
+            "default": True,
+            "description": (
+                "Wenn True: nur Analyse — kein Feature wird entfernt. "
+                "Das ist der Standard für den ersten Aufruf, damit der Nutzer "
+                "interaktiv entscheiden kann, welches Feature aus jedem Paar fällt."
+            ),
+        },
         "features_to_drop": {
             "type": "array",
             "items": {"type": "string"},
             "default": [],
             "description": (
                 "Explizite Liste der zu entfernenden Features. "
-                "Übersteuert die automatische max()-Fallback-Logik. "
-                "Wird vom LLM nach Nutzerbestätigung befüllt."
+                "Wird vom LLM nach Nutzerbestätigung befüllt. "
+                "Wenn gesetzt, wird analysis_only automatisch ignoriert und der Drop wird durchgeführt."
             ),
         },
     }
@@ -28,8 +37,12 @@ class CorrelationFilterStep(BaseStep):
         self.threshold: float = float(self.params.get("threshold", 0.9))
         # Explizit vom Nutzer bestätigte Features (übersteuert Fallback-Logik)
         self._explicit_drop: list[str] = list(self.params.get("features_to_drop", []))
+        # analysis_only=True bedeutet: Paare berechnen, nichts entfernen.
+        # Wenn features_to_drop angegeben ist, ist es implizit kein reiner Analyse-Modus.
+        self._analysis_only: bool = bool(self.params.get("analysis_only", True)) and not self._explicit_drop
         self._features_to_drop: list[str] = []
         self._corr_pairs: list[dict] = []
+        self._all_corr_pairs: list[dict] = []
         self._independent_features: list[str] = []
         self._df_filtered: pd.DataFrame | None = None
 
@@ -38,19 +51,23 @@ class CorrelationFilterStep(BaseStep):
         if len(numeric_cols) < 2:
             self._features_to_drop = []
             self._corr_pairs = []
+            self._all_corr_pairs = []
             self._independent_features = numeric_cols[:]
             return
 
         corr_matrix = df_train[numeric_cols].corr().abs()
         to_drop: set[str] = set()
         self._corr_pairs = []
+        all_pairs_temp: list[dict] = []
 
         for i in range(len(numeric_cols)):
             for j in range(i + 1, len(numeric_cols)):
                 val = corr_matrix.iloc[i, j]
-                if val >= self.threshold:
-                    col_a = numeric_cols[i]
-                    col_b = numeric_cols[j]
+                col_a = numeric_cols[i]
+                col_b = numeric_cols[j]
+                above = bool(val >= self.threshold)
+                suggestion: str | None = None
+                if above:
                     # Nutzer-Entscheidung hat Vorrang; Fallback: alphabetisch späteres Feature
                     if col_a in self._explicit_drop:
                         dropped = col_a
@@ -59,6 +76,7 @@ class CorrelationFilterStep(BaseStep):
                     else:
                         dropped = max(col_a, col_b)
                     to_drop.add(dropped)
+                    suggestion = dropped
                     self._corr_pairs.append(
                         {
                             "col_a": col_a,
@@ -67,6 +85,18 @@ class CorrelationFilterStep(BaseStep):
                             "dropped": dropped,
                         }
                     )
+                all_pairs_temp.append(
+                    {
+                        "col_a": col_a,
+                        "col_b": col_b,
+                        "value": round(float(val), 4),
+                        "above_threshold": above,
+                        "suggestion": suggestion,
+                    }
+                )
+
+        all_pairs_temp.sort(key=lambda p: p["value"], reverse=True)
+        self._all_corr_pairs = all_pairs_temp
 
         # Explizit angegebene Features die keinem korrelierten Paar angehören,
         # aber trotzdem entfernt werden sollen (seltener Sonderfall)
@@ -88,6 +118,9 @@ class CorrelationFilterStep(BaseStep):
     def transform(
         self, df_train: pd.DataFrame, df_test: pd.DataFrame
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        # Im Analyse-Modus werden keine Features entfernt — Datensatz bleibt unverändert.
+        if self._analysis_only:
+            return df_train, df_test
         cols_to_drop = [c for c in self._features_to_drop if c in df_train.columns]
         df_train_filtered = df_train.drop(columns=cols_to_drop)
         df_test_filtered = df_test.drop(columns=cols_to_drop)
@@ -98,12 +131,17 @@ class CorrelationFilterStep(BaseStep):
     def get_metadata(self) -> dict:
         return {
             "threshold": self.threshold,
+            "analysis_only": self._analysis_only,
             "dropped_features": self._features_to_drop,
             "corr_pairs": self._corr_pairs,
+            "all_corr_pairs": self._all_corr_pairs,
             "independent_features": self._independent_features,
         }
 
     def generate_artifact(self, artifacts_path: str, run_id: str) -> list[dict] | None:
+        # Im Analyse-Modus kein Artefakt — Ergebnisse erscheinen im Chat.
+        if self._analysis_only:
+            return None
         if self._df_filtered is None:
             return None
         os.makedirs(artifacts_path, exist_ok=True)

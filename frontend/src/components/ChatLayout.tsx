@@ -35,9 +35,12 @@ export function ChatLayout({ children, history, dataPane, infoPane, activeTab, o
             Artefakte & Steps
           </button>
         </div>
-        <div className="tabContent">
-          {activeTab === 'chat' ? children : activeTab === 'data' ? dataPane : infoPane}
+        {/* Chat bleibt immer im DOM – verhindert Scroll-Verlust bei Tab-Wechsel (bug-1.16) */}
+        <div className="tabContent" style={{ display: activeTab === 'chat' ? undefined : 'none' }}>
+          {children}
         </div>
+        {activeTab === 'data' && <div className="tabContent">{dataPane}</div>}
+        {activeTab === 'info' && <div className="tabContent">{infoPane}</div>}
       </main>
       <aside className="historyPane">{history}</aside>
     </div>

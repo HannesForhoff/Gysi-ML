@@ -41,11 +41,46 @@ Das Feld `parameters_summary` ist bei **jedem Step** anzugeben — besonders bei
   - "Entferne Duplikate und imputiere fehlende Werte mit Median" → execute
   - "Imputiere fehlende Werte in windspeed mit Median" → execute  ← direkte Ausführung, KEIN modify_spec!
   Abgrenzung: Wenn der Nutzer eine Spalte oder Aktion direkt ausführen will → execute, nicht modify_spec.
-- **Sonderregel `correlation_filter`**: Verwende für `correlation_filter` IMMER `propose`, auch wenn der Nutzer den Step klar benennt.
-  Begründung: Die Entscheidung, welches Feature aus einem korrelierten Paar entfernt wird, liegt IMMER beim Nutzer.
-  Das LLM darf diese Entscheidung niemals automatisch treffen.
-  Zeige in der `explanation` die korrelierten Paare und frage den Nutzer, welche Features er entfernen möchte.
-  Befülle nach Nutzerbestätigung den Parameter `features_to_drop` mit den explizit gewählten Features.
+- **Sonderregel `catboost_feature_selection`**: Die CatBoost Feature-Selektion läuft IMMER zweistufig:
+
+  **Stufe 1 — Analyse** (erster Aufruf):
+  Setze `action: "execute"` mit `params: {{"top_n": 8, "analysis_only": true}}`.
+  Setze `features_to_drop` NICHT.
+  Das System berechnet die Feature-Importance-Scores, entfernt aber noch nichts.
+  Die Ergebnisse erscheinen im Chat (vollständige Rangliste aller Features mit Scores).
+  Frage den Nutzer in der `explanation`, ob er die vorgeschlagenen Features (die unterhalb von top_n) entfernen möchte
+  — oder ob er eine andere Anzahl (top_n) oder andere Features wünscht.
+
+  **Stufe 2 — Selektion** (Nutzer bestätigt die Entscheidung):
+  Wenn der Nutzer bestätigt hat welche Features entfernt werden sollen, setze `action: "execute"` mit
+  `params: {{"analysis_only": false, "features_to_drop": ["feature_a", "feature_b", ...]}}`.
+  Jetzt werden die Spalten tatsächlich entfernt und eine neue Spec-Version angelegt.
+
+  Das LLM darf NIEMALS eigenständig entscheiden welche Features entfernt werden.
+  Auch bei eindeutiger Nutzeranfrage ("Führe CatBoost Feature-Selektion durch") IMMER erst Stufe 1 ausführen.
+
+- **Sonderregel `correlation_filter`**: Der Korrelationsfilter läuft IMMER zweistufig:
+
+  **Stufe 1 — Analyse** (erster Aufruf):
+  Setze `action: "execute"` mit `params: {{"threshold": 0.9, "analysis_only": true}}`.
+  Setze `features_to_drop` NICHT.
+  Das System berechnet die korrelierten Paare, entfernt aber noch nichts.
+  Die Ergebnisse erscheinen im Chat (kein CSV, keine Spec-Version).
+  Frage den Nutzer in der `explanation`, welches Feature er aus jedem Paar entfernen möchte.
+
+  **Stufe 2a — Drop** (Nutzer möchte mindestens ein Feature entfernen):
+  Wenn der Nutzer gesagt hat welche Features er entfernen möchte, setze `action: "execute"` mit
+  `params: {{"threshold": 0.9, "analysis_only": false, "features_to_drop": ["feature_x", ...]}}`.
+  Jetzt werden die Spalten tatsächlich entfernt und eine neue Spec-Version angelegt.
+
+  **Stufe 2b — Behalten** (Nutzer möchte KEINE Features entfernen):
+  Wenn der Nutzer entscheidet, alle Features zu behalten (z.B. "Wir behalten beide", "Nichts entfernen",
+  "Ich behalte alle"), dann setze `action: "info"` mit `spec: {{"steps": []}}`.
+  Erkläre in der `explanation` kurz, dass keine Features entfernt werden und die Pipeline unverändert bleibt.
+  KEINE Ausführung, KEINE neue Spec-Version.
+
+  Das LLM darf NIEMALS eigenständig entscheiden welches Feature aus einem Paar entfernt wird.
+  Auch bei eindeutiger Nutzeranfrage ("Wende Korrelationsfilter an") IMMER erst Stufe 1 ausführen.
 - **"propose"**: Verwende dies wenn:
   - die Eingabe vage ist, mehrere Interpretationen zulässt, oder wichtige Parameter fehlen
   - der Nutzer **explizit nach Empfehlungen fragt** ("Was würdest du vorschlagen?", "Mit was soll ich anfangen?", "Was empfiehlst du als nächsten Schritt?")
@@ -118,13 +153,23 @@ Wenn der Nutzer zwei Run-IDs vergleichen möchte:
 
 Beispiel: "Vergleiche Run abc123 mit Run def456" →
 {{"action": "compare_runs", "run_id_a": "abc123", "run_id_b": "def456", "spec": {{"steps": []}}, "explanation": "..."}}
-{df_stats_section}{current_spec_section}"""
+
+## Rollback
+
+Wenn der Nutzer eine frühere Pipeline-Version wiederherstellen möchte
+(z.B. "Gehe zurück zu v3", "Rollback auf Version 2", "Stelle v1 wieder her"):
+- Setze `action: "rollback"`
+- Setze `target_version: "<version>"` (z.B. "v3") — aus der Versionsliste unten
+- Das `spec`-Feld enthält eine leere Spec: `{{"steps": []}}`
+- Nutze NIEMALS `target_spec_id` direkt — das System löst die Version intern auf
+- Halluziniere keine Versionsnummern — nur Versionen aus der Liste sind gültig{rollback_section}{df_stats_section}{current_spec_section}"""
 
 
 def build_system_prompt(
     capabilities: list[dict],
     current_spec: dict | None = None,
     df_stats: dict | None = None,
+    spec_history: list[dict] | None = None,
 ) -> str:
     capabilities_json = json.dumps(capabilities, indent=2, ensure_ascii=False)
     if df_stats is not None:
@@ -143,10 +188,24 @@ def build_system_prompt(
         )
     else:
         current_spec_section = ""
+    if spec_history:
+        rows = "\n".join(
+            f"| {entry['version']} | {entry.get('created_at', '')[:16]} | {entry.get('change_summary') or 'Initialversion'} |"
+            for entry in spec_history
+        )
+        rollback_section = (
+            "\n\n### Verfügbare Spec-Versionen (für Rollback)\n\n"
+            "| Version | Erstellt | Zusammenfassung |\n"
+            "|---------|----------|-----------------|\n"
+            + rows
+        )
+    else:
+        rollback_section = ""
     return SYSTEM_PROMPT_TEMPLATE.format(
         capabilities_json=capabilities_json,
         df_stats_section=df_stats_section,
         current_spec_section=current_spec_section,
+        rollback_section=rollback_section,
     )
 
 
@@ -161,6 +220,83 @@ def build_retry_prompt(error_message: str) -> str:
 
 def build_post_run_prompt(user_message: str, spec: dict, step_results: list[dict]) -> str:
     """Erstellt den Prompt für die Post-Run-Erklärung nach einer Pipeline-Ausführung."""
+
+    # Sonderfall: catboost_feature_selection im analysis_only-Modus
+    for sr in step_results:
+        if sr.get("step_type") == "catboost_feature_selection":
+            meta = sr.get("metadata", {})
+            if meta.get("analysis_only"):
+                importances = meta.get("feature_importances", [])
+                top_n = len([f for f in importances if f.get("selected")])
+                removed = [f["name"] for f in importances if not f.get("selected")]
+                warnings = meta.get("warnings", [])
+
+                importance_desc = "\n".join(
+                    f"- {f['name']}: {f['importance']:.2f}% ({'behalten' if f.get('selected') else 'Vorschlag: entfernen'})"
+                    for f in importances
+                )
+                warning_note = (
+                    f"\nHinweis: {warnings[0]}" if warnings else ""
+                )
+
+                return (
+                    f"Die CatBoost Feature-Selektion wurde als ANALYSE ausgeführt. "
+                    f"Es wurden KEINE Features entfernt — das entscheidet ausschließlich der Nutzer.{warning_note}\n\n"
+                    f"Feature-Importances (absteigend sortiert):\n{importance_desc}\n\n"
+                    f"Der Vorschlag basiert auf top_n={top_n}: Die {len(removed)} Features mit der geringsten "
+                    f"Wichtigkeit ({', '.join(removed)}) könnten entfernt werden.\n\n"
+                    "Eine Importance-Tabelle wird dem Nutzer bereits angezeigt — reproduziere sie NICHT.\n\n"
+                    "Deine Aufgabe:\n"
+                    "1. Erkläre kurz was Feature Importance bedeutet und wie CatBoost sie berechnet.\n"
+                    "2. Begründe für die vorgeschlagenen Entfernungskandidaten fachlich warum sie weniger relevant sein könnten.\n"
+                    "3. Formuliere IMMER als Vorschlag/Empfehlung — NIEMALS als vollendete Tatsache "
+                    "('wurden entfernt', 'hat entfernt' sind VERBOTEN).\n"
+                    "4. Frage den Nutzer am Ende, ob er die vorgeschlagenen Features entfernen möchte, "
+                    "oder ob er eine andere Anzahl (top_n) oder andere Features bevorzugt.\n"
+                    "Kein Freitext-Header. Direkt mit der Erklärung starten."
+                )
+
+    # Sonderfall: correlation_filter im analysis_only-Modus → strukturierte Tabelle ausgeben
+    corr_analysis_result = None
+    for sr in step_results:
+        if sr.get("step_type") == "correlation_filter":
+            meta = sr.get("metadata", {})
+            if meta.get("analysis_only"):
+                corr_analysis_result = meta
+                break
+
+    if corr_analysis_result is not None:
+        pairs = corr_analysis_result.get("corr_pairs", [])  # nur Paare über dem Schwellwert
+        threshold = corr_analysis_result.get("threshold", 0.9)
+
+        if not pairs:
+            return (
+                f"Der Korrelationsfilter (Schwellwert |r| ≥ {threshold}) wurde ausgeführt. "
+                f"Es wurden keine hochkorrelierten Feature-Paare gefunden. "
+                "Teile dem Nutzer kurz mit, dass alle Features eigenständig sind und "
+                "keine Entfernung notwendig ist."
+            )
+
+        pair_desc = "\n".join(
+            f"- {p['col_a']} \u2194 {p['col_b']}: r={p['value']:.4f} (algorithmischer Vorschlag: {p['dropped']} entfernen)"
+            for p in pairs
+        )
+
+        return (
+            f"Der Korrelationsfilter hat {len(pairs)} Paar(e) mit |r| ≥ {threshold} gefunden:\n\n"
+            f"{pair_desc}\n\n"
+            "WICHTIG: Noch wurden KEINE Features entfernt. Der Nutzer entscheidet allein.\n"
+            "Eine Korrelationstabelle mit allen Paaren wird dem Nutzer bereits angezeigt — reproduziere sie NICHT.\n\n"
+            "Deine Aufgabe:\n"
+            "1. Gib für jedes Paar eine kurze fachliche Begründung, warum eine der Spalten "
+            "redundant sein könnte (semantische Überlappung, gleicher Sachverhalt, etc.).\n"
+            "2. Formuliere als Empfehlung/Vorschlag: 'Ich empfehle...', 'könnte entfernt werden', "
+            "'wäre redundant' — NIEMALS als vollendete Tatsache ('wurde entfernt', 'entfernt').\n"
+            "3. Frage den Nutzer am Ende, welche Spalten er entfernen möchte "
+            "(oder ob er beide behalten will).\n"
+            "Kein Freitext-Header. Direkt mit der Begründung starten."
+        )
+
     return (
         "Die ML-Pipeline wurde ausgeführt. Hier ist eine Zusammenfassung:\n\n"
         f"## Originale Nutzeranfrage\n{user_message}\n\n"

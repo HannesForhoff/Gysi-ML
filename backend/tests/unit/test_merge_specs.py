@@ -240,6 +240,75 @@ def test_cast_dtype_mixed_columns_merged_correctly():
     assert merged_cols == {"windspeed": "object", "season": "int64", "cnt": "float64"}
 
 
+# ---------------------------------------------------------------------------
+# cast_dtype-Reihenfolge vor encode_categorical (Bug 1.12 – Problem B)
+# ---------------------------------------------------------------------------
+
+
+def test_cast_dtype_inserted_before_encode_categorical():
+    """cast_dtype als neuer Step → vor encode_categorical eingefügt, nicht dahinter."""
+    current = _spec(_step("encode_categorical", method="onehot", columns=["season"]))
+    new = _spec({"type": "cast_dtype", "params": {"columns": {"season": "category"}}})
+    result = _merge_specs(current, new)
+    types = [s["type"] for s in result["steps"]]
+    assert types == ["cast_dtype", "encode_categorical"]
+
+
+def test_cast_dtype_before_encode_categorical_with_intermediate_steps():
+    """cast_dtype → vor encode_categorical, andere Steps bleiben an ihrer Position."""
+    current = _spec(
+        _step("impute_missing", strategy="median", columns=["windspeed"]),
+        _step("encode_categorical", method="onehot", columns=["season"]),
+        _step("split", test_size=0.2),
+    )
+    new = _spec({"type": "cast_dtype", "params": {"columns": {"season": "category"}}})
+    result = _merge_specs(current, new)
+    types = [s["type"] for s in result["steps"]]
+    assert types == ["impute_missing", "cast_dtype", "encode_categorical", "split"]
+
+
+def test_cast_dtype_without_encode_categorical_appended_normally():
+    """cast_dtype ohne encode_categorical in Spec → normales Append-Verhalten."""
+    current = _spec(_step("dedup"), _step("split"))
+    new = _spec({"type": "cast_dtype", "params": {"columns": {"season": "category"}}})
+    result = _merge_specs(current, new)
+    types = [s["type"] for s in result["steps"]]
+    assert types == ["dedup", "split", "cast_dtype"]
+
+
+def test_cast_dtype_before_encode_full_scenario():
+    """Reproduziert den Bug-1.12-Szenario vollständig.
+
+    Ablauf:
+    1. Spec enthält encode_categorical (season=int64 → übersprungen)
+    2. User: cast_dtype wandelt season auf category
+    3. Merge erzeugt korrekte Reihenfolge: cast_dtype → encode_categorical
+    """
+    # State nach Run 1: encode_categorical in Spec, aber season=int64 → übersprungen
+    current = _spec(_step("encode_categorical", method="onehot", columns=["season"]))
+    # User: "Wandle season auf category"
+    cast_step = {"type": "cast_dtype", "params": {"columns": {"season": "category"}}}
+    new = _spec(cast_step)
+    result = _merge_specs(current, new)
+    types = [s["type"] for s in result["steps"]]
+    # cast_dtype muss VOR encode_categorical kommen
+    assert types.index("cast_dtype") < types.index("encode_categorical")
+
+
+def test_cast_dtype_replaces_existing_cast_when_encode_present():
+    """cast_dtype ersetzt bestehenden cast_dtype-Step (kein Einfügen), auch mit encode_categorical."""
+    current = _spec(
+        {"type": "cast_dtype", "params": {"columns": {"season": "object"}}},
+        _step("encode_categorical", method="onehot", columns=["season"]),
+    )
+    new = _spec({"type": "cast_dtype", "params": {"columns": {"season": "category"}}})
+    result = _merge_specs(current, new)
+    types = [s["type"] for s in result["steps"]]
+    # cast_dtype war bereits vorhanden → ersetzt (nicht erneut eingefügt)
+    assert types == ["cast_dtype", "encode_categorical"]
+    assert result["steps"][0]["params"]["columns"] == {"season": "category"}
+
+
 def test_cast_dtype_no_columns_in_new_replaces():
     """cast_dtype: Neuer Step ohne columns → ersetzt bestehenden."""
     current = _spec({"type": "cast_dtype", "params": {"columns": {"windspeed": "object"}}})

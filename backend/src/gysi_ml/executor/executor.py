@@ -18,6 +18,33 @@ from gysi_ml.utils.data_loader import load_bikes_dataset
 logger = logging.getLogger(__name__)
 
 
+def _step_is_effective(sr: dict) -> bool:
+    """Gibt True zurück wenn ein Step tatsächlich Daten verändert hat.
+
+    Aktuell bekannte No-Op-Fälle:
+    - encode_categorical mit encoded_columns=[] (Spalte hatte falschen Dtype, wurde übersprungen)
+    - correlation_filter mit analysis_only=True (nur Analyse, kein Feature entfernt)
+    """
+    step_type = sr.get("step_type", "")
+    metadata = sr.get("metadata", {})
+    if step_type == "encode_categorical":
+        return bool(metadata.get("encoded_columns"))
+    if step_type == "correlation_filter":
+        return not metadata.get("analysis_only", False)
+    return True
+
+
+def _is_execution_effective(step_results: list[dict]) -> bool:
+    """Gibt True zurück wenn die Ausführung mindestens einen wirksamen Step enthielt.
+
+    Leere Pipelines (step_results=[]) gelten als wirksam — eine leere Spec ist eine
+    valide Änderung des Pipeline-Stands (z.B. Reset).
+    """
+    if not step_results:
+        return True
+    return any(_step_is_effective(sr) for sr in step_results)
+
+
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -52,21 +79,42 @@ class PipelineExecutor:
         run_id = str(uuid.uuid4())
         started_at = _utc_now()
 
-        # 3. Spec-Version speichern (automatische Versionsnummer)
-        spec_entry = spec_repository.create_spec_version(
-            session_id=session_id, spec=spec, db_path=db_path,
+        # 3. Aktuellen Spec-Stand laden — Spec-Version wird bewusst erst NACH der Ausführung
+        #    und Wirksamkeitsprüfung angelegt.  Damit werden keine leeren Versionen für
+        #    Steps erzeugt, die intern übersprungen wurden (z.B. encode_categorical auf int64).
+        current_spec_entry = spec_repository.get_latest_spec(
+            session_id=session_id, db_path=db_path
         )
-        spec_id = spec_entry["spec_id"]
-        spec_version = spec_entry["version"]
+        tentative_spec_id = current_spec_entry["spec_id"] if current_spec_entry else None
+        tentative_version = current_spec_entry["version"] if current_spec_entry else None
 
         pipeline_result = self._run_pipeline(
-            spec=spec, run_id=run_id, spec_id=spec_id,
-            spec_version=spec_version,
+            spec=spec, run_id=run_id,
+            spec_id=tentative_spec_id,
+            spec_version=tentative_version,
             session_id=session_id, started_at=started_at, db_path=db_path,
         )
+
         if "error" not in pipeline_result:
-            pipeline_result["spec_version"] = spec_version
+            step_results = pipeline_result.get("result", {}).get("step_results", [])
+            if _is_execution_effective(step_results):
+                # Mindestens ein Step hat Daten verändert → Spec-Version anlegen (oder
+                # bestehende zurückgeben wenn Idempotenz-Check anschlägt)
+                spec_entry = spec_repository.create_spec_version(
+                    session_id=session_id, spec=spec, db_path=db_path
+                )
+                run_repository.update_run_spec_ref(
+                    run_id=run_id,
+                    spec_id=spec_entry["spec_id"],
+                    spec_version=spec_entry["version"],
+                    db_path=db_path,
+                )
+                pipeline_result["spec_version"] = spec_entry["version"]
+            else:
+                # Alle Steps waren No-Ops → keine neue Spec-Version
+                pipeline_result["spec_version"] = tentative_version
             pipeline_result["spec"] = spec
+
         return pipeline_result
 
     def execute_with_spec_id(
