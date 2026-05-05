@@ -30,11 +30,18 @@ def test_generate_artifact_creates_png(tmp_path, sample_split):
     result = step.generate_artifact(artifacts_path=str(tmp_path), run_id="test-run-id")
 
     assert result is not None
-    assert result["type"] == "feature_importance"
-    assert "file_path" in result
+    assert isinstance(result, list)
+    assert len(result) >= 1
+
+    fi_artifact = next(a for a in result if a["type"] == "feature_importance")
+    assert "file_path" in fi_artifact
     from pathlib import Path
-    assert Path(result["file_path"]).exists()
-    assert result["file_path"].endswith("feature_importance_test-run-id.png")
+    assert Path(fi_artifact["file_path"]).exists()
+    assert fi_artifact["file_path"].endswith("feature_importance_test-run-id.png")
+
+    # Overfitting-Check als Learning Curve muss ebenfalls erzeugt werden
+    ov_artifact = next(a for a in result if a["type"] == "learning_curve")
+    assert Path(ov_artifact["file_path"]).exists()
 
 
 def test_generate_artifact_returns_none_before_fit():

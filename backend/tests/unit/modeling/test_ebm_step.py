@@ -107,11 +107,18 @@ def test_generate_artifact_creates_png(tmp_path, split_data):
     result = step.generate_artifact(artifacts_path=str(tmp_path), run_id="test-run-id")
 
     assert result is not None
-    assert result["type"] == "ebm_global_explanation"
-    assert "file_path" in result
+    assert isinstance(result, list)
+    assert len(result) >= 1
+
     from pathlib import Path
-    assert Path(result["file_path"]).exists()
-    assert result["file_path"].endswith("ebm_global_explanation_test-run-id.png")
+    ebm_artifact = next(a for a in result if a["type"] == "ebm_global_explanation")
+    assert "file_path" in ebm_artifact
+    assert Path(ebm_artifact["file_path"]).exists()
+    assert ebm_artifact["file_path"].endswith("ebm_global_explanation_test-run-id.png")
+
+    # Learning Curve (Overfitting-Check) muss ebenfalls erzeugt werden
+    ov_artifact = next(a for a in result if a["type"] == "learning_curve")
+    assert Path(ov_artifact["file_path"]).exists()
 
     # M3: feature_scores müssen skalare Floats sein (kein numpy-Array)
     ebm_global = step.model.explain_global()

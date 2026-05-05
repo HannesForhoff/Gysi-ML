@@ -19,6 +19,8 @@ _TYPE_TO_DOWNLOAD_FILENAME: dict[str, str] = {
     "ebm_global_explanation": "ebm_feature_importance.png",
     "correlation_filter_result": "correlation_filter_ergebnis.csv",
     "time_features_result": "time_features_ergebnis.csv",
+    "overfitting_plot": "overfitting_train_vs_test.png",
+    "learning_curve": "learning_curve_train_vs_test.png",
 }
 
 
