@@ -86,6 +86,8 @@ class DataPageResponse(BaseModel):
     limit: int
     is_split: bool
     column_stats: Optional[dict] = None  # nur bei offset == 0 befüllt
+    train_rows: Optional[int] = None  # nur gesetzt wenn is_split=True
+    test_rows: Optional[int] = None   # nur gesetzt wenn is_split=True
 
 
 class RunListResponse(BaseModel):
@@ -148,6 +150,9 @@ class MessageResponse(BaseModel):
     step_results: Optional[list] = None
     artifacts: Optional[list] = None
     post_run_explanation: Optional[str] = None
+    # Data-Leakage-Warnung: wenn Execute zu Proposal umgeleitet wurde
+    data_leakage_warning: bool = False
+    leakage_steps: list[str] = []
     # Step-by-Step-Felder (Story 9.3)
     completed_step: Optional[CompletedStepSchema] = None
     remaining_steps: Optional[list[dict]] = None

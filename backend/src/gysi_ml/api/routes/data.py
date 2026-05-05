@@ -97,6 +97,7 @@ def get_run_data(
     request: Request,
     offset: int = Query(0, ge=0),
     limit: int = Query(100, ge=1),
+    split_filter: str = Query("all", pattern="^(all|train|test)$"),
 ) -> Union[DataPageResponse, JSONResponse]:
     """Gibt eine paginierte Seite des Run-Snapshots zurück.
 
@@ -133,31 +134,54 @@ def get_run_data(
     # limit clampen
     effective_limit = min(limit, _MAX_LIMIT)
 
-    # Parquet laden und paginieren
+    # Parquet laden
     df = pd.read_parquet(parquet_path)
-    total_rows = len(df)
-    page = df.iloc[offset : offset + effective_limit]
 
-    # NaN → None damit JSON valide bleibt
-    page = page.where(page.notna(), other=None)
-
-    columns = list(df.columns)
-    rows = [list(row) for row in page.itertuples(index=False, name=None)]
-
-    # Column-Stats und is_split aus JSON lesen
-    column_stats: dict | None = None
+    # is_split, train_rows, test_rows aus vorberechneter JSON lesen
     is_split = False
+    train_rows: int | None = None
+    test_rows: int | None = None
+    stats_data: dict = {}
     stats_path = Path(artifacts_path) / f"{run_id}_column_stats.json"
     if stats_path.exists():
         stats_data = json.loads(stats_path.read_text(encoding="utf-8"))
         is_split = bool(stats_data.get("is_split", False))
-        if offset == 0:
+        train_rows = stats_data.get("train_rows")
+        test_rows = stats_data.get("test_rows")
+
+    # Split-Filter anwenden (nur wenn _split-Spalte vorhanden)
+    if split_filter in ("train", "test") and "_split" in df.columns:
+        df = df[df["_split"] == split_filter].reset_index(drop=True)
+
+    # _split-Spalte aus Antwort ausschließen
+    visible_cols = [c for c in df.columns if c != "_split"]
+    df_view = df[visible_cols]
+
+    total_rows = len(df_view)
+    page = df_view.iloc[offset : offset + effective_limit]
+
+    # NaN → None damit JSON valide bleibt
+    page = page.where(page.notna(), other=None)
+
+    columns = list(df_view.columns)
+    rows = [list(row) for row in page.itertuples(index=False, name=None)]
+
+    # Column-Stats: bei gefilterter Ansicht dynamisch aus der gefilterten Partition berechnen,
+    # damit Histogramme/min/max die tatsächliche Teilmenge widerspiegeln (nur bei offset==0)
+    column_stats: dict | None = None
+    if offset == 0:
+        if split_filter in ("train", "test"):
+            computed = _compute_column_stats(df_view, is_split=False)
+            column_stats = computed.get("columns")
+        elif stats_path.exists():
             column_stats = stats_data.get("columns")
 
     return DataPageResponse(
         columns=columns,
         rows=rows,
         total_rows=total_rows,
+        train_rows=train_rows,
+        test_rows=test_rows,
         offset=offset,
         limit=effective_limit,
         is_split=is_split,

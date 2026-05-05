@@ -6,6 +6,8 @@ import type { ColumnStats, DataApiResponse } from '../api/dataApi'
 import { ColumnSummaryHeader } from './ColumnSummaryHeader'
 import { getFrontendEnv } from '../env'
 
+type SplitFilter = 'all' | 'train' | 'test'
+
 type DataViewPanelProps = {
   activeDataRunId: string | null
   sessionId: string | null
@@ -16,17 +18,20 @@ export function DataViewPanel({ activeDataRunId, sessionId, backendBaseUrl }: Da
   const [columns, setColumns] = useState<string[]>([])
   const [rows, setRows] = useState<unknown[][]>([])
   const [totalRows, setTotalRows] = useState(0)
+  const [trainRows, setTrainRows] = useState<number | null>(null)
+  const [testRows, setTestRows] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [hasMore, setHasMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isSplit, setIsSplit] = useState(false)
+  const [splitFilter, setSplitFilter] = useState<SplitFilter>('all')
   // DV-2.3 — stats used for Summary-Header rendering
   const [columnStats, setColumnStats] = useState<Record<string, ColumnStats> | null>(null)
 
   const sentinelRef = useRef<HTMLDivElement>(null)
   const loadMoreRef = useRef<(() => void) | null>(null)
   const rowsRef = useRef<unknown[][]>([])
-  // Tracks the "current" run ID — used to discard stale fetch responses after a run-ID change
+  // Tracks the "current" fetch key — used to discard stale fetch responses
   const currentRunRef = useRef<string | null>(null)
 
   const { useMock } = getFrontendEnv()
@@ -41,13 +46,14 @@ export function DataViewPanel({ activeDataRunId, sessionId, backendBaseUrl }: Da
 
     const capturedRunId = activeDataRunId
     const capturedSessionId = sessionId
-    const refKey = capturedRunId ?? '__raw__'
+    const capturedFilter = splitFilter
+    const refKey = `${capturedRunId ?? '__raw__'}__${capturedFilter}`
     const currentOffset = rowsRef.current.length
     setIsLoading(true)
     setError(null)
 
     const fetchFn = capturedRunId
-      ? fetchRunData(backendBaseUrl, capturedSessionId, capturedRunId, currentOffset, 100)
+      ? fetchRunData(backendBaseUrl, capturedSessionId, capturedRunId, currentOffset, 100, capturedFilter)
       : fetchRawData(backendBaseUrl, capturedSessionId, currentOffset, 100)
 
     void fetchFn
@@ -70,20 +76,21 @@ export function DataViewPanel({ activeDataRunId, sessionId, backendBaseUrl }: Da
           setIsLoading(false)
         }
       })
-  }, [activeDataRunId, sessionId, backendBaseUrl, isLoading, hasMore])
+  }, [activeDataRunId, sessionId, backendBaseUrl, isLoading, hasMore, splitFilter])
 
   // Always keep loadMoreRef pointing to latest loadMore (never stale in observer)
   useEffect(() => {
     loadMoreRef.current = loadMore
   })
 
-  // Reset and initial load when activeDataRunId or sessionId changes
+  // Reset and initial load when activeDataRunId, sessionId, or splitFilter changes
   useEffect(() => {
     if (!sessionId || useMock) return
 
     const capturedRunId = activeDataRunId
     const capturedSessionId = sessionId
-    const refKey = capturedRunId ?? '__raw__'
+    const capturedFilter = splitFilter
+    const refKey = `${capturedRunId ?? '__raw__'}__${capturedFilter}`
     currentRunRef.current = refKey // mark as current — invalidates all in-flight requests
 
     setColumns([])
@@ -92,12 +99,10 @@ export function DataViewPanel({ activeDataRunId, sessionId, backendBaseUrl }: Da
     setTotalRows(0)
     setHasMore(false)
     setError(null)
-    setIsSplit(false)
-    setColumnStats(null)
     setIsLoading(true)
 
     const fetchFn = capturedRunId
-      ? fetchRunData(backendBaseUrl, capturedSessionId, capturedRunId, 0, 1000)
+      ? fetchRunData(backendBaseUrl, capturedSessionId, capturedRunId, 0, 1000, capturedFilter)
       : fetchRawData(backendBaseUrl, capturedSessionId, 0, 1000)
 
     void fetchFn
@@ -109,6 +114,8 @@ export function DataViewPanel({ activeDataRunId, sessionId, backendBaseUrl }: Da
         setTotalRows(data.total_rows)
         setHasMore(data.rows.length < data.total_rows)
         setIsSplit(data.is_split)
+        setTrainRows(data.train_rows ?? null)
+        setTestRows(data.test_rows ?? null)
         if (data.column_stats) {
           setColumnStats(data.column_stats)
         }
@@ -123,7 +130,16 @@ export function DataViewPanel({ activeDataRunId, sessionId, backendBaseUrl }: Da
         }
       })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeDataRunId, sessionId])
+  }, [activeDataRunId, sessionId, splitFilter])
+
+  // Split-Filter bei Run-Wechsel zurücksetzen
+  useEffect(() => {
+    setSplitFilter('all')
+    setIsSplit(false)
+    setTrainRows(null)
+    setTestRows(null)
+    setColumnStats(null)
+  }, [activeDataRunId])
 
   // IntersectionObserver for infinite scroll — re-created when hasMore/isLoading change
   useEffect(() => {
@@ -158,10 +174,29 @@ export function DataViewPanel({ activeDataRunId, sessionId, backendBaseUrl }: Da
     )
   }
 
+  // Aktuell angezeigte Zeilenzahl für das Badge
+  const filterLabel: Record<SplitFilter, string> = {
+    all: `Alle (${(trainRows ?? 0) + (testRows ?? 0)})`,
+    train: `Training (${trainRows ?? '…'})`,
+    test: `Test (${testRows ?? '…'})`,
+  }
+
   return (
     <div className="dataViewPanel">
       <div className="dataViewToolbar">
-        {isSplit && <span className="splitBadge">Split durchgeführt</span>}
+        {isSplit && (
+          <div className="splitToggle" role="group" aria-label="Split-Filter">
+            {(['all', 'train', 'test'] as SplitFilter[]).map((f) => (
+              <button
+                key={f}
+                className={`splitToggleBtn${splitFilter === f ? ' splitToggleBtn--active' : ''}`}
+                onClick={() => setSplitFilter(f)}
+              >
+                {filterLabel[f]}
+              </button>
+            ))}
+          </div>
+        )}
         {rows.length > 0 && (
           <span className="dataViewInfo">
             1–{rows.length} von {totalRows.toLocaleString('de-DE')} Zeilen

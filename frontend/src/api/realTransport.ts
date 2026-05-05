@@ -146,11 +146,17 @@ function toAssistantResponse(
       }
     })
     const proposalId = toNonEmptyString(payload.proposal_id) ?? undefined
+    const dataLeakageWarning = payload.data_leakage_warning === true
+    const leakageSteps = Array.isArray(payload.leakage_steps)
+      ? (payload.leakage_steps as string[])
+      : undefined
     return {
       type: 'proposal',
       message,
       steps,
       ...(proposalId ? { proposal_id: proposalId } : {}),
+      ...(dataLeakageWarning ? { data_leakage_warning: true } : {}),
+      ...(leakageSteps?.length ? { leakage_steps: leakageSteps } : {}),
     }
   }
 

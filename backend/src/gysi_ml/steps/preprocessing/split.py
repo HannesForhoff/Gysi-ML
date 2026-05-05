@@ -1,5 +1,3 @@
-import os
-
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
@@ -64,16 +62,6 @@ class SplitStep(BaseStep):
             "random_state": self._random_state,
         }
 
-    def generate_artifact(self, artifacts_path: str, run_id: str) -> list[dict] | None:
-        """Schreibt Train- und Test-Datensatz als CSV in den Artefakt-Ordner."""
-        if self._df_train is None or self._df_test is None:
-            return None
-        os.makedirs(artifacts_path, exist_ok=True)
-        train_path = os.path.join(artifacts_path, f"{run_id}_train.csv")
-        test_path = os.path.join(artifacts_path, f"{run_id}_test.csv")
-        self._df_train.to_csv(train_path, index=False)
-        self._df_test.to_csv(test_path, index=False)
-        return [
-            {"type": "split_train", "file_path": train_path},
-            {"type": "split_test", "file_path": test_path},
-        ]
+    # generate_artifact nicht überschreiben — Train/Test-CSVs werden im Executor
+    # nach Abschluss aller Pipeline-Steps geschrieben, damit sie den finalen
+    # Zustand nach Feature-Selection u.ä. widerspiegeln.

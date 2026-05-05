@@ -218,8 +218,23 @@ def build_retry_prompt(error_message: str) -> str:
     )
 
 
-def build_post_run_prompt(user_message: str, spec: dict, step_results: list[dict]) -> str:
-    """Erstellt den Prompt für die Post-Run-Erklärung nach einer Pipeline-Ausführung."""
+# Preprocessing-Steps, die Parameter aus dem Datensatz lernen (fit) — Data-Leakage-relevant
+_LEARNABLE_STEP_TYPES = {"impute_missing", "encode_categorical", "outlier_handling", "rare_category_bucketing"}
+
+
+def build_post_run_prompt(
+    user_message: str,
+    spec: dict,
+    step_results: list[dict],
+    full_spec: dict | None = None,
+) -> str:
+    """Erstellt den Prompt für die Post-Run-Erklärung nach einer Pipeline-Ausführung.
+
+    Args:
+        spec: Gefilterte Spec mit nur den neuen Steps dieses Runs.
+        full_spec: Vollständige Pipeline-Spec (inkl. bereits zuvor ausgeführter Steps wie Split).
+                   Wird für korrekte Positions-Erkennung bei Data-Leakage-Check benötigt.
+    """
 
     # Sonderfall: catboost_feature_selection im analysis_only-Modus
     for sr in step_results:
@@ -297,16 +312,54 @@ def build_post_run_prompt(user_message: str, spec: dict, step_results: list[dict
             "Kein Freitext-Header. Direkt mit der Begründung starten."
         )
 
+    # Data-Leakage-Check: Erfasst alle Steps die Parameter aus Daten lernen (fit/transform)
+    # Verwende full_spec für Positionsbestimmung (enthält auch vor diesem Run ausgeführte Steps)
+    effective_full_spec = full_spec if full_spec is not None else spec
+    all_spec_steps = effective_full_spec.get("steps", [])
+    split_idx = next((i for i, s in enumerate(all_spec_steps) if s.get("type") == "split"), None)
+    executed_learnable = {
+        sr.get("step_type") for sr in step_results if sr.get("step_type") in _LEARNABLE_STEP_TYPES
+    }
+
+    leakage_note = ""
+    if executed_learnable and split_idx is not None:
+        steps_before_split = {s.get("type") for s in all_spec_steps[:split_idx]}
+        steps_after_split = {s.get("type") for s in all_spec_steps[split_idx + 1:]}
+        leakage_before = executed_learnable & steps_before_split
+        leakage_after = executed_learnable & steps_after_split
+
+        if leakage_before:
+            names = ", ".join(sorted(leakage_before))
+            leakage_note += (
+                f"\n\nWICHTIG — Data-Leakage-WARNUNG: Die folgenden Preprocessing-Schritte "
+                f"({names}) liegen VOR dem Train/Test-Split in der Pipeline. "
+                "Die statistischen Parameter (Median, Encodings, IQR-Grenzen etc.) wurden auf dem "
+                "vollständigen Datensatz inkl. der späteren Testdaten berechnet — das ist Data Leakage! "
+                "Weise den Nutzer explizit darauf hin und empfehle, den Split VOR diese Schritte zu schieben."
+            )
+        if leakage_after:
+            names = ", ".join(sorted(leakage_after))
+            leakage_note += (
+                f"\n\nWICHTIG — Data-Leakage-Hinweis: Die folgenden Preprocessing-Schritte "
+                f"({names}) wurden korrekt NACH dem Train/Test-Split ausgeführt: "
+                "fit() wurde ausschließlich auf den Trainingsdaten berechnet und transform() "
+                "auf beide Partitionen angewendet — kein Data Leakage. Erwähne diesen Punkt explizit."
+            )
+
     return (
         "Die ML-Pipeline wurde ausgeführt. Hier ist eine Zusammenfassung:\n\n"
         f"## Originale Nutzeranfrage\n{user_message}\n\n"
         f"## Ausgeführte Pipeline-Steps\n{json.dumps(spec.get('steps', []), indent=2, ensure_ascii=False)}\n\n"
         f"## Step-Ergebnisse (Metadaten)\n{json.dumps(step_results, indent=2, ensure_ascii=False)}\n\n"
+        f"{leakage_note}\n\n"
         "Erkläre dem Nutzer in 2-5 Sätzen auf Deutsch:\n"
         "1. Was konkret passiert ist (aus den Metadaten ablesen — konkrete Zahlen nennen)\n"
         "2. Ob das Ergebnis fachlich sinnvoll ist (z.B. Label-Encoding für Datumsspalten ist ungeeignet, "
         "IQR=0 bei binären Spalten bedeutet Outlier-Handling ist nicht geeignet, "
         "Imputation bei Spalten ohne fehlende Werte ist unnötig)\n"
-        "3. Einen konkreten nächsten Schritt oder eine Empfehlung\n\n"
+        "3. Wenn lernende Preprocessing-Schritte (Imputation, Encoding, Outlier-Handling, Rare-Category-Bucketing) "
+        "ausgeführt wurden: Adressiere Data-Leakage explizit — als Warnung wenn der Schritt VOR dem Split liegt, "
+        "als Bestätigung der korrekten Vorgehensweise wenn er NACH dem Split liegt\n"
+        "4. Einen konkreten nächsten Schritt oder eine Empfehlung\n\n"
         "Sei direkt und präzise. Kein Freitext-Header. Nur die Erklärung."
     )

@@ -43,11 +43,21 @@ def _compute_column_stats(df: pd.DataFrame, *, is_split: bool) -> dict:
 
     Numerische Spalten erhalten zusätzlich min, max und Histogramm (10 Bins).
     Nicht-numerische Spalten erhalten min=null, max=null, histogram=null.
+    Die interne _split-Spalte wird übersprungen.
     """
     n = len(df)
     columns: dict[str, dict] = {}
 
+    # Zeilenzahlen pro Split-Partition vorberechnen
+    train_rows: int | None = None
+    test_rows: int | None = None
+    if is_split and "_split" in df.columns:
+        train_rows = int((df["_split"] == "train").sum())
+        test_rows = int((df["_split"] == "test").sum())
+
     for col in df.columns:
+        if col == "_split":
+            continue
         series = df[col]
         missing_count = int(series.isna().sum())
         missing_pct = round(missing_count / n * 100, 4) if n else 0.0
@@ -72,7 +82,12 @@ def _compute_column_stats(df: pd.DataFrame, *, is_split: bool) -> dict:
 
         columns[col] = col_stats
 
-    return {"is_split": is_split, "columns": columns}
+    result: dict = {"is_split": is_split, "columns": columns}
+    if train_rows is not None:
+        result["train_rows"] = train_rows
+    if test_rows is not None:
+        result["test_rows"] = test_rows
+    return result
 
 
 _DISCRETE_BIN_THRESHOLD = 20

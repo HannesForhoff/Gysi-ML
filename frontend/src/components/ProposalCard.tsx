@@ -1,5 +1,5 @@
 import type { ProposalResponse } from '../types'
-import { getStepLabel } from '../utils/stepMeta'
+import { getStepLabel, STEP_LABELS } from '../utils/stepMeta'
 
 type ProposalCardProps = {
   proposal: ProposalResponse
@@ -14,6 +14,22 @@ export function ProposalCard({ proposal, onConfirm, disabled, isActive = true }:
       <div className="proposalLabel">
         {isActive ? 'Vorschlag (noch nicht ausgeführt)' : 'Vorschlag (nicht bestätigt)'}
       </div>
+      {proposal.data_leakage_warning && (
+        <div className="proposalLeakageWarning">
+          <span className="proposalLeakageWarningIcon">⚠</span>
+          <div className="proposalLeakageWarningText">
+            <strong>Data-Leakage-Risiko erkannt!</strong>
+            {' '}Die folgenden Schritte würden <em>vor</em> dem Train/Test-Split
+            ausgeführt und lernen dabei aus dem vollständigen Datensatz — auch
+            aus den späteren Testdaten:
+            {' '}<strong>
+              {(proposal.leakage_steps ?? []).map((t) => STEP_LABELS[t] ?? t).join(', ')}
+            </strong>.
+            {' '}Bitte bestätige bewusst oder passe die Pipeline-Reihenfolge an
+            (Split vor diese Schritte setzen).
+          </div>
+        </div>
+      )}
       {proposal.message && (
         <div className="proposalMessage">{proposal.message}</div>
       )}

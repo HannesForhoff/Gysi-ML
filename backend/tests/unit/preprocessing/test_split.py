@@ -169,59 +169,16 @@ def test_metadata_default_random_state(df_100):
 
 
 # ---------------------------------------------------------------------------
-# generate_artifact (B-07)
+# generate_artifact (B-07) — Methode wurde in Executor verschoben
+# SplitStep.generate_artifact() existiert nicht mehr; Train/Test-CSVs werden
+# vom Executor nach Abschluss aller Pipeline-Steps geschrieben (Option B).
 # ---------------------------------------------------------------------------
 
 
-def test_generate_artifact_returns_none_before_transform(tmp_path):
+def test_generate_artifact_returns_none(tmp_path):
+    """SplitStep.generate_artifact() soll None zurückgeben (Basis-Implementierung)."""
     step = SplitStep(params={})
+    step.fit(pd.DataFrame({"a": range(10), "cnt": range(10)}))
+    step.transform(pd.DataFrame({"a": range(10), "cnt": range(10)}), None)
     result = step.generate_artifact(artifacts_path=str(tmp_path), run_id="run-1")
     assert result is None
-
-
-def test_generate_artifact_returns_two_items(df_100, tmp_path):
-    step = SplitStep(params={"test_size": 0.2, "random_state": 42})
-    step.fit(df_100)
-    step.transform(df_100, None)
-    result = step.generate_artifact(artifacts_path=str(tmp_path), run_id="run-1")
-    assert isinstance(result, list)
-    assert len(result) == 2
-
-
-def test_generate_artifact_types(df_100, tmp_path):
-    step = SplitStep(params={"test_size": 0.2, "random_state": 42})
-    step.fit(df_100)
-    step.transform(df_100, None)
-    result = step.generate_artifact(artifacts_path=str(tmp_path), run_id="run-1")
-    types = {item["type"] for item in result}
-    assert types == {"split_train", "split_test"}
-
-
-def test_generate_artifact_creates_csv_files(df_100, tmp_path):
-    step = SplitStep(params={"test_size": 0.2, "random_state": 42})
-    step.fit(df_100)
-    step.transform(df_100, None)
-    step.generate_artifact(artifacts_path=str(tmp_path), run_id="run-abc")
-    assert (tmp_path / "run-abc_train.csv").exists()
-    assert (tmp_path / "run-abc_test.csv").exists()
-
-
-def test_generate_artifact_csv_row_counts(df_100, tmp_path):
-    step = SplitStep(params={"test_size": 0.2, "random_state": 42})
-    step.fit(df_100)
-    step.transform(df_100, None)
-    step.generate_artifact(artifacts_path=str(tmp_path), run_id="run-r")
-    train_df = pd.read_csv(tmp_path / "run-r_train.csv")
-    test_df = pd.read_csv(tmp_path / "run-r_test.csv")
-    assert len(train_df) == 80
-    assert len(test_df) == 20
-
-
-def test_generate_artifact_creates_dir_if_missing(df_100, tmp_path):
-    new_dir = tmp_path / "subdir" / "artifacts"
-    step = SplitStep(params={})
-    step.fit(df_100)
-    step.transform(df_100, None)
-    result = step.generate_artifact(artifacts_path=str(new_dir), run_id="run-1")
-    assert isinstance(result, list)
-    assert new_dir.exists()

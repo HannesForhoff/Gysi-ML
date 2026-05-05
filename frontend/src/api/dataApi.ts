@@ -19,6 +19,8 @@ export interface DataApiResponse {
   limit: number
   is_split: boolean
   column_stats?: Record<string, ColumnStats>
+  train_rows?: number
+  test_rows?: number
 }
 
 export async function fetchRunData(
@@ -27,9 +29,10 @@ export async function fetchRunData(
   runId: string,
   offset: number,
   limit: number,
+  splitFilter: 'all' | 'train' | 'test' = 'all',
 ): Promise<DataApiResponse> {
   const base = baseUrl.replace(/\/+$/, '')
-  const url = `${base}/v1/sessions/${encodeURIComponent(sessionId)}/runs/${encodeURIComponent(runId)}/data?offset=${offset}&limit=${limit}`
+  const url = `${base}/v1/sessions/${encodeURIComponent(sessionId)}/runs/${encodeURIComponent(runId)}/data?offset=${offset}&limit=${limit}&split_filter=${splitFilter}`
 
   const response = await fetch(url)
 
@@ -84,8 +87,10 @@ function parseDataApiResponse(data: unknown): DataApiResponse {
   const limit = typeof data.limit === 'number' ? data.limit : 100
   const is_split = data.is_split === true
   const column_stats = isRecord(data.column_stats) ? parseColumnStats(data.column_stats) : undefined
+  const train_rows = typeof data.train_rows === 'number' ? data.train_rows : undefined
+  const test_rows = typeof data.test_rows === 'number' ? data.test_rows : undefined
 
-  return { columns, rows, total_rows, offset, limit, is_split, column_stats }
+  return { columns, rows, total_rows, offset, limit, is_split, column_stats, train_rows, test_rows }
 }
 
 function parseColumnStats(raw: Record<string, unknown>): Record<string, ColumnStats> {

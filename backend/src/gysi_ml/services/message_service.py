@@ -24,6 +24,12 @@ LLM_NOT_CONFIGURED = "llm_not_configured"
 # akkumulierte Session-Spec aufgenommen und erzeugen keine neue Spec-Version.
 TRANSIENT_STEP_TYPES: frozenset[str] = frozenset({"plot_distribution"})
 
+# Preprocessing-Steps, die statistische Parameter aus dem Datensatz lernen (fit/transform).
+# Diese dürfen nur NACH dem Train/Test-Split ausgeführt werden, sonst Data Leakage.
+_LEARNABLE_STEP_TYPES: frozenset[str] = frozenset({
+    "impute_missing", "encode_categorical", "outlier_handling", "rare_category_bucketing"
+})
+
 
 def _merge_specs(current_spec: dict | None, new_spec: dict) -> dict:
     """Fügt neue Steps aus new_spec in die bestehende Spec ein.
@@ -114,6 +120,37 @@ def _merge_specs(current_spec: dict | None, new_spec: dict) -> dict:
                 merged.append(new_step)
 
     return {**new_spec, "steps": merged}
+
+
+def _detect_leakage_risk(new_step_types: set[str], merged_steps: list[dict]) -> list[str]:
+    """Gibt Liste der Step-Typen zurück, die in diesem Commit Data Leakage verursachen würden.
+
+    Warnung wird ausgelöst wenn:
+    - Ein Split hinzugefügt wird UND lernende Steps bereits vor dem Split liegen, ODER
+    - Ein lernender Step vor dem Split hinzugefügt/modifiziert wird.
+
+    Args:
+        new_step_types: Set der Step-Typen die in diesem Execute-Aufruf neu hinzukommen.
+        merged_steps: Vollständige Step-Liste nach dem spekulativen Merge.
+    """
+    split_idx = next((i for i, s in enumerate(merged_steps) if s.get("type") == "split"), None)
+    if split_idx is None:
+        return []  # kein Split → kein Leakage-Risiko (kein Test-Set)
+
+    before_split_types = {s.get("type") for s in merged_steps[:split_idx]}
+    learnable_before = sorted(before_split_types & _LEARNABLE_STEP_TYPES)
+
+    if not learnable_before:
+        return []
+
+    # Nur warnen wenn dieser Call ursächlich ist:
+    # (a) Der Split wird gerade hinzugefügt → lernende Steps liegen bereits davor, ODER
+    # (b) Ein lernender Step vor dem Split wird gerade hinzugefügt/modifiziert
+    this_call_is_responsible = bool(
+        "split" in new_step_types
+        or (new_step_types & _LEARNABLE_STEP_TYPES & before_split_types)
+    )
+    return learnable_before if this_call_is_responsible else []
 
 
 def _compute_column_stats(data_path: str) -> dict | None:
@@ -340,7 +377,8 @@ def handle_message(
     if action == "execute":
         # parameters_summary ist Präsentationsschicht — darf nicht in die ausführbare Spec.
         # PIPELINE_SPEC_SCHEMA hat additionalProperties: False, weshalb validate_spec sonst fehlschlägt.
-        clean_steps = [{k: v for k, v in s.items() if k != "parameters_summary"} for s in spec.get("steps", [])]
+        raw_steps = spec.get("steps", [])  # vor Bereinigung sichern (enthält parameters_summary für Anzeige)
+        clean_steps = [{k: v for k, v in s.items() if k != "parameters_summary"} for s in raw_steps]
         spec = {**spec, "steps": clean_steps}
 
         executor = PipelineExecutor(
@@ -381,6 +419,30 @@ def handle_message(
                 return {
                     "type": "error",
                     "message": f"Interner Fehler beim Zusammenführen der Pipeline-Spec: {exc}",
+                }
+
+            # Data-Leakage-Risikocheck: lernende Steps vor dem Split?
+            new_persistent_types = {s.get("type") for s in persistent_steps}
+            leakage_at_risk = _detect_leakage_risk(new_persistent_types, merged_persistent.get("steps", []))
+            if leakage_at_risk:
+                # Statt ausführen: Vorschlag mit roter Warnung — Nutzer muss bewusst bestätigen
+                raw_persistent_for_display = [
+                    s for s in raw_steps if s.get("type") not in TRANSIENT_STEP_TYPES
+                ]
+                clean_proposal_spec = {**spec, "steps": persistent_steps}
+                leakage_proposal = proposal_repository.create_proposal(
+                    session_id=session_id,
+                    spec_json=json.dumps(clean_proposal_spec),
+                    explanation=explanation,
+                    db_path=db_path,
+                )
+                return {
+                    "type": "proposal",
+                    "proposal_id": leakage_proposal["proposal_id"],
+                    "steps": raw_persistent_for_display,
+                    "explanation": explanation,
+                    "data_leakage_warning": True,
+                    "leakage_steps": leakage_at_risk,
                 }
 
             # Ausführungs-Spec: persistente Steps + transiente Steps ans Ende
@@ -441,6 +503,7 @@ def handle_message(
                 user_message=text,
                 spec=new_steps_spec,
                 step_results=new_step_results,
+                full_spec=explanation_base_spec,
             )
             post_run_explanation = call_llm(
                 messages=[

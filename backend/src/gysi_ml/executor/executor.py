@@ -326,11 +326,57 @@ class PipelineExecutor:
             db_path=db_path,
         )
 
-        # 8. Snapshot speichern (fire-and-forget — darf Run nicht zum Scheitern bringen)
+        # 8a. Split-Artefakte (train.csv / test.csv) am Ende aller Steps schreiben
+        #     → Dateien spiegeln den finalen Zustand nach allen Preprocessing-Steps wider
+        if context.is_split and context.df_train is not None and context.df_test is not None:
+            try:
+                import os
+                artifacts_dir = self._artifacts_path
+                os.makedirs(artifacts_dir, exist_ok=True)
+                train_path = os.path.join(artifacts_dir, f"{run_id}_train.csv")
+                test_path = os.path.join(artifacts_dir, f"{run_id}_test.csv")
+                context.df_train.to_csv(train_path, index=False)
+                context.df_test.to_csv(test_path, index=False)
+                artifact_created_at = _utc_now()
+                for art_type, art_path in [("split_train", train_path), ("split_test", test_path)]:
+                    artifact_id = str(uuid.uuid4())
+                    artifact_repository.create_artifact(
+                        artifact_id=artifact_id,
+                        run_id=run_id,
+                        artifact_type=art_type,
+                        file_path=art_path,
+                        created_at=artifact_created_at,
+                        db_path=db_path,
+                    )
+                    context.artifacts.append({"artifact_id": artifact_id, "type": art_type, "created_at": artifact_created_at})
+                # result ebenfalls aktualisieren damit die Artefakte in result_json landen
+                result["artifacts"] = context.artifacts
+                run_repository.update_run_status(
+                    run_id=run_id,
+                    status="completed",
+                    finished_at=finished_at,
+                    result_json=json.dumps(result),
+                    db_path=db_path,
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Split-Artefakte konnten nicht geschrieben werden (run_id=%s): %s", run_id, exc)
+
+        # 8b. Snapshot speichern (fire-and-forget — darf Run nicht zum Scheitern bringen)
+        #     Nach Split: Snapshot aus concat(df_train, df_test) mit _split-Kennzeichnung
         try:
+            if context.is_split and context.df_train is not None and context.df_test is not None:
+                df_snapshot = pd.concat(
+                    [
+                        context.df_train.assign(_split="train"),
+                        context.df_test.assign(_split="test"),
+                    ],
+                    ignore_index=True,
+                )
+            else:
+                df_snapshot = context.df_full
             SnapshotService().save_snapshot(
                 run_id=run_id,
-                df=context.df_full,
+                df=df_snapshot,
                 is_split=context.is_split,
                 artifacts_path=self._artifacts_path,
             )

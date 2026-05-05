@@ -39,6 +39,8 @@ export interface ProposalResponse {
   parameters_summary?: string
   spec_summary?: SpecSummary
   proposal_id?: string
+  data_leakage_warning?: boolean
+  leakage_steps?: string[]
 }
 
 export interface StepResult {
