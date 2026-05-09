@@ -66,6 +66,14 @@ def patch_proposal_repository(monkeypatch):
         "gysi_ml.services.message_service.spec_repository.get_latest_spec",
         lambda **kw: None,
     )
+    monkeypatch.setattr(
+        "gysi_ml.services.message_service.spec_repository.create_spec_version",
+        lambda **kw: {"spec_id": "spec-auto", "version": "v1", "spec": kw.get("spec", {})},
+    )
+    monkeypatch.setattr(
+        "gysi_ml.services.message_service.run_repository.update_run_spec_ref",
+        lambda **kw: None,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1013,4 +1021,230 @@ def test_rollback_spec_id_not_found_after_version_resolution(monkeypatch):
 
     assert result["type"] == "error"
     assert "some-id" in result["message"]
+
+
+# ---------------------------------------------------------------------------
+# Tests: _step_result_is_effective und _new_persistent_steps_are_effective
+# ---------------------------------------------------------------------------
+
+from gysi_ml.services.message_service import (  # noqa: E402
+    _step_result_is_effective,
+    _new_persistent_steps_are_effective,
+)
+
+
+class TestStepResultIsEffective:
+    def test_encode_empty_columns_is_noop(self):
+        sr = {"step_type": "encode_categorical", "metadata": {"encoded_columns": []}}
+        assert _step_result_is_effective(sr) is False
+
+    def test_encode_with_columns_is_effective(self):
+        sr = {"step_type": "encode_categorical", "metadata": {"encoded_columns": ["season_1", "season_2"]}}
+        assert _step_result_is_effective(sr) is True
+
+    def test_encode_missing_metadata_is_noop(self):
+        """Fehlendes metadata-Dict → encoded_columns fehlt → False."""
+        sr = {"step_type": "encode_categorical"}
+        assert _step_result_is_effective(sr) is False
+
+    def test_correlation_filter_analysis_only_is_noop(self):
+        sr = {"step_type": "correlation_filter", "metadata": {"analysis_only": True}}
+        assert _step_result_is_effective(sr) is False
+
+    def test_correlation_filter_not_analysis_only_is_effective(self):
+        sr = {"step_type": "correlation_filter", "metadata": {"analysis_only": False}}
+        assert _step_result_is_effective(sr) is True
+
+    def test_unknown_step_type_defaults_to_effective(self):
+        sr = {"step_type": "dedup", "metadata": {}}
+        assert _step_result_is_effective(sr) is True
+
+    def test_cast_dtype_is_effective(self):
+        sr = {"step_type": "cast_dtype", "metadata": {}}
+        assert _step_result_is_effective(sr) is True
+
+
+class TestNewPersistentStepsAreEffective:
+    def test_empty_step_types_is_rerun_always_true(self):
+        """Re-Run: neue Typen leer → immer wirksam."""
+        assert _new_persistent_steps_are_effective([], set()) is True
+
+    def test_empty_results_with_step_types_is_conservative_true(self):
+        """Keine Metadaten (z.B. Test-Mocks ohne step_results) → konservativ wirksam."""
+        assert _new_persistent_steps_are_effective([], {"encode_categorical"}) is True
+
+    def test_encode_noop_returns_false(self):
+        results = [{"step_type": "encode_categorical", "metadata": {"encoded_columns": []}}]
+        assert _new_persistent_steps_are_effective(results, {"encode_categorical"}) is False
+
+    def test_encode_effective_returns_true(self):
+        results = [{"step_type": "encode_categorical", "metadata": {"encoded_columns": ["season_1"]}}]
+        assert _new_persistent_steps_are_effective(results, {"encode_categorical"}) is True
+
+    def test_mixed_effective_and_noop_returns_true(self):
+        """Mindestens ein wirksamer Step → Gesamt-Ergebnis wirksam."""
+        results = [
+            {"step_type": "encode_categorical", "metadata": {"encoded_columns": []}},
+            {"step_type": "dedup", "metadata": {}},
+        ]
+        assert _new_persistent_steps_are_effective(results, {"encode_categorical", "dedup"}) is True
+
+    def test_all_noops_returns_false(self):
+        """Alle Steps sind No-Ops → False."""
+        results = [
+            {"step_type": "encode_categorical", "metadata": {"encoded_columns": []}},
+            {"step_type": "correlation_filter", "metadata": {"analysis_only": True}},
+        ]
+        assert _new_persistent_steps_are_effective(
+            results, {"encode_categorical", "correlation_filter"}
+        ) is False
+
+
+# ---------------------------------------------------------------------------
+# Integrations-Tests: handle_message — encode_categorical No-Op-Erkennung
+# ---------------------------------------------------------------------------
+
+_VALID_ENCODE_EXECUTE_RESPONSE = json.dumps({
+    "action": "execute",
+    "spec": {"steps": [{"type": "encode_categorical", "params": {"method": "onehot", "columns": ["season"]}}]},
+    "explanation": "One-Hot-Encoding für season.",
+})
+
+_EXISTING_SPLIT_SPEC = {
+    "spec_id": "old-spec-id",
+    "version": "v2",
+    "spec": {"steps": [{"type": "split", "params": {"test_size": 0.2}}]},
+    "change_summary": None,
+}
+
+
+def _setup_encode_patches(monkeypatch, current_spec=_EXISTING_SPLIT_SPEC):
+    """Gemeinsame Patches für encode-Integrationstests."""
+    monkeypatch.setattr("gysi_ml.services.message_service.get_settings", lambda: _settings())
+    monkeypatch.setattr("gysi_ml.services.message_service.get_capabilities", lambda: {"steps": []})
+    monkeypatch.setattr(
+        "gysi_ml.services.message_service.message_repository.get_messages_for_session",
+        lambda **kw: [],
+    )
+    monkeypatch.setattr(
+        "gysi_ml.services.message_service.call_llm",
+        lambda **kw: _VALID_ENCODE_EXECUTE_RESPONSE,
+    )
+    monkeypatch.setattr(
+        "gysi_ml.services.message_service.spec_repository.get_latest_spec",
+        lambda **kw: current_spec,
+    )
+
+
+def test_no_spec_version_when_encode_is_noop(monkeypatch):
+    """encode_categorical auf int64-Spalte (encoded_columns=[]) → keine neue Spec-Version."""
+    create_calls: list[dict] = []
+    _setup_encode_patches(monkeypatch)
+    monkeypatch.setattr(
+        "gysi_ml.services.message_service.spec_repository.create_spec_version",
+        lambda **kw: create_calls.append(kw) or {"spec_id": "new", "version": "v3", "spec": kw.get("spec", {})},
+    )
+
+    fake_executor = MagicMock()
+    fake_executor.execute_with_spec_id.return_value = {
+        "run_id": "run-encode-noop",
+        "result": {
+            "step_results": [
+                {
+                    "step_type": "encode_categorical",
+                    "status": "completed",
+                    "metadata": {
+                        "encoded_columns": [],
+                        "warnings": ["season: Kein kategorischer Dtype (int64), wird übersprungen."],
+                    },
+                }
+            ]
+        },
+    }
+    monkeypatch.setattr("gysi_ml.services.message_service.PipelineExecutor", lambda **kw: fake_executor)
+
+    result = handle_message(session_id="s1", text="OneHot Encoding für season")
+
+    assert result["type"] == "result"
+    assert create_calls == [], "Keine neue Spec-Version erwartet wenn encode_categorical ein No-Op war"
+
+
+def test_spec_version_created_when_encode_is_effective(monkeypatch):
+    """encode_categorical auf category-Spalte (encoded_columns nicht leer) → neue Spec-Version."""
+    create_calls: list[dict] = []
+
+    cast_spec = {
+        "spec_id": "cast-spec-id",
+        "version": "v3",
+        "spec": {"steps": [
+            {"type": "split", "params": {"test_size": 0.2}},
+            {"type": "cast_dtype", "params": {"columns": {"season": "category"}}},
+        ]},
+        "change_summary": "+ cast_dtype: season → category",
+    }
+    _setup_encode_patches(monkeypatch, current_spec=cast_spec)
+    monkeypatch.setattr(
+        "gysi_ml.services.message_service.spec_repository.create_spec_version",
+        lambda **kw: create_calls.append(kw) or {"spec_id": "enc-spec", "version": "v4", "spec": kw.get("spec", {})},
+    )
+    monkeypatch.setattr(
+        "gysi_ml.services.message_service.run_repository.update_run_spec_ref",
+        lambda **kw: None,
+    )
+
+    fake_executor = MagicMock()
+    fake_executor.execute_with_spec_id.return_value = {
+        "run_id": "run-encode-ok",
+        "result": {
+            "step_results": [
+                {"step_type": "split", "status": "completed", "metadata": {}},
+                {"step_type": "cast_dtype", "status": "completed", "metadata": {}},
+                {
+                    "step_type": "encode_categorical",
+                    "status": "completed",
+                    "metadata": {"encoded_columns": ["season_1", "season_2", "season_3", "season_4"], "method": "onehot"},
+                },
+            ]
+        },
+    }
+    monkeypatch.setattr("gysi_ml.services.message_service.PipelineExecutor", lambda **kw: fake_executor)
+
+    result = handle_message(session_id="s1", text="OneHot Encoding für season")
+
+    assert result["type"] == "result"
+    assert len(create_calls) == 1, "Neue Spec-Version erwartet wenn encode_categorical wirksam war"
+
+
+def test_no_spec_version_preserves_current_spec_in_response(monkeypatch):
+    """Bei No-Op-Encode: spec_for_response zeigt aktuelle Spec (ohne no-op Step), nicht merged_persistent."""
+    _setup_encode_patches(monkeypatch)
+    monkeypatch.setattr(
+        "gysi_ml.services.message_service.spec_repository.create_spec_version",
+        lambda **kw: {"spec_id": "new", "version": "v3", "spec": kw.get("spec", {})},
+    )
+
+    fake_executor = MagicMock()
+    fake_executor.execute_with_spec_id.return_value = {
+        "run_id": "run-noop",
+        "result": {
+            "step_results": [
+                {
+                    "step_type": "encode_categorical",
+                    "status": "completed",
+                    "metadata": {"encoded_columns": []},
+                }
+            ]
+        },
+    }
+    monkeypatch.setattr("gysi_ml.services.message_service.PipelineExecutor", lambda **kw: fake_executor)
+
+    result = handle_message(session_id="s1", text="OneHot Encoding für season")
+
+    assert result["type"] == "result"
+    # Die zurückgegebene Spec darf encode_categorical nicht enthalten (war No-Op)
+    returned_steps = result.get("spec", {}).get("steps", [])
+    step_types = [s.get("type") for s in returned_steps]
+    assert "encode_categorical" not in step_types, (
+        "spec_for_response darf encode_categorical nicht enthalten wenn es ein No-Op war"
+    )
 

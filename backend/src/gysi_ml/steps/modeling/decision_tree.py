@@ -39,7 +39,15 @@ class DecisionTreeStep(BaseStep):
             max_depth=self.params.get("max_depth"),
             random_state=int(self.params.get("random_state", 42)),
         )
-        self.model.fit(X_train, y_train)
+        try:
+            self.model.fit(X_train, y_train)
+        except ValueError as exc:
+            nan_count = int(y_train.isna().sum())
+            raise ValueError(
+                f"Die Zielspalte '{self.TARGET_COL}' enthält {nan_count} fehlende Wert(e) (NaN). "
+                f"Bitte imputiere fehlende Werte in '{self.TARGET_COL}' vor dem Training "
+                f"(z.\u00a0B. 'Imputiere {self.TARGET_COL} mit dem Median')."
+            ) from exc
 
     def transform(
         self, df_train: pd.DataFrame, df_test: pd.DataFrame

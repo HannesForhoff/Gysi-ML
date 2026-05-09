@@ -21,27 +21,68 @@ logger = logging.getLogger(__name__)
 def _step_is_effective(sr: dict) -> bool:
     """Gibt True zurück wenn ein Step tatsächlich Daten verändert hat.
 
+    Prinzip: Nur *param-gesteuerte* Analysis-Modes sind No-Ops (User hat explizit gesagt
+    "nicht ändern, nur zeigen"). Datenlage-bedingte "Nichts gefunden"-Fälle (dedup mit 0
+    entfernten Duplikaten, impute_missing ohne NaN usw.) gelten NICHT als No-Ops — der Step
+    lief erfolgreich durch und die Spec-Version dokumentiert die User-Intention.
+
     Aktuell bekannte No-Op-Fälle:
     - encode_categorical mit encoded_columns=[] (Spalte hatte falschen Dtype, wurde übersprungen)
     - correlation_filter mit analysis_only=True (nur Analyse, kein Feature entfernt)
+    - catboost_feature_selection mit analysis_only=True (nur Analyse, kein Feature entfernt)
     """
     step_type = sr.get("step_type", "")
     metadata = sr.get("metadata", {})
     if step_type == "encode_categorical":
         return bool(metadata.get("encoded_columns"))
-    if step_type == "correlation_filter":
+    if step_type in ("correlation_filter", "catboost_feature_selection"):
         return not metadata.get("analysis_only", False)
     return True
 
 
-def _is_execution_effective(step_results: list[dict]) -> bool:
-    """Gibt True zurück wenn die Ausführung mindestens einen wirksamen Step enthielt.
+def _compute_delta_step_types(
+    previous_steps: list[dict], current_steps: list[dict]
+) -> set[str]:
+    """Gibt die Step-Typen zurück die gegenüber der vorherigen Spec neu oder geändert sind.
+
+    Zwei Steps gelten als identisch wenn type, params und enabled übereinstimmen.
+    Nur Delta-Steps fließen in die Wirksamkeitsprüfung ein — dadurch werden unveränderte
+    Steps (z.B. split) nicht als Begründung für eine neue Spec-Version/Artefakte gewertet.
+    """
+    def _sig(step: dict) -> str:
+        return json.dumps(
+            {
+                "type": step.get("type"),
+                "params": step.get("params", {}),
+                "enabled": step.get("enabled", True),
+            },
+            sort_keys=True,
+        )
+
+    previous_sigs = {_sig(s) for s in previous_steps}
+    return {step.get("type", "") for step in current_steps if _sig(step) not in previous_sigs}
+
+
+def _is_execution_effective(
+    step_results: list[dict], delta_step_types: set[str] | None = None
+) -> bool:
+    """Gibt True zurück wenn die Ausführung mindestens einen wirksamen Delta-Step enthielt.
+
+    delta_step_types: Menge der Step-Typen die neu oder geändert sind (vs. vorherige Spec).
+    Wenn angegeben, werden nur Step-Ergebnisse dieser Typen bewertet — dadurch werden
+    unveränderte Steps (z.B. split) nicht als Wirksamkeitsbegründung herangezogen.
+    Wenn None (z.B. bei Re-Execution), werden alle Steps bewertet (Fallback-Verhalten).
 
     Leere Pipelines (step_results=[]) gelten als wirksam — eine leere Spec ist eine
     valide Änderung des Pipeline-Stands (z.B. Reset).
     """
     if not step_results:
         return True
+    if delta_step_types is not None:
+        relevant = [sr for sr in step_results if sr.get("step_type") in delta_step_types]
+        if not relevant:
+            return False
+        return any(_step_is_effective(sr) for sr in relevant)
     return any(_step_is_effective(sr) for sr in step_results)
 
 
@@ -88,16 +129,24 @@ class PipelineExecutor:
         tentative_spec_id = current_spec_entry["spec_id"] if current_spec_entry else None
         tentative_version = current_spec_entry["version"] if current_spec_entry else None
 
+        # Delta berechnen: Step-Typen die gegenüber der vorherigen Spec neu oder geändert sind.
+        # Nur diese werden für die Wirksamkeitsprüfung herangezogen — verhindert dass
+        # unveränderte Steps (z.B. split) einen No-Op-Step wie catboost(analysis_only=True)
+        # als wirksam erscheinen lassen.
+        previous_steps = current_spec_entry["spec"].get("steps", []) if current_spec_entry else []
+        delta_step_types = _compute_delta_step_types(previous_steps, steps)
+
         pipeline_result = self._run_pipeline(
             spec=spec, run_id=run_id,
             spec_id=tentative_spec_id,
             spec_version=tentative_version,
             session_id=session_id, started_at=started_at, db_path=db_path,
+            delta_step_types=delta_step_types,
         )
 
         if "error" not in pipeline_result:
             step_results = pipeline_result.get("result", {}).get("step_results", [])
-            if _is_execution_effective(step_results):
+            if _is_execution_effective(step_results, delta_step_types):
                 # Mindestens ein Step hat Daten verändert → Spec-Version anlegen (oder
                 # bestehende zurückgeben wenn Idempotenz-Check anschlägt)
                 spec_entry = spec_repository.create_spec_version(
@@ -118,7 +167,7 @@ class PipelineExecutor:
         return pipeline_result
 
     def execute_with_spec_id(
-        self, spec: dict, spec_id: str, session_id: str, db_path: str | None = None
+        self, spec: dict, spec_id: str | None, session_id: str, db_path: str | None = None
     ) -> dict:
         """Re-Execute mit einer bestehenden spec_id (kein neuer spec_versions-Eintrag)."""
         steps = spec.get("steps", [])
@@ -149,6 +198,7 @@ class PipelineExecutor:
         session_id: str,
         started_at: str,
         db_path: str | None = None,
+        delta_step_types: set[str] | None = None,
     ) -> dict:
         steps = spec.get("steps", [])
 
@@ -328,7 +378,15 @@ class PipelineExecutor:
 
         # 8a. Split-Artefakte (train.csv / test.csv) am Ende aller Steps schreiben
         #     → Dateien spiegeln den finalen Zustand nach allen Preprocessing-Steps wider
-        if context.is_split and context.df_train is not None and context.df_test is not None:
+        #     → Nur schreiben wenn die Ausführung tatsächlich Daten verändert hat (kein No-Op).
+        #       Bei No-Ops (z.B. catboost_feature_selection mit analysis_only=True) würden
+        #       identische CSVs erzeugt — redundante Artefakte werden so vermieden.
+        if (
+            context.is_split
+            and context.df_train is not None
+            and context.df_test is not None
+            and _is_execution_effective(context.step_results, delta_step_types)
+        ):
             try:
                 import os
                 artifacts_dir = self._artifacts_path

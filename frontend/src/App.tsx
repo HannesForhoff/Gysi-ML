@@ -206,6 +206,10 @@ function App() {
       setIsRollingBack(true)
       setRollbackTargetId(targetSpecId)
 
+      // Quellversion VOR dem API-Call auflösen – der Tree wird danach neu geladen
+      const sourceVersion =
+        state.specHistory?.versions.find(v => v.spec_id === targetSpecId)?.version ?? targetSpecId
+
       const result = await performRollback(
         state.transport.backendBaseUrl,
         state.sessionId,
@@ -224,7 +228,7 @@ function App() {
           type: 'ROLLBACK_SUCCEEDED',
           infoMessage: createMessage(
             'assistant',
-            `Rollback zu **${result.newVersion}** abgeschlossen. Die Pipeline wurde auf diesen Stand zurückgesetzt.`,
+            `Rollback zu **${sourceVersion}** (neu: **${result.newVersion}**) abgeschlossen. Die Pipeline wurde auf den Stand von **${sourceVersion}** zurückgesetzt und läuft auf **${result.newVersion}** weiter.`,
           ),
           specTree: newTree ?? state.specHistory!,
           specSummary: newSummary,

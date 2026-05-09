@@ -13,7 +13,7 @@ from gysi_ml.llm.client import call_llm
 from gysi_ml.llm.exceptions import LLMConnectionError, LLMResponseValidationError
 from gysi_ml.llm.prompts import build_post_run_prompt, build_retry_prompt, build_system_prompt
 from gysi_ml.llm.response_schema import validate_llm_response
-from gysi_ml.persistence import message_repository, proposal_repository, spec_repository, step_state_repository
+from gysi_ml.persistence import message_repository, proposal_repository, run_repository, spec_repository, step_state_repository
 from gysi_ml.spec.schema import validate_spec
 
 log = logging.getLogger(__name__)
@@ -151,6 +151,42 @@ def _detect_leakage_risk(new_step_types: set[str], merged_steps: list[dict]) -> 
         or (new_step_types & _LEARNABLE_STEP_TYPES & before_split_types)
     )
     return learnable_before if this_call_is_responsible else []
+
+
+def _step_result_is_effective(step_result: dict) -> bool:
+    """True wenn ein einzelner Step-Result tatsächlich Daten verändert hat.
+
+    Spiegelt die Effektivitätsprüfung aus executor._step_is_effective,
+    angewandt auf Step-Results im message_service-Kontext.
+
+    Bekannte No-Op-Fälle:
+    - encode_categorical mit encoded_columns=[] (Spalte hatte falschen Dtype)
+    - correlation_filter mit analysis_only=True (nur Analyse, kein Feature entfernt)
+    - catboost_feature_selection mit analysis_only=True (nur Analyse, kein Feature entfernt)
+    """
+    step_type = step_result.get("step_type", "")
+    metadata = step_result.get("metadata", {}) or {}
+    if step_type == "encode_categorical":
+        return bool(metadata.get("encoded_columns"))
+    if step_type in ("correlation_filter", "catboost_feature_selection"):
+        return not metadata.get("analysis_only", False)
+    return True
+
+
+def _new_persistent_steps_are_effective(
+    new_step_results: list[dict], new_step_types: set[str]
+) -> bool:
+    """True wenn mindestens ein neu hinzugefügter persistenter Step wirksam war.
+
+    - Leeres new_step_types → Re-Run → immer True.
+    - Leere new_step_results bei vorhandenen new_step_types → konservativ True
+      (keine Metadaten verfügbar, z.B. in Mocks ohne vollständigen Run-Stack).
+    """
+    if not new_step_types:
+        return True  # Re-Run: Spec unverändert, trotzdem ausführen
+    if not new_step_results:
+        return True  # konservativ: keine Metadaten → wirksam annehmen
+    return any(_step_result_is_effective(sr) for sr in new_step_results)
 
 
 def _compute_column_stats(data_path: str) -> dict | None:
@@ -318,8 +354,6 @@ def handle_message(
         if not run_id_a or not run_id_b:
             return {"type": "error", "message": "Zwei Run-IDs für den Vergleich erforderlich."}
 
-        from gysi_ml.persistence import run_repository
-
         run_a = run_repository.get_run(run_id_a, db_path=db_path)
         run_b = run_repository.get_run(run_id_b, db_path=db_path)
 
@@ -375,6 +409,7 @@ def handle_message(
         }
 
     if action == "execute":
+        _effective = True  # ob der Run tatsächlich Daten verändert hat (No-Op-Erkennung)
         # parameters_summary ist Präsentationsschicht — darf nicht in die ausführbare Spec.
         # PIPELINE_SPEC_SCHEMA hat additionalProperties: False, weshalb validate_spec sonst fehlschlägt.
         raw_steps = spec.get("steps", [])  # vor Bereinigung sichern (enthält parameters_summary für Anzeige)
@@ -448,19 +483,45 @@ def handle_message(
             # Ausführungs-Spec: persistente Steps + transiente Steps ans Ende
             exec_spec = {**merged_persistent, "steps": merged_persistent.get("steps", []) + transient_steps}
 
-            if persistent_steps:
-                # Echte Pipeline-Änderung: neue Spec-Version anlegen (nur aus persistenten Steps)
-                spec_entry = spec_repository.create_spec_version(
-                    session_id=session_id, spec=merged_persistent, db_path=db_path
-                )
+            _effective = True  # Default: wirksam (überschrieben wenn No-Op erkannt)
+            if persistent_steps or current_spec_entry is None:
+                # Spec-Version wird erst nach erfolgreicher Ausführung gespeichert, damit
+                # fehlgeschlagene Runs die Session-Spec nicht korrumpieren (Bug 1F).
+                tentative_spec_id = current_spec_entry["spec_id"] if current_spec_entry else None
                 result = executor.execute_with_spec_id(
                     spec=exec_spec,
-                    spec_id=spec_entry["spec_id"],
+                    spec_id=tentative_spec_id,
                     session_id=session_id,
                     db_path=db_path,
                 )
                 spec_for_response = merged_persistent
-                version_for_response = spec_entry["version"]
+                if "error" not in result:
+                    # Neu hinzugefügte persistente Steps auf Wirksamkeit prüfen — No-Ops
+                    # erzeugen keine neue Spec-Version (z.B. encode_categorical auf int64).
+                    _exec_step_results = result.get("result", {}).get("step_results", [])
+                    _new_exec_results = [
+                        r for r in _exec_step_results
+                        if r.get("step_type") in new_persistent_types
+                    ]
+                    _effective = _new_persistent_steps_are_effective(_new_exec_results, new_persistent_types)
+                    if _effective:
+                        spec_entry = spec_repository.create_spec_version(
+                            session_id=session_id, spec=merged_persistent, db_path=db_path
+                        )
+                        run_repository.update_run_spec_ref(
+                            run_id=result["run_id"],
+                            spec_id=spec_entry["spec_id"],
+                            spec_version=spec_entry["version"],
+                            db_path=db_path,
+                        )
+                        version_for_response = spec_entry["version"]
+                    else:
+                        # Alle neuen Steps waren No-Ops → keine neue Spec-Version anlegen,
+                        # Anzeige auf bisherigem Stand lassen.
+                        version_for_response = current_spec_entry["version"] if current_spec_entry else None
+                        spec_for_response = current_spec_entry["spec"] if current_spec_entry else {}
+                else:
+                    version_for_response = current_spec_entry["version"] if current_spec_entry else None
             else:
                 # Nur transiente Steps (z.B. plot_distribution): keine neue Spec-Version.
                 # Basisknoten verwenden — falls noch keiner existiert (alte Session), jetzt anlegen.
@@ -521,9 +582,13 @@ def handle_message(
         except Exception as exc:
             log.warning("Post-Run-Erkl\u00e4rung fehlgeschlagen (nicht kritisch): %s", exc)
 
+        # Bei No-Op-Runs (z.B. catboost_feature_selection mit analysis_only=True) keine
+        # Artefakte zurückgeben — die Daten haben sich nicht geändert, redundante
+        # train/test-CSVs sollen nicht im Frontend erscheinen.
+        _run_artifacts = run_result.get("artifacts", []) if _effective else []
         enriched_artifacts = [
             {**a, "run_id": result["run_id"], "spec_version": version_for_response}
-            for a in run_result.get("artifacts", [])
+            for a in _run_artifacts
         ]
         return {
             "type": "result",
