@@ -325,6 +325,7 @@ function App() {
               specSummary={state.specSummary}
               lastRun={state.lastRun}
               artifacts={state.artifacts}
+              versionMetrics={state.versionMetrics}
             />
           }
         >

@@ -24,6 +24,8 @@ export interface ArtifactRef {
   label: string
   url: string
   media_type: string
+  run_id?: string
+  spec_version?: string
 }
 
 export interface ProposalStep {

@@ -177,6 +177,8 @@ function toAssistantResponse(
     })
     // Parse artifacts from execute response (Artefakte aus direktem Execute, z.B. Split-CSVs)
     const rawArtifacts = Array.isArray(payload.artifacts) ? payload.artifacts : []
+    const run_id_str = toNonEmptyString(payload.run_id)
+    const spec_version_str = toNonEmptyString(payload.version)
     const artifacts: ArtifactRef[] = rawArtifacts
       .filter(isRecord)
       .map((a) => {
@@ -185,7 +187,13 @@ function toAssistantResponse(
         const label = toNonEmptyString(a.label) ?? artifactTypeToLabel(artifactType)
         const url = id && baseUrl ? `${baseUrl.replace(/\/+$/, '')}/v1/artifacts/${encodeURIComponent(id)}` : ''
         const media_type = artifactTypeToMime(artifactType)
-        return { id, label, url, media_type }
+        const eff_run_id = toNonEmptyString(a.run_id) ?? run_id_str
+        const eff_spec_version = toNonEmptyString(a.spec_version) ?? spec_version_str
+        return {
+          id, label, url, media_type,
+          ...(eff_run_id ? { run_id: eff_run_id } : {}),
+          ...(eff_spec_version ? { spec_version: eff_spec_version } : {}),
+        }
       })
       .filter((a) => Boolean(a.id && a.url))
     let spec_summary: SpecSummary | undefined

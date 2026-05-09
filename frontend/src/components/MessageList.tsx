@@ -90,8 +90,12 @@ export function MessageList({ messages, onConfirm, confirmDisabled, activePendin
               </div>
               <div className="bubble">
                 <div className="bubbleMeta">
-                  <span className="messageRole">{message.role}</span>
-                  <span className="messageTs">{message.ts}</span>
+                  <span className="messageRole">
+                    {message.role === 'assistant' ? 'Gysi' : message.role === 'user' ? 'Du' : 'System'}
+                  </span>
+                  <span className="messageTs">
+                    {new Date(message.ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
                 </div>
                 {message.response?.type === 'proposal' ? (
                   <ProposalCard
@@ -133,8 +137,10 @@ export function MessageList({ messages, onConfirm, confirmDisabled, activePendin
                   <div className="avatar" aria-hidden="true">G</div>
                   <div className="bubble">
                     <div className="bubbleMeta">
-                      <span className="messageRole">assistant</span>
-                      <span className="messageTs">{message.ts}</span>
+                      <span className="messageRole">Gysi</span>
+                      <span className="messageTs">
+                        {new Date(message.ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
                     </div>
                     <div className="messageContent">
                       <Markdown remarkPlugins={[remarkGfm]} components={mdComponents}>
@@ -160,8 +166,10 @@ export function MessageList({ messages, onConfirm, confirmDisabled, activePendin
                   <div className="avatar" aria-hidden="true">G</div>
                   <div className="bubble">
                     <div className="bubbleMeta">
-                      <span className="messageRole">assistant</span>
-                      <span className="messageTs">{message.ts}</span>
+                      <span className="messageRole">Gysi</span>
+                      <span className="messageTs">
+                        {new Date(message.ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
                     </div>
                     <div className="messageContent">
                       <Markdown remarkPlugins={[remarkGfm]} components={mdComponents}>
@@ -183,8 +191,10 @@ export function MessageList({ messages, onConfirm, confirmDisabled, activePendin
                 <div className="avatar" aria-hidden="true">G</div>
                 <div className="bubble">
                   <div className="bubbleMeta">
-                    <span className="messageRole">assistant</span>
-                    <span className="messageTs">{message.ts}</span>
+                    <span className="messageRole">Gysi</span>
+                    <span className="messageTs">
+                      {new Date(message.ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
                   </div>
                   <div className="messageContent">
                     <Markdown remarkPlugins={[remarkGfm]} components={mdComponents}>{message.response.post_run_explanation}</Markdown>

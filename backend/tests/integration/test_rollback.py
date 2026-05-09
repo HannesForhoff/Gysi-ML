@@ -59,6 +59,8 @@ def _add_spec(settings, session_id: str, steps: list | None = None) -> dict:
 def test_rollback_creates_new_version(client, settings):
     session_id = _create_session(client)
 
+    # Hinweis: _create_session legt automatisch v1 (Basisknoten, leere Spec) an.
+    # Die hier erstellten Specs erhalten daher v2, v3, v4.
     v1 = _add_spec(settings, session_id, steps=[{"type": "dedup"}])
     v2 = _add_spec(settings, session_id, steps=[{"type": "imputation"}])
     v3 = _add_spec(settings, session_id, steps=[{"type": "encoding"}])
@@ -70,18 +72,19 @@ def test_rollback_creates_new_version(client, settings):
     assert resp.status_code == 200
     body = resp.json()
     assert body["type"] == "rollback"
-    assert body["new_version"] == "v4"
+    assert body["new_version"] == "v5"
 
     # Alle Versionen noch vorhanden (AC4)
     all_specs = spec_repository.get_all_specs_for_session(
         session_id=session_id, db_path=settings.db_path
     )
     versions = [s["version"] for s in all_specs]
-    assert "v1" in versions
-    assert "v2" in versions
-    assert "v3" in versions
-    assert "v4" in versions
-    assert len(versions) == 4
+    assert "v1" in versions  # Basisknoten
+    assert "v2" in versions  # dedup
+    assert "v3" in versions  # imputation
+    assert "v4" in versions  # encoding
+    assert "v5" in versions  # Rollback
+    assert len(versions) == 5
 
 
 # ---------------------------------------------------------------------------

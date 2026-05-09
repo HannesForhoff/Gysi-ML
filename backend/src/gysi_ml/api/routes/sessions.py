@@ -10,7 +10,7 @@ from gysi_ml.api.schemas import (
     SessionListResponse,
     SessionResponse,
 )
-from gysi_ml.persistence import message_repository, session_repository
+from gysi_ml.persistence import message_repository, session_repository, spec_repository
 
 router = APIRouter(prefix="/v1")
 
@@ -27,6 +27,11 @@ def create_session(
     db_path = _get_db_path(request)
     name = body.name if body else None
     row = session_repository.create_session(name=name, db_path=db_path)
+    # Basisknoten anlegen: repräsentiert den Rohdaten-Zustand vor jeder Transformation.
+    # Dadurch ist im Versionsbaum immer ein Ausgangspunkt sichtbar.
+    spec_repository.create_spec_version(
+        session_id=row["session_id"], spec={"steps": []}, db_path=db_path
+    )
     return SessionResponse(**row)
 
 

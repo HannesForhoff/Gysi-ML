@@ -1,0 +1,9 @@
+1. one hot encoding ohne vorher datentyp in category zu ändern -> erzeugt trotzdem neue version 
+   datentyp änderungen daraufhin erzeugt neue verison -> one hot encoding danach wiederum erzeugt keine neue version
+
+- artefakte problem mit 3 mal train test split nach 1. split, 2. catboost und 3. vorgeschlagende features entfernen
+
+- was passiert mit artefakten nach rollback? split sollte ja häufig am anfang vom preprocessing gemacht werden -> jede änderung führt zu neuen artefakten
+
+- rollback auf v1 namen ändern
+

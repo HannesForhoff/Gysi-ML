@@ -1,3 +1,5 @@
+import { useMemo } from 'react'
+
 import type { ArtifactRef, ResultResponse, SpecSummary, StepResult } from '../types'
 import { sanitizeArtifactUrl } from '../utils/sanitizeArtifactUrl'
 import { getStepLabel } from '../utils/stepMeta'
@@ -7,6 +9,7 @@ type InfoPanelProps = {
   specSummary: SpecSummary | null
   lastRun: ResultResponse | null
   artifacts: ArtifactRef[]
+  versionMetrics: Record<string, Record<string, number | string>>
 }
 
 function mediaTypeShort(mt: string): string {
@@ -17,13 +20,31 @@ function mediaTypeShort(mt: string): string {
   return slash >= 0 ? mt.slice(slash + 1).toUpperCase() : mt.toUpperCase()
 }
 
-export function InfoPanel({ specSummary, lastRun, artifacts }: InfoPanelProps) {
+export function InfoPanel({ specSummary, lastRun, artifacts, versionMetrics }: InfoPanelProps) {
   const runDone = lastRun?.status === 'done'
   const hasSteps = (lastRun?.step_results?.length ?? 0) > 0
   const hasArtifacts = artifacts.length > 0
 
   // step_results werden per step_type gematcht, nicht per Index (Bug 1.13 Fix C)
   const stepResults: StepResult[] = lastRun?.step_results ?? []
+
+  // Artefakte nach Spec-Version gruppieren (neueste zuerst)
+  const artifactGroups = useMemo(() => {
+    const map = new Map<string, ArtifactRef[]>()
+    for (const a of artifacts) {
+      const key = a.spec_version ?? '—'
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(a)
+    }
+    // Sortierung: vN numerisch absteigend, unbekannte ans Ende
+    return [...map.entries()].sort(([a], [b]) => {
+      if (a === '—') return 1
+      if (b === '—') return -1
+      const numA = parseInt(a.replace(/\D/g, ''), 10)
+      const numB = parseInt(b.replace(/\D/g, ''), 10)
+      return isNaN(numA) || isNaN(numB) ? b.localeCompare(a) : numB - numA
+    })
+  }, [artifacts])
 
   return (
     <div className="infoPanel">
@@ -109,31 +130,55 @@ export function InfoPanel({ specSummary, lastRun, artifacts }: InfoPanelProps) {
           )}
         </div>
         {hasArtifacts ? (
-          <ul className="infoArtifactList">
-            {artifacts.map((artifact) => {
-              const safeUrl = sanitizeArtifactUrl(artifact.url)
-              const isImage = artifact.media_type?.startsWith('image/')
-              return (
-                <li key={artifact.id} className="infoArtifactItem">
-                  <div className="infoArtifactMain">
-                    <span className="infoArtifactIcon">{isImage ? '🖼' : '📎'}</span>
-                    <span className="infoArtifactLabel">{artifact.label}</span>
+          <div className="infoArtifactGroups">
+            {artifactGroups.map(([version, items]) => (
+              <div key={version} className="infoArtifactGroup">
+                <div className="infoArtifactGroupHeader">
+                  <span className="infoArtifactGroupVersion">{version}</span>
+                  <span className="infoArtifactGroupCount">{items.length}</span>
+                </div>
+                {versionMetrics[version] && Object.keys(versionMetrics[version]).length > 0 && (
+                  <div className="infoVersionMetrics">
+                    {Object.entries(versionMetrics[version]).map(([k, v]) => (
+                      <span key={k} className="infoVersionMetricChip">
+                        <span className="infoVersionMetricLabel">{k.toUpperCase()}</span>
+                        <span className="infoVersionMetricVal">
+                          {typeof v === 'number'
+                            ? k === 'r2' ? v.toFixed(4) : v.toFixed(3)
+                            : String(v)}
+                        </span>
+                      </span>
+                    ))}
                   </div>
-                  <span className="infoArtifactType">{mediaTypeShort(artifact.media_type)}</span>
-                  {safeUrl ? (
-                    <a
-                      href={safeUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="infoArtifactDownload"
-                    >
-                      ↓
-                    </a>
-                  ) : null}
-                </li>
-              )
-            })}
-          </ul>
+                )}
+                <ul className="infoArtifactList">
+                  {items.map((artifact) => {
+                    const safeUrl = sanitizeArtifactUrl(artifact.url)
+                    const isImage = artifact.media_type?.startsWith('image/')
+                    return (
+                      <li key={artifact.id} className="infoArtifactItem">
+                        <div className="infoArtifactMain">
+                          <span className="infoArtifactIcon">{isImage ? '🖼' : '📎'}</span>
+                          <span className="infoArtifactLabel">{artifact.label}</span>
+                        </div>
+                        <span className="infoArtifactType">{mediaTypeShort(artifact.media_type)}</span>
+                        {safeUrl ? (
+                          <a
+                            href={safeUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="infoArtifactDownload"
+                          >
+                            ↓
+                          </a>
+                        ) : null}
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            ))}
+          </div>
         ) : (
           <div className="infoEmpty">Keine Artefakte erzeugt.</div>
         )}

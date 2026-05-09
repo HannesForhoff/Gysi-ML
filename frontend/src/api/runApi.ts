@@ -30,7 +30,12 @@ function parseRunStatusResponse(data: unknown, baseUrl: string): RunStatusRespon
     : undefined
 
   const artifacts = Array.isArray(data.artifacts)
-    ? parseArtifacts(data.artifacts, baseUrl)
+    ? parseArtifacts(
+        data.artifacts,
+        baseUrl,
+        toNonEmptyString(data.run_id),
+        toNonEmptyString(data.spec_version),
+      )
     : undefined
 
   const error_message =
@@ -68,7 +73,7 @@ function parseRunStatus(value: unknown): RunStatus {
   throw new Error(`Ungültiger Run-Status: ${String(value)}`)
 }
 
-function parseArtifacts(raw: unknown[], baseUrl: string): ArtifactRef[] {
+function parseArtifacts(raw: unknown[], baseUrl: string, runId?: string | null, specVersion?: string | null): ArtifactRef[] {
   const base = baseUrl.replace(/\/+$/, '')
   const result: ArtifactRef[] = []
   for (const item of raw) {
@@ -81,8 +86,14 @@ function parseArtifacts(raw: unknown[], baseUrl: string): ArtifactRef[] {
       ?? toNonEmptyString(item.url)
       ?? (id && base ? `${base}/v1/artifacts/${encodeURIComponent(id)}` : '')
     const media_type = toNonEmptyString(item.media_type) ?? artifactTypeToMime(artifactType)
+    const eff_run_id = toNonEmptyString(item.run_id) ?? runId
+    const eff_spec_version = toNonEmptyString(item.spec_version) ?? specVersion
     if (id && url) {
-      result.push({ id, label, url, media_type })
+      result.push({
+        id, label, url, media_type,
+        ...(eff_run_id ? { run_id: eff_run_id } : {}),
+        ...(eff_spec_version ? { spec_version: eff_spec_version } : {}),
+      })
     }
   }
   return result

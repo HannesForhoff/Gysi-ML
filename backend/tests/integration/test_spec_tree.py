@@ -55,18 +55,25 @@ def _add_spec(settings, session_id: str, steps: list | None = None) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# AC4: Leere Session → versions: [], active_spec_id: null
+# AC4: Neue Session → Basisknoten (v1, leere Spec) wird automatisch angelegt
 # ---------------------------------------------------------------------------
 
 
-def test_spec_tree_empty_session(client):
+def test_spec_tree_new_session_has_base_node(client):
     session_id = _create_session(client)
     resp = client.get(f"/v1/sessions/{session_id}/spec/tree")
     assert resp.status_code == 200
     body = resp.json()
     assert body["session_id"] == session_id
-    assert body["active_spec_id"] is None
-    assert body["versions"] == []
+    # Nach Session-Erstellung existiert genau ein Basisknoten (leere Spec)
+    assert len(body["versions"]) == 1
+    node = body["versions"][0]
+    assert node["version"] == "v1"
+    assert node["parent_spec_id"] is None
+    assert node["change_summary"] is None
+    assert node["has_runs"] is False
+    # Basisknoten ist gleichzeitig die aktive Spec
+    assert body["active_spec_id"] == node["spec_id"]
 
 
 # ---------------------------------------------------------------------------
@@ -255,7 +262,8 @@ def test_spec_tree_phase_preprocessing(client, settings):
 
     resp = client.get(f"/v1/sessions/{session_id}/spec/tree")
     assert resp.status_code == 200
-    node = resp.json()["versions"][0]
+    # versions[-1] = neueste Version (die tatsächlich präprozessierte Spec)
+    node = resp.json()["versions"][-1]
     assert node["phase"] == "preprocessing"
 
 
@@ -273,7 +281,8 @@ def test_spec_tree_phase_modeling_decision_tree(client, settings):
 
     resp = client.get(f"/v1/sessions/{session_id}/spec/tree")
     assert resp.status_code == 200
-    node = resp.json()["versions"][0]
+    # versions[-1] = neueste Version (die Modeling-Steps enthält)
+    node = resp.json()["versions"][-1]
     assert node["phase"] == "modeling"
 
 
@@ -288,16 +297,21 @@ def test_spec_tree_phase_modeling_disabled_step(client, settings):
 
     resp = client.get(f"/v1/sessions/{session_id}/spec/tree")
     assert resp.status_code == 200
-    node = resp.json()["versions"][0]
+    # versions[-1] = neueste Version (deaktivierter Modeling-Step → preprocessing)
+    node = resp.json()["versions"][-1]
     assert node["phase"] == "preprocessing"
 
 
 def test_spec_tree_phase_empty_spec(client, settings):
-    """Leere Steps-Liste → phase == 'preprocessing'."""
+    """Leere Steps-Liste (Basisknoten) → phase == 'preprocessing'."""
     session_id = _create_session(client)
+    # steps=[] entspricht dem Basisknoten (bereits durch create_session angelegt);
+    # create_spec_version liefert ihn idempotent zurück, kein neuer Eintrag.
     _add_spec(settings, session_id, steps=[])
 
     resp = client.get(f"/v1/sessions/{session_id}/spec/tree")
     assert resp.status_code == 200
-    node = resp.json()["versions"][0]
+    # Nur der Basisknoten existiert
+    assert len(resp.json()["versions"]) == 1
+    node = resp.json()["versions"][-1]
     assert node["phase"] == "preprocessing"

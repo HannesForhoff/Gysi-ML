@@ -33,6 +33,8 @@ export interface ChatState {
   specHistory: VersionTree | null
   lastRun: ResultResponse | null
   artifacts: ArtifactRef[]
+  /** Metriken pro Spec-Version, z.B. { 'v3': { rmse: 0.12, r2: 0.88 } } */
+  versionMetrics: Record<string, Record<string, number | string>>
   lastError: string | null
   pendingProposalId: string | null
   runId: string | null
@@ -105,6 +107,7 @@ export function createInitialChatState(): ChatState {
     specHistory: null,
     lastRun: null,
     artifacts: [],
+    versionMetrics: {},
     lastError: null,
     pendingProposalId: null,
     runId: null,
@@ -180,6 +183,14 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           ? response.run_id
           : state.activeDataRunId
 
+      // Metriken pro Spec-Version akkumulieren
+      const versionMetrics = (() => {
+        if (response.type !== 'result' || !response.metrics) return state.versionMetrics
+        const ver = response.spec_summary?.spec_version_id
+        if (!ver) return state.versionMetrics
+        return { ...state.versionMetrics, [ver]: response.metrics }
+      })()
+
       return {
         ...state,
         ui: nextUiStateForResponse(response),
@@ -191,6 +202,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         lastError: null,
         pendingProposalId,
         activeDataRunId,
+        versionMetrics,
       }
     }
 
@@ -257,10 +269,17 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           artifacts: action.artifacts,
           step_results: action.step_results,
         }
+        // Metriken per spec_version aus dem ersten Artefakt ableiten
+        const pollSpecVersion = action.artifacts?.[0]?.spec_version
+        const versionMetrics =
+          action.metrics && pollSpecVersion
+            ? { ...state.versionMetrics, [pollSpecVersion]: action.metrics }
+            : state.versionMetrics
         return {
           ...state,
           ui: { type: 'run_done' },
           lastRun,
+          versionMetrics,
           artifacts: action.artifacts
             ? [
                 ...state.artifacts,

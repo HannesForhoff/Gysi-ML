@@ -448,7 +448,7 @@ def handle_message(
             # Ausführungs-Spec: persistente Steps + transiente Steps ans Ende
             exec_spec = {**merged_persistent, "steps": merged_persistent.get("steps", []) + transient_steps}
 
-            if persistent_steps or current_spec_entry is None:
+            if persistent_steps:
                 # Echte Pipeline-Änderung: neue Spec-Version anlegen (nur aus persistenten Steps)
                 spec_entry = spec_repository.create_spec_version(
                     session_id=session_id, spec=merged_persistent, db_path=db_path
@@ -462,7 +462,12 @@ def handle_message(
                 spec_for_response = merged_persistent
                 version_for_response = spec_entry["version"]
             else:
-                # Nur transiente Steps: bestehende Spec-Version wiederverwenden — keine neue Version
+                # Nur transiente Steps (z.B. plot_distribution): keine neue Spec-Version.
+                # Basisknoten verwenden — falls noch keiner existiert (alte Session), jetzt anlegen.
+                if current_spec_entry is None:
+                    current_spec_entry = spec_repository.create_spec_version(
+                        session_id=session_id, spec={"steps": []}, db_path=db_path
+                    )
                 result = executor.execute_with_spec_id(
                     spec=exec_spec,
                     spec_id=current_spec_entry["spec_id"],
@@ -516,6 +521,10 @@ def handle_message(
         except Exception as exc:
             log.warning("Post-Run-Erkl\u00e4rung fehlgeschlagen (nicht kritisch): %s", exc)
 
+        enriched_artifacts = [
+            {**a, "run_id": result["run_id"], "spec_version": version_for_response}
+            for a in run_result.get("artifacts", [])
+        ]
         return {
             "type": "result",
             "run_id": result["run_id"],
@@ -523,7 +532,7 @@ def handle_message(
             "post_run_explanation": post_run_explanation,
             "step_results": step_results,
             "metrics": run_result.get("metrics") or None,
-            "artifacts": run_result.get("artifacts", []),
+            "artifacts": enriched_artifacts,
             "spec": spec_for_response,
             "version": version_for_response,
         }

@@ -93,7 +93,8 @@ export function VersionTreeGraph({
           const isActive = node.spec_id === activeId
           const isOpen = openNodeId === node.spec_id
           const isRollbackNode = node.change_summary?.startsWith('Rollback') ?? false
-          const color = LANE_COLORS[node.lane % LANE_COLORS.length]
+          const isBaseNode = !node.parent_spec_id
+          const nodeColor = isBaseNode ? '#ea7c1e' : LANE_COLORS[node.lane % LANE_COLORS.length]
           const cx = nodeX(node.lane)
           const cy = nodeY(node.y)
           const radius = isActive ? NODE_RADIUS_ACTIVE : NODE_RADIUS
@@ -107,7 +108,7 @@ export function VersionTreeGraph({
                   cy={cy}
                   r={radius + 5}
                   fill="none"
-                  stroke={color}
+                  stroke={nodeColor}
                   strokeWidth={1.5}
                   opacity={0.45}
                   pointerEvents="none"
@@ -120,7 +121,7 @@ export function VersionTreeGraph({
                 cx={cx}
                 cy={cy}
                 r={radius}
-                fill={color}
+                fill={nodeColor}
                 stroke={isActive ? '#ffffff' : 'none'}
                 strokeWidth={isActive ? 2.5 : 0}
                 style={{ cursor: 'pointer' }}
@@ -156,10 +157,10 @@ export function VersionTreeGraph({
                 fontSize={11}
                 fontFamily="monospace"
                 fontWeight={600}
-                fill={node.phase === 'modeling' ? '#276749' : '#2b6cb0'}
+                fill={isBaseNode ? '#ea7c1e' : node.phase === 'modeling' ? '#276749' : '#2b6cb0'}
                 style={{ userSelect: 'none' }}
               >
-                {node.phase === 'modeling' ? 'Modeling' : 'Preprocessing'}
+                {isBaseNode ? 'Rohdaten' : node.phase === 'modeling' ? 'Modeling' : 'Preprocessing'}
               </text>
 
               {/* Active indicator – row 2, right of phase */}
@@ -190,17 +191,21 @@ export function VersionTreeGraph({
               {openNode.version}
             </span>
             <span
-              className={`nodeInfoCard__phaseBadge nodeInfoCard__phaseBadge--${openNode.phase}`}
+              className={`nodeInfoCard__phaseBadge nodeInfoCard__phaseBadge--${openNode.parent_spec_id ? openNode.phase : 'rohdaten'}`}
             >
-              {openNode.phase === 'modeling' ? 'Modeling' : 'Preprocessing'}
+              {openNode.parent_spec_id
+                ? openNode.phase === 'modeling'
+                  ? 'Modeling'
+                  : 'Preprocessing'
+                : 'Rohdaten'}
             </span>
             {openNode.spec_id === activeId && (
               <span className="nodeInfoCard__activeBadge">■ Aktiv</span>
             )}
           </div>
-          {openNode.change_summary && (
-            <div className="nodeInfoCard__summary">{openNode.change_summary}</div>
-          )}
+          <div className="nodeInfoCard__summary">
+            {openNode.change_summary ?? (!openNode.parent_spec_id ? 'Ausgangszustand (Rohdaten)' : '—')}
+          </div>
           <div className="nodeInfoCard__meta">
             <span>{formatDate(openNode.created_at)}</span>
             {openNode.last_run_status && (

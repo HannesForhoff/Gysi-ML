@@ -27,7 +27,7 @@ correlation_filter_result (application/octet-stream)???
  -> wieder csv ausgegeben statt feature namen die stark korrelieren. keine chance auszuwählen welche fleigen soll bzw keine ergebnisse welche korrelieren im chat, sondern nur in der seitenleiste
 
 
-Step 'catboost_feature_selection' benötigt einen vorherigen 'split'-Step, aber kein Split-Step wurde vor diesem Step gefunden??
+Step 'catboost_feature_selection' benötigt einen vorherigen 'split'-Step, aber kein Split-Step wurde vor diesem Step gefunden?? 
 
 
 Der Datensatz wurde in einen Trainings- und einen Testdatensatz aufgeteilt, wobei 13.903 Zeilen im Training und 3.476 Zeilen im Test enthalten sind, entsprechend einem Testanteil von 20 % bei zufälliger Aufteilung (random_state=42). Dieses Vorgehen ist fachlich sinnvoll, da ein 80/20-Split eine gängige Praxis zur Modellvalidierung darstellt. Als nächster Schritt empfiehlt sich die Anwendung von Datenvorverarbeitung wie Skalierung oder Encoding auf den Trainingsdatensatz, bevor das Modelltraining beginnt??
