@@ -76,6 +76,7 @@ class RunDetailResponse(BaseModel):
     metrics: Optional[dict] = None
     artifacts: Optional[list[ArtifactSummary]] = None
     error_message: Optional[str] = None
+    suggested_next_steps: Optional[list[str]] = None
 
 
 class DataPageResponse(BaseModel):

@@ -5,9 +5,10 @@ type ComposerProps = {
   onSend: (text: string) => void
   value: string
   onChange: (text: string) => void
+  suggestions?: string[]
 }
 
-export function Composer({ disabled, onSend, value, onChange }: ComposerProps) {
+export function Composer({ disabled, onSend, value, onChange, suggestions }: ComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
 
   const send = useCallback(() => {
@@ -38,6 +39,21 @@ export function Composer({ disabled, onSend, value, onChange }: ComposerProps) {
 
   return (
     <form className="composer" onSubmit={onSubmit}>
+      {suggestions && suggestions.length > 0 && (
+        <div className="composerSuggestions" aria-label="Vorschläge">
+          {suggestions.map((s) => (
+            <button
+              key={s}
+              type="button"
+              className="composerSuggestionChip"
+              disabled={disabled}
+              onClick={() => onSend(s)}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="composerRow">
         <textarea
           ref={textareaRef}

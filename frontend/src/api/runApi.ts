@@ -52,7 +52,11 @@ function parseRunStatusResponse(data: unknown, baseUrl: string): RunStatusRespon
         }))
     : undefined
 
-  return { status, metrics, artifacts, error_message, step_results }
+  const suggested_next_steps = Array.isArray(data.suggested_next_steps)
+    ? (data.suggested_next_steps as unknown[]).filter((s): s is string => typeof s === 'string')
+    : undefined
+
+  return { status, metrics, artifacts, error_message, step_results, suggested_next_steps }
 }
 
 const VALID_STATUSES = new Set<RunStatus>(['queued', 'running', 'done', 'failed'])

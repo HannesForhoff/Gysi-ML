@@ -134,6 +134,9 @@ function createResultMessage(result: RunStatusResponse): ChatMessage {
         metrics: result.metrics,
         artifacts: result.artifacts,
         step_results: result.step_results,
+        ...(result.suggested_next_steps && result.suggested_next_steps.length > 0
+          ? { suggested_next_steps: result.suggested_next_steps }
+          : {}),
       },
     }
   }

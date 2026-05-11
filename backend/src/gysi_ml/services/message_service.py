@@ -31,6 +31,48 @@ _LEARNABLE_STEP_TYPES: frozenset[str] = frozenset({
 })
 
 
+def _get_suggested_next_steps(spec: dict | None) -> list[str]:
+    """Deterministische Nächste-Schritte-Vorschläge für Einsteiger.
+
+    Jeder Vorschlag entspricht genau einem Pipeline-Step — keine Bündel,
+    keine vagen Sammelanfragen. Das LLM führt immer nur einen Step aus.
+    """
+    if spec is None:
+        return []
+    steps = spec.get("steps", [])
+    done = {s.get("type") for s in steps if s.get("enabled", True)}
+    if not done:
+        return []
+
+    has_split = "split" in done
+    has_model = bool(done & {"train_decision_tree", "train_ebm"})
+
+    suggestions: list[str] = []
+
+    if not has_split:
+        # Vorschläge streng als einzelne nächste sinnvolle Schritte
+        if "dedup" not in done:
+            suggestions.append("Entferne doppelte Zeilen aus dem Datensatz")
+        elif "impute_missing" not in done:
+            suggestions.append("Fülle fehlende Werte in windspeed mit dem Median auf")
+        if "time_feature_encoding" not in done:
+            suggestions.append("Wandle die Datumsspalte dteday in Zeitfeatures um")
+        if len(suggestions) < 3:
+            suggestions.append("Teile die Daten 80/20 in Trainings- und Testdaten auf")
+    elif not has_model:
+        suggestions.append("Trainiere einen Decision Tree auf die Zielspalte cnt")
+        if "catboost_feature_selection" not in done:
+            suggestions.append("Welche Spalten haben den größten Einfluss auf cnt?")
+    else:
+        if "train_ebm" not in done and "train_decision_tree" in done:
+            suggestions.append("Trainiere ein EBM-Modell zum Vergleich mit dem Decision Tree")
+        if "catboost_feature_selection" not in done:
+            suggestions.append("Welche Spalten haben den größten Einfluss auf cnt?")
+        suggestions.append("Erkläre mir das Ergebnis des Modells")
+
+    return suggestions[:3]
+
+
 def _merge_specs(current_spec: dict | None, new_spec: dict) -> dict:
     """Fügt neue Steps aus new_spec in die bestehende Spec ein.
 
@@ -590,6 +632,7 @@ def handle_message(
             {**a, "run_id": result["run_id"], "spec_version": version_for_response}
             for a in _run_artifacts
         ]
+        suggested_next_steps = _get_suggested_next_steps(spec_for_response)
         return {
             "type": "result",
             "run_id": result["run_id"],
@@ -600,6 +643,7 @@ def handle_message(
             "artifacts": enriched_artifacts,
             "spec": spec_for_response,
             "version": version_for_response,
+            "suggested_next_steps": suggested_next_steps,
         }
 
     if action == "abort_step_by_step":

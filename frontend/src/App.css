@@ -629,6 +629,44 @@
   padding-left: 2px;
 }
 
+/* Suggestion Chips */
+.composerSuggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-bottom: 2px;
+}
+
+.composerSuggestionChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1.5px solid var(--accent, #7c3aed);
+  background: transparent;
+  color: var(--accent, #7c3aed);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  white-space: nowrap;
+}
+
+.composerSuggestionChip:hover:not(:disabled) {
+  background: var(--accent, #7c3aed);
+  color: #fff;
+}
+
+.composerSuggestionChip:focus-visible {
+  outline: 2px solid var(--accent, #7c3aed);
+  outline-offset: 2px;
+}
+
+.composerSuggestionChip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .statusPane {
   border-left: 1px solid var(--border);
   padding: 18px 18px;

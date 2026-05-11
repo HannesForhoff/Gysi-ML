@@ -85,13 +85,14 @@ const WELCOME_MESSAGE: ChatMessage = {
   role: 'assistant',
   content:
     'Hallo! Ich bin **Gysi**, dein ML-Assistent für den Bike-Sharing-Datensatz.\n\n' +
-    'Ich helfe dir dabei, die Daten Schritt für Schritt zu verstehen und ein Machine-Learning-Modell aufzubauen. ' +
-    'Beschreibe einfach auf Deutsch, was du machen möchtest — zum Beispiel:\n\n' +
-    '- *"Entferne Duplikate aus dem Datensatz"*\n' +
-    '- *"Imputiere fehlende Werte in windspeed mit dem Median"*\n' +
-    '- *"Führe einen Train-Test-Split durch"*\n\n' +
-    'Tipp: Gib `/help` ein, um alle verfügbaren Commands, Steps und Funktionen aufzulisten.\n\n' +
-    'Womit möchtest du beginnen?',
+    'Du brauchst keine Vorkenntnisse in Data Science oder Machine Learning — ' +
+    'beschreib einfach auf Deutsch, was du möchtest. Ich erkläre jeden Schritt und schlage vor, was als nächstes sinnvoll ist.\n\n' +
+    '**Womit möchtest du starten?** Zum Beispiel:\n\n' +
+    '- *„Zeig mir eine Übersicht der Daten"* — ich profiliere den Datensatz ohne ihn zu verändern\n' +
+    '- *„Entferne doppelte Zeilen aus dem Datensatz"* — führt genau diesen einen Schritt aus\n' +
+    '- *„Welche Spalten gibt es und was bedeuten sie?"* — ich erkläre den Datensatz\n\n' +
+    '💡 Jede Anfrage führt genau **einen Schritt** aus. Ich schlage danach automatisch vor, was als nächstes sinnvoll ist.\n\n' +
+    'Klicke unten auf einen der Vorschläge oder schreib einfach los.',
   ts: new Date().toISOString(),
 }
 

@@ -11,6 +11,7 @@ from gysi_ml.api.schemas import (
     RunSummaryResponse,
 )
 from gysi_ml.persistence import run_repository
+from gysi_ml.services.message_service import _get_suggested_next_steps
 
 router = APIRouter(prefix="/v1")
 
@@ -46,15 +47,17 @@ def get_run(
             ).model_dump(),
         )
     result = row.get("result") or {}
+    spec = row.get("spec")
     return RunDetailResponse(
         run_id=row["run_id"],
         status=row["status"],
         started_at=row.get("started_at"),
         finished_at=row.get("finished_at"),
         spec_version=row.get("spec_version"),
-        spec=row.get("spec"),
+        spec=spec,
         step_results=result.get("step_results"),
         metrics=result.get("metrics"),
         artifacts=result.get("artifacts"),
         error_message=row.get("error_message"),
+        suggested_next_steps=_get_suggested_next_steps(spec) if row["status"] == "done" else None,
     )

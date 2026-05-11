@@ -33,11 +33,23 @@ class CommandService:
         texts = self._load_help_texts()
         help_section = texts.get("help", {})
         if topic:
-            categories = help_section.get("categories", {})
             key = topic.lower()
+            # 1. Einzel-Step-Hilfe (z.B. /help dedup, /help impute_missing)
+            steps = help_section.get("steps", {})
+            if key in steps:
+                return str(steps[key]).strip()
+            # 2. Themen-Hilfe (z.B. /help preprocessing, /help modellierung)
+            categories = help_section.get("categories", {})
             if key in categories:
-                return f"**{key}:** {categories[key]}"
-            return f"Unbekanntes Thema: `{topic}`. Verf\u00fcgbar: {', '.join(categories.keys())}"
+                return str(categories[key]).strip()
+            # 3. Nicht gefunden — hilfreiche Fehlermeldung
+            available_steps = ", ".join(f"`{s}`" for s in steps)
+            available_topics = ", ".join(f"`{c}`" for c in categories)
+            return (
+                f"Unbekannte Funktion oder Thema: `{topic}`\n\n"
+                f"**Verf\u00fcgbare Schritte:** {available_steps}\n\n"
+                f"**Verf\u00fcgbare Themen:** {available_topics}"
+            )
         full_text = help_section.get("full_text")
         if full_text:
             return full_text.strip()

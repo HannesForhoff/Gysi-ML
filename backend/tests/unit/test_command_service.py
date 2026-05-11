@@ -74,7 +74,6 @@ def test_help_all_categories(svc_with_mock_help):
 
 def test_help_filtered(svc_with_mock_help):
     result = svc_with_mock_help.handle("/help preprocessing", session_id="s1")
-    assert "preprocessing" in result
     assert "Dedup" in result
     # Andere Kategorien dürfen nicht im Ergebnis stehen
     assert "modellierung" not in result
@@ -82,7 +81,7 @@ def test_help_filtered(svc_with_mock_help):
 
 def test_help_filtered_unknown_topic(svc_with_mock_help):
     result = svc_with_mock_help.handle("/help unbekannt", session_id="s1")
-    assert "Unbekanntes Thema" in result
+    assert "Unbekannte" in result
     assert "unbekannt" in result
 
 

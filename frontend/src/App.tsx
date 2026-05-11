@@ -1,6 +1,6 @@
 import './App.css'
 
-import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 
 import { fetchSpecSummary, fetchSpecTree, performRollback } from './api/healthApi'
 import { confirmProposal, sendAssistantMessage } from './api/transport'
@@ -153,6 +153,28 @@ function App() {
     },
     [state.sessionId, state.ui.type],
   )
+
+  // Kontextbewusste Vorschläge: Starter-Chips solange kein Nutzer-Input, danach
+  // die "Nächste Schritte" aus der letzten Backend-Antwort.
+  const suggestions = useMemo((): string[] => {
+    const hasUserMessage = state.messages.some((m) => m.role === 'user')
+    if (!hasUserMessage) {
+      return [
+        '/overview',
+        'Entferne doppelte Zeilen aus dem Datensatz',
+        'Welche Spalten gibt es und was bedeuten sie?',
+      ]
+    }
+    // Letztes result-message mit suggested_next_steps suchen
+    for (let i = state.messages.length - 1; i >= 0; i--) {
+      const msg = state.messages[i]
+      if (msg.response?.type === 'result') {
+        const steps = msg.response.suggested_next_steps
+        if (steps && steps.length > 0) return steps
+      }
+    }
+    return []
+  }, [state.messages])
 
   const handleConfirm = useCallback(
     async (proposalId: string) => {
@@ -340,7 +362,7 @@ function App() {
             activePendingProposalId={state.pendingProposalId}
             isSending={isSending}
           />
-          <Composer disabled={isSending} onSend={handleSend} value={draftText} onChange={setDraftText} />
+          <Composer disabled={isSending} onSend={handleSend} value={draftText} onChange={setDraftText} suggestions={suggestions} />
         </ChatLayout>
       </div>
     </div>

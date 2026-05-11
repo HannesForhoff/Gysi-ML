@@ -11,65 +11,347 @@ welcome_message: |
   - „Trainiere einen Decision Tree mit max_depth=5“
   - „Vergleiche Run A mit Run B“
 
-  **Hilfe:** `/help` → Alle Funktionen  |  `/overview` → Datensatz-Überblick  |  `/status` → Session-Status
+  **Hilfe:** `/help` → Übersicht  |  `/overview` → Datensatz  |  `/status` → Session
 
 help:
   full_text: |
     ## Gysi – Hilfeübersicht
 
-    Beschreibe auf Deutsch, was du tun möchtest. Gysi übersetzt deine Anfrage in Aktionsschritte und führt sie aus.
+    Beschreibe auf Deutsch, was du tun möchtest. Gysi übersetzt deine Anfrage in Pipeline-Schritte.
     Du brauchst keine ML-Kenntnisse — einfach natürliche Sprache verwenden.
 
-    ---
-
-    ### Datensatz erkunden
-
-    - **`/overview`** — Zeigt eine statistische Übersicht: Spaltennamen, Datentypen, fehlende Werte und Werteverteilung
-    - **`/status`** — Zeigt den aktuellen Stand deiner Pipeline und die Ergebnisse des letzten Runs
+    **Einzel-Hilfe:** `/help <schritt>` — z. B. `/help dedup`, `/help impute_missing`, `/help train_decision_tree`
+    **Themen-Hilfe:** `/help preprocessing` | `/help modellierung` | `/help visualisierung` | `/help daten`
 
     ---
 
-    ### Preprocessing-Schritte
+    ### 🔍 Datensatz erkunden
 
-    Diese Schritte bereinigen und transformieren die Rohdaten, bevor ein Modell trainiert werden kann:
-
-    - **Duplikate entfernen** — Entfernt identische Zeilen aus dem Datensatz
-    - **Imputation** — Füllt fehlende Werte auf (z. B. mit Median, Mittelwert oder einem festen Wert)
-    - **Encoding** — Wandelt Text-Kategorien in Zahlen um, damit Modelle damit arbeiten können
-    - **Outlier Handling** — Erkennt und behandelt Ausreißer (z. B. per IQR-Methode)
-    - **Correlation Filter** — Entfernt Spalten, die stark miteinander korrelieren (Redundanzreduktion)
-    - **Rare Category Bucketing** — Fasst selten vorkommende Kategorien zu einer Sammelgruppe zusammen
-    - **Time Features** — Extrahiert neue Spalten aus Zeitstempeln (z. B. Stunde, Wochentag, Monat)
+    - **`/overview`** — Statistische Übersicht: Spalten, Datentypen, fehlende Werte, Werteverteilung
+    - **`/status`** — Aktueller Stand der Pipeline und Ergebnisse des letzten Runs
 
     ---
 
-    ### Modelltraining
+    ### 🧹 Preprocessing
 
-    Wichtig: Vor dem Training muss immer ein **Train-Test-Split** durchgeführt werden.
-    Dieser teilt die Daten in Trainings- und Testdaten auf, damit das Modell fair bewertet werden kann.
+    | Schritt | Kurzbeschreibung | Parameter | Werte / Standard |
+    |---|---|---|---|
+    | `dedup` | Duplikate entfernen | — | — |
+    | `impute_missing` | Fehlende Werte auffüllen | `strategy` | `median`¹ \| `mean` \| `most_frequent` |
+    | | | `columns` | Spaltenliste *(leer = alle numerischen)* |
+    | `outlier_handling` | Ausreißer winsorisieren | `method` | `iqr`¹ \| `zscore` |
+    | | | `zscore_threshold` | Zahl *(Standard: `3.0`)* |
+    | | | `columns` | Spaltenliste *(leer = alle numerischen)* |
+    | `encode_categorical` | Kategorien → Zahlen | `method` | `label`¹ \| `onehot` |
+    | | | `columns` | Spaltenliste *(leer = automatisch)* |
+    | `correlation_filter` | Korrelierte Spalten finden/entfernen | `threshold` | Zahl *(Standard: `0.9`)* |
+    | | | `analysis_only` | `true`¹ \| `false` |
+    | | | `features_to_drop` | Spaltenliste |
+    | `rare_category_bucketing` | Seltene Kategorien bündeln | `min_frequency` | Zahl *(Standard: `0.01`)* |
+    | | | `columns` | Spaltenliste *(leer = alle kategorischen)* |
+    | `time_feature_encoding` | Zeitfeatures aus Datum extrahieren | `column` | Spaltenname *(Standard: `dteday`)* |
+    | | | `features` | `weekday`¹ \| `month`¹ \| `day_of_month` \| `year` \| `quarter` |
+    | | | `drop_original` | `false`¹ \| `true` |
+    | `cast_dtype` | Datentyp ändern | `columns` | `{"spalte": "typ"}` — `int64` \| `float64` \| `str` \| `category` \| `bool` \| `datetime64` |
+    | | | `datetime_format` | z. B. `"%Y-%m-%d"` *(optional)* |
+    | `split` | Train/Test-Split | `test_size` | Zahl *(Standard: `0.2`)* |
+    | | | `random_state` | Ganzzahl *(Standard: `42`)* |
 
-    - **Decision Tree** — Einfaches, gut erklärbares Baummodell; typische Parameter: `max_depth`, `target`
-    - **EBM (Explainable Boosting Machine)** — Genaues Modell mit eingebauter Erklärbarkeit
-    - **CatBoost Feature Selection** — Ermittelt die wichtigsten Einflussvariablen (Feature Importance)
+    *¹ = Standard-Wert*
 
     ---
 
-    ### Beispielanfragen
+    ### 🤖 Modelltraining & Analyse
 
-    > „Entferne Duplikate und imputiere fehlende Werte in `windspeed` mit dem Median“
-    >
-    > „Führe einen Train-Test-Split durch“
-    >
-    > „Trainiere einen Decision Tree mit max_depth=4 auf die Zielspalte cnt“
+    | Schritt | Kurzbeschreibung | Parameter | Werte / Standard |
+    |---|---|---|---|
+    | `train_decision_tree` | Decision Tree trainieren | `max_depth` | Ganzzahl *(Standard: kein Limit)* |
+    | | | `random_state` | Ganzzahl *(Standard: `42`)* |
+    | `train_ebm` | Explainable Boosting Machine | `random_state` | Ganzzahl *(Standard: `42`)* |
+    | `catboost_feature_selection` | Feature-Wichtigkeit analysieren | `top_n` | Ganzzahl *(Standard: `8`)* |
+    | | | `analysis_only` | `true`¹ \| `false` |
+    | | | `features_to_drop` | Spaltenliste |
+
+    *¹ = Standard-Wert*
 
     ---
 
-    **Grenzen:** Gysi arbeitet ausschließlich mit dem Bike-Sharing-Datensatz.
-    Kein Code-Upload, keine externen Daten, kein Deployment.
+    ### 📊 Visualisierung
+
+    | Schritt | Kurzbeschreibung | Parameter | Werte / Standard |
+    |---|---|---|---|
+    | `plot_distribution` | Verteilung einer Spalte plotten | `feature` | Spaltenname *(Pflicht!)* |
+    | | | `group_by` | Spaltenname *(Standard: kein)* |
+
+    ---
+
+    **Grenzen:** Nur Bike-Sharing-Datensatz. Kein Code-Upload, keine externen Daten.
 
   categories:
-    daten: "Datensatz erkunden: /overview, Profiling"
-    preprocessing: "Dedup, Imputation, Encoding, Outlier Handling, Correlation Filter, Rare Category, Time Features"
-    modellierung: "Decision Tree, EBM, CatBoost Feature Selection"
-    pipeline: "Spec-Abruf, Re-Execution, Parameter-Anpassung, Modellvergleich"
-    grenzen: "Nur Bike-Datensatz, kein Code-Upload, kein Deployment"
+    preprocessing: |
+      **Preprocessing-Schritte** — Details: `/help <schritt>`
+
+      - **dedup** — Duplikate entfernen *(keine Parameter)*
+      - **impute_missing** — strategy=median|mean|most_frequent, columns=[]
+      - **outlier_handling** — method=iqr|zscore, zscore_threshold=3.0, columns=[]
+      - **encode_categorical** — method=label|onehot, columns=[]
+      - **correlation_filter** — threshold=0.9, analysis_only=true, features_to_drop=[]
+      - **rare_category_bucketing** — min_frequency=0.01, columns=[]
+      - **time_feature_encoding** — column=dteday, features=[weekday,month], drop_original=false
+      - **cast_dtype** — columns={"spalte":"typ"} (int64|float64|str|category|bool|datetime64)
+      - **split** — test_size=0.2, random_state=42
+
+    modellierung: |
+      **Modelltraining & Analyse** — Details: `/help <schritt>`
+
+      Train-Test-Split muss vor dem ersten Training ausgeführt worden sein!
+
+      - **train_decision_tree** — max_depth=null (kein Limit), random_state=42
+      - **train_ebm** — random_state=42
+      - **catboost_feature_selection** — top_n=8, analysis_only=true, features_to_drop=[]
+
+    visualisierung: |
+      **Visualisierung** — Details: `/help plot_distribution`
+
+      - **plot_distribution** — feature=<spaltenname> (Pflicht!), group_by=null
+
+    daten: |
+      **Datensatz erkunden:**
+
+      - **/overview** — Statistiken, Spaltennamen, Datentypen, fehlende Werte
+      - **/status** — Aktuelle Pipeline-Spec und Ergebnisse des letzten Runs
+
+    grenzen: "Gysi arbeitet nur mit dem Bike-Sharing-Datensatz. Kein Code-Upload, keine externen Daten, kein Deployment."
+
+  steps:
+    dedup: |
+      ### 🧹 `dedup` — Duplikate entfernen
+
+      Entfernt Zeilen, die in **allen** Spalten identisch sind. Im Bike-Datensatz können solche Duplikate durch fehlerhafte Doppelerfassung entstehen und würden Statistiken und Modellevaluierung verzerren.
+
+      **Parameter:** keine
+
+      **Empfehlung:** Immer als **erster Schritt** ausführen, bevor Imputation oder Encoding laufen — so wird sichergestellt, dass alle nachfolgenden Berechnungen auf sauberen Daten basieren.
+
+      **Beispiel:**
+      > „Entferne doppelte Zeilen aus dem Datensatz“
+
+    impute_missing: |
+      ### 🧹 `impute_missing` — Fehlende Werte auffüllen
+
+      Füllt `NaN`-Werte in numerischen Spalten mit einer statistischen Kennzahl auf. Im Bike-Datensatz hat `windspeed` häufig fehlende Werte.
+
+      **Parameter:**
+      - `strategy` *(Standard: `median`)* — `median` | `mean` | `most_frequent`
+        - `median`: robust gegen Ausreißer, empfohlen für schiefe Verteilungen
+        - `mean`: sensitiv gegen Ausreißer, nur bei symmetrischer Verteilung sinnvoll
+        - `most_frequent`: geeignet für kategorische Spalten
+      - `columns` *(Standard: leer = alle numerischen Spalten)* — Spaltenliste, z. B. `["windspeed", "hum"]`
+
+      **⚠️ Achtung — Data Leakage:** Dieser Schritt **lernt** den Median/Mean aus den Trainingsdaten.
+      Er muss **nach** dem Train-Test-Split ausgeführt werden. Gysi warnt automatisch, wenn die Reihenfolge nicht stimmt.
+
+      **Beispiel:**
+      > „Impute fehlende Werte in windspeed mit dem Median“
+      > „Fülle alle fehlenden Werte mit dem Mittelwert auf“
+
+    outlier_handling: |
+      ### 🧹 `outlier_handling` — Ausreißer behandeln
+
+      Erkennt extreme Werte und begrenzt sie per **Winsorisierung** (Capping): Die Werte werden nicht entfernt, sondern auf einen Grenzwert gesetzt. Das hält die Datenmenge konstant.
+
+      **Parameter:**
+      - `method` *(Standard: `iqr`)* — `iqr` | `zscore`
+        - `iqr` (Interquartilsabstand): robust, empählt sich bei schiefen Daten — Capping auf [Q1−1.5×IQR, Q3+1.5×IQR]
+        - `zscore` (Standardabweichung): geeignet bei normalverteilten Daten — Capping auf [µ−k×σ, µ+k×σ]
+      - `zscore_threshold` *(Standard: `3.0`)* — Schwellwert k bei Z-Score-Methode
+      - `columns` *(Standard: leer = alle numerischen Spalten)* — Spaltenliste
+
+      **⚠️ Achtung — Data Leakage:** Grenzen werden aus den Trainingsdaten gelernt — muss **nach** dem Split ausgeführt werden.
+
+      **Beispiel:**
+      > „Behandle Ausreißer in temp und windspeed mit der IQR-Methode“
+      > „Windsorisiere alle numerischen Spalten“
+
+    encode_categorical: |
+      ### 🧹 `encode_categorical` — Kategorien in Zahlen umwandeln
+
+      Wandelt Textspalten (dtype `object` oder `category`) in numerische Werte um, damit ML-Modelle damit arbeiten können.
+
+      **Parameter:**
+      - `method` *(Standard: `label`)* — `label` | `onehot`
+        - `label`: Jede Kategorie erhält eine ganze Zahl (0, 1, 2, ...). Einfach und speichereffizient. Kann bei linearen Modellen ordinale Beziehungen implizieren, die nicht existieren — für Entscheidungsbäume aber unproblematisch.
+        - `onehot`: Erstellt für jede Kategorie eine eigene Binärspalte (0/1). Keine ordinale Annahme, aber mehr Spalten.
+      - `columns` *(Standard: leer = automatische Erkennung per dtype)* — Spaltenliste
+
+      **⚠️ Achtung — Data Leakage:** Das Mapping wird aus den Trainingsdaten gelernt — muss **nach** dem Split ausgeführt werden.
+
+      **Tipp:** Wenn `season` oder `weathersit` noch als `int64` vorliegen, vorher mit `cast_dtype` auf `category` setzen.
+
+      **Beispiel:**
+      > „Encode alle kategorischen Spalten mit Label-Encoding“
+      > „Wandle season und weathersit per One-Hot-Encoding um“
+
+    correlation_filter: |
+      ### 🧹 `correlation_filter` — Korrelierte Spalten finden und entfernen
+
+      Berechnet paarweise **Pearson-Korrelationen** zwischen numerischen Spalten. Paare über dem Schwellwert werden als redundant gemeldet. Hohe Korrelation zwischen Features kann die Modellinterpretierbarkeit verschlechtern.
+
+      **Parameter:**
+      - `threshold` *(Standard: `0.9`)* — Korrelationsschwelle (0.0–1.0). Paare darüber gelten als redundant.
+      - `analysis_only` *(Standard: `true`)* — Nur analysieren, kein Feature wird entfernt. Sinnvoll für den ersten Aufruf.
+      - `features_to_drop` *(Standard: leer)* — Nach Prüfung explizit festgelegte Features, die entfernt werden sollen.
+
+      **Typischer Ablauf (zweistufig):**
+      1. `analysis_only=true` — Gysi zeigt, welche Paare hoch korreliert sind
+      2. Du entscheidest, welche Spalte aus jedem Paar fällt
+      3. Gysi führt den Schritt mit `features_to_drop` erneut aus
+
+      **Beispiel:**
+      > „Analysiere korrelierte Spalten mit Schwellwert 0.9“
+      > „Entferne atemp, da es stark mit temp korreliert“
+
+    rare_category_bucketing: |
+      ### 🧹 `rare_category_bucketing` — Seltene Kategorien bündeln
+
+      Fasst Kategorien, die seltener als `min_frequency` Prozent aller Datenpunkte vorkommen, zu einer Sammelgruppe `"_other_"` zusammen. Verhindert, dass Modelle auf Raritäten überfitten, und reduziert nach One-Hot-Encoding die Anzahl der Spalten.
+
+      **Parameter:**
+      - `min_frequency` *(Standard: `0.01` = 1 %)* — Minimale relative Häufigkeit. Kategorien darunter werden gebündelt.
+      - `columns` *(Standard: leer = alle kategorischen Spalten)* — Spaltenliste
+
+      **Tipp:** Sinnvoll vor `encode_categorical` mit `onehot`, damit keine Spalten für winzige Gruppen entstehen.
+
+      **Beispiel:**
+      > „Fasse seltene Kategorien in weathersit zusammen“
+      > „Buckete alle kategorischen Spalten mit min_frequency=0.05“
+
+    time_feature_encoding: |
+      ### 🧹 `time_feature_encoding` — Zeitfeatures aus Datum extrahieren
+
+      Extrahiert strukturierte numerische/kategorische Features aus einer Datumsspalte. Die neue Spalten ermöglichen es Modellen, saisonale Muster, Wochentags- und Monatseffekte zu lernen.
+
+      **Parameter:**
+      - `column` *(Standard: `dteday`)* — Name der Datumsspalte
+      - `features` *(Standard: `["weekday", "month"]`)* — Welche Features extrahiert werden:
+        - `weekday` — Wochentag (0=Montag, 6=Sonntag)
+        - `month` — Monat (1–12)
+        - `day_of_month` — Tag im Monat (1–31)
+        - `year` — Jahr
+        - `quarter` — Quartal (1–4)
+      - `drop_original` *(Standard: `false`)* — Datumsspalte nach Extraktion entfernen?
+
+      **Tipp:** `dteday` sollte vorher mit `cast_dtype` auf `datetime64` gesetzt werden, damit die Extraktion korrekt funktioniert.
+
+      **Beispiel:**
+      > „Extrahiere Wochentag, Monat und Quartal aus der Datumsspalte dteday“
+      > „Erstelle Zeitfeatures aus dteday und entferne die Originalspalte danach“
+
+    cast_dtype: |
+      ### 🧹 `cast_dtype` — Datentyp einer Spalte ändern
+
+      Ändert den Datentyp einzelner Spalten. Nützlich, um nominale Spalten wie `season` oder `weathersit` von `int64` auf `category` zu setzen (damit Encoding-Schritte greifen) oder `dteday` auf `datetime64` (für Time-Feature-Extraktion).
+
+      **Parameter:**
+      - `columns` — Mapping von Spaltenname zu Zieldatentyp, z. B. `{"season": "category", "dteday": "datetime64"}`
+        - Erlaubte Typen: `int64` | `float64` | `str` | `object` | `category` | `bool` | `datetime64`
+      - `datetime_format` *(optional)* — strptime-Format für `datetime64`-Casts, z. B. `"%Y-%m-%d"`
+
+      **Tipp:** Führe diesen Schritt möglichst **früh** in der Pipeline aus — korrekte Datentypen helfen allen nachfolgenden Schritten.
+
+      **Beispiel:**
+      > „Konvertiere season und weathersit zu category“
+      > „Caste dteday auf datetime64 mit Format %Y-%m-%d“
+
+    split: |
+      ### 🧹 `split` — Train/Test-Split
+
+      Teilt den Datensatz in **Trainings-** und **Testdaten** auf. Die Trainingsdaten werden für das Modelltraining verwendet, die Testdaten zur unabhängigen Bewertung — so wird sichergestellt, dass das Modell auf neuen Daten funktioniert.
+
+      **Parameter:**
+      - `test_size` *(Standard: `0.2`)* — Anteil der Testdaten (0.0–1.0). `0.2` = 20 % Test, 80 % Training.
+      - `random_state` *(Standard: `42`)* — Zufalls-Seed für Reproduzierbarkeit
+
+      **⚠️ Wichtig:** Muss **vor** dem Modelltraining ausgeführt werden.
+      Lernende Preprocessing-Schritte (Imputation, Encoding, Outlier Handling) sollten **nach** dem Split laufen — sonst Data Leakage. Gysi warnt automatisch, wenn das nicht eingehalten wird.
+
+      **Beispiel:**
+      > „Teile die Daten 80/20 auf“
+      > „Führe einen Train-Test-Split mit 25 % Testdaten durch“
+
+    train_decision_tree: |
+      ### 🤖 `train_decision_tree` — Decision Tree trainieren
+
+      Trainiert einen **Entscheidungsbaum** (sklearn `DecisionTreeRegressor`) auf die Zielspalte `cnt` (Fahrradausleihen). Bewertet das Modell nach dem Training auf den Testdaten und gibt R², MAE und RMSE aus.
+
+      **Parameter:**
+      - `max_depth` *(Standard: kein Limit)* — Maximale Baumtiefe. Ohne Limit überfittet der Baum leicht — empfohlen: `4`–`6`.
+      - `random_state` *(Standard: `42`)* — Zufalls-Seed
+
+      **Tipp:** Starte mit `max_depth=4` oder `max_depth=5` und erhöhe schrittweise, wenn die Trainingsmetriken noch schlecht sind. Ein Decision Tree ist gut für eine erste Basislinie — für bessere Genauigkeit dann EBM ausprobieren.
+
+      **Voraussetzung:** `split` muss vorher ausgeführt worden sein.
+
+      **Beispiel:**
+      > „Trainiere einen Decision Tree mit max_depth=4“
+      > „Trainiere einen Entscheidungsbaum ohne Tiefenlimit“
+
+    train_ebm: |
+      ### 🤖 `train_ebm` — Explainable Boosting Machine trainieren
+
+      Trainiert eine **Explainable Boosting Machine** (InterpretML). EBM ist ähnlich wie Gradient Boosting, aber jedes Feature wird separat modelliert — das Modell bleibt vollständig interpretierbar. Meist präziser als ein Decision Tree, läuft aber langsamer.
+
+      **Parameter:**
+      - `random_state` *(Standard: `42`)* — Zufalls-Seed
+
+      **Vorteile:**
+      - Hohe Genauigkeit bei gleichzeitiger globaler und lokaler Erklärbarkeit
+      - Gysi erklärt die Feature-Beiträge nach dem Training automatisch
+      - Kein max_depth-Tuning nötig — EBM regularisiert sich intern
+
+      **Voraussetzung:** `split` muss vorher ausgeführt worden sein.
+
+      **Beispiel:**
+      > „Trainiere ein EBM-Modell“
+      > „Trainiere eine Explainable Boosting Machine zum Vergleich mit dem Decision Tree“
+
+    catboost_feature_selection: |
+      ### 🤖 `catboost_feature_selection` — Feature-Wichtigkeit analysieren
+
+      Nutzt **CatBoost**, um die Wichtigkeit jedes Features für die Zielspalte `cnt` zu berechnen und zu ranken. Gibt die `top_n` wichtigsten Features aus. Kann anschließend unwichtige Features aus dem Datensatz entfernen.
+
+      **Parameter:**
+      - `top_n` *(Standard: `8`)* — Anzahl der anzuzeigenden wichtigsten Features
+      - `analysis_only` *(Standard: `true`)* — Nur analysieren, kein Feature wird entfernt
+      - `features_to_drop` *(Standard: leer)* — Features, die nach Prüfung entfernt werden sollen
+
+      **Typischer Ablauf (zweistufig):**
+      1. `analysis_only=true` — Gysi zeigt Ranking der wichtigsten Features
+      2. Du entscheidest, welche unwichtigen Features weg sollen
+      3. Gysi führt den Schritt mit `features_to_drop` erneut aus
+
+      **Tipp:** Nützlich vor dem eigentlichen Training, um irrelevante oder redundante Spalten zu entfernen und das Modell zu vereinfachen.
+
+      **Voraussetzung:** `split` muss vorher ausgeführt worden sein.
+
+      **Beispiel:**
+      > „Welche Spalten haben den größten Einfluss auf cnt?“
+      > „Analysiere die Feature-Wichtigkeit mit top_n=10“
+
+    plot_distribution: |
+      ### 📊 `plot_distribution` — Verteilung einer Spalte visualisieren
+
+      Erzeugt eine **Visualisierung** der Werteverteilung einer Spalte. Wird als Bild in den Artefakten gespeichert. Mit `group_by` kann die Verteilung nach einer kategorischen Spalte aufgeteilt werden — dann entstehen ein Mittelwert-Balkendiagramm und ein gruppierter Boxplot.
+
+      **Parameter:**
+      - `feature` *(Pflicht)* — Name der zu visualisierenden Spalte, z. B. `cnt`, `temp`, `windspeed`
+      - `group_by` *(Standard: kein)* — Optionale Gruppierspalte, z. B. `season`, `weathersit`, `weekday`
+
+      **Hinweis:** Dieser Schritt ist **transient** — er wird nicht dauerhaft in der Pipeline-Spec gespeichert und beeinflusst keine Modelle. Er kann jederzeit aufgerufen werden.
+
+      **Tipp:** Nutze `plot_distribution` vor dem Preprocessing, um ein Gefühl für die Daten zu bekommen — z. B. ob `windspeed` eine schiefe Verteilung hat oder ob `cnt` nach Saison stark variiert.
+
+      **Beispiel:**
+      > „Zeige die Verteilung von cnt“
+      > „Zeige die Verteilung von cnt gruppiert nach season“
+      > „Visualisiere windspeed gruppiert nach weathersit“
