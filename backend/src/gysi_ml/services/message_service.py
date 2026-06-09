@@ -45,7 +45,7 @@ def _get_suggested_next_steps(spec: dict | None) -> list[str]:
         return []
 
     has_split = "split" in done
-    has_model = bool(done & {"train_decision_tree", "train_ebm"})
+    has_model = bool(done & {"train_decision_tree", "train_ebm", "train_linear_regression"})
 
     suggestions: list[str] = []
 
@@ -66,6 +66,8 @@ def _get_suggested_next_steps(spec: dict | None) -> list[str]:
     else:
         if "train_ebm" not in done and "train_decision_tree" in done:
             suggestions.append("Trainiere ein EBM-Modell zum Vergleich mit dem Decision Tree")
+        if "train_linear_regression" not in done:
+            suggestions.append("Trainiere eine Lineare Regression zum Vergleich")
         if "catboost_feature_selection" not in done:
             suggestions.append("Welche Spalten haben den größten Einfluss auf cnt?")
         suggestions.append("Erkläre mir das Ergebnis des Modells")
@@ -529,10 +531,12 @@ def handle_message(
             if persistent_steps or current_spec_entry is None:
                 # Spec-Version wird erst nach erfolgreicher Ausführung gespeichert, damit
                 # fehlgeschlagene Runs die Session-Spec nicht korrumpieren (Bug 1F).
-                tentative_spec_id = current_spec_entry["spec_id"] if current_spec_entry else None
+                # Neue Steps noch nicht mit der aktuellen Spec-Version verknüpfen —
+                # ein fehlgeschlagener Run soll die bestehende Spec nicht als "failed" markieren.
+                # Bei Erfolg übernimmt update_run_spec_ref die Verknüpfung mit der neuen Version.
                 result = executor.execute_with_spec_id(
                     spec=exec_spec,
-                    spec_id=tentative_spec_id,
+                    spec_id=None,
                     session_id=session_id,
                     db_path=db_path,
                 )

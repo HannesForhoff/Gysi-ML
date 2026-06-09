@@ -57,6 +57,9 @@ def _format_step_hint(step: dict) -> str:
     if step_type == "train_ebm":
         return "(cnt)"
 
+    if step_type == "train_linear_regression":
+        return "(cnt)"
+
     if step_type == "catboost_feature_selection":
         top_n = params.get("top_n")
         return f"(cnt, top_n={top_n})" if top_n is not None else "(cnt)"

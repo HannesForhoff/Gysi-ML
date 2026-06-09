@@ -15,7 +15,7 @@ from gysi_ml.persistence import run_repository, session_repository, spec_reposit
 
 router = APIRouter(prefix="/v1")
 
-_MODELING_STEPS = {"train_decision_tree", "train_ebm", "catboost_feature_selection"}
+_MODELING_STEPS = {"train_decision_tree", "train_ebm", "train_linear_regression", "catboost_feature_selection"}
 
 
 def _derive_phase(spec: dict) -> str:

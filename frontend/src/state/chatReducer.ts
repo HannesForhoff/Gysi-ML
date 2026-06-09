@@ -92,6 +92,10 @@ const WELCOME_MESSAGE: ChatMessage = {
     '- *„Entferne doppelte Zeilen aus dem Datensatz"* — führt genau diesen einen Schritt aus\n' +
     '- *„Welche Spalten gibt es und was bedeuten sie?"* — ich erkläre den Datensatz\n\n' +
     '💡 Jede Anfrage führt genau **einen Schritt** aus. Ich schlage danach automatisch vor, was als nächstes sinnvoll ist.\n\n' +
+    '**Nützliche Befehle:**\n\n' +
+    '- `/overview` — Datensatz-Profil (Spalten, Typen, fehlende Werte)\n' +
+    '- `/status` — aktueller Stand der Pipeline\n' +
+    '- `/help` — alle verfügbaren Schritte und Erklärungen\n\n' +
     'Klicke unten auf einen der Vorschläge oder schreib einfach los.',
   ts: new Date().toISOString(),
 }

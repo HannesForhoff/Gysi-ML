@@ -67,6 +67,7 @@ help:
     |---|---|---|---|
     | `train_decision_tree` | Decision Tree trainieren | `max_depth` | Ganzzahl *(Standard: kein Limit)* |
     | | | `random_state` | Ganzzahl *(Standard: `42`)* |
+    | `train_linear_regression` | Lineare Regression trainieren | — | *(keine Parameter)* |
     | `train_ebm` | Explainable Boosting Machine | `random_state` | Ganzzahl *(Standard: `42`)* |
     | `catboost_feature_selection` | Feature-Wichtigkeit analysieren | `top_n` | Ganzzahl *(Standard: `8`)* |
     | | | `analysis_only` | `true`¹ \| `false` |
@@ -107,6 +108,7 @@ help:
       Train-Test-Split muss vor dem ersten Training ausgeführt worden sein!
 
       - **train_decision_tree** — max_depth=null (kein Limit), random_state=42
+      - **train_linear_regression** — keine Parameter, OLS-Regression
       - **train_ebm** — random_state=42
       - **catboost_feature_selection** — top_n=8, analysis_only=true, features_to_drop=[]
 
@@ -295,6 +297,27 @@ help:
       **Beispiel:**
       > „Trainiere einen Decision Tree mit max_depth=4“
       > „Trainiere einen Entscheidungsbaum ohne Tiefenlimit“
+
+    train_linear_regression: |
+      ### 🤖 `train_linear_regression` — Lineare Regression trainieren
+
+      Trainiert eine **Lineare Regression** (sklearn `LinearRegression`, OLS) auf die Zielspalte `cnt` (Fahrradausleihen). Bewertet das Modell auf Trainings- und Testdaten und gibt R², MAE und RMSE aus.
+
+      **Parameter:** keine — OLS hat keine Hyperparameter.
+
+      **Ausgaben:**
+      - Metriken: RMSE, MAE, R² (Train + Test)
+      - Koeffizienten-Plot: Top-20 Features nach absolutem Betrag mit Vorzeichen
+
+      **Stärken:** Vollständig interpretierbar — jeder Koeffizient gibt die Wirkungsrichtung und -stärke an. Gut als Basislinie, bevor komplexere Modelle trainiert werden.
+
+      **Einschränkungen:** Kann nur lineare Zusammenhänge lernen. Keine Regularisierung — bei vielen korrelierten Features instabil.
+
+      **Voraussetzung:** `split` muss vorher ausgeführt worden sein.
+
+      **Beispiel:**
+      > „Trainiere eine lineare Regression"
+      > „Führe eine OLS-Regression durch und zeige mir die wichtigsten Koeffizienten"
 
     train_ebm: |
       ### 🤖 `train_ebm` — Explainable Boosting Machine trainieren

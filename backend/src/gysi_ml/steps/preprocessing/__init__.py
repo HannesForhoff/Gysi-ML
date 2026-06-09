@@ -2,6 +2,7 @@ from gysi_ml.steps.preprocessing import dedup, imputation, outlier_handling, spl
 from gysi_ml.steps.preprocessing import encoding, correlation_filter, rare_category, time_features  # aus Story 1.4
 from gysi_ml.steps.preprocessing import cast_dtype  # Datentyp-Konvertierung
 from gysi_ml.steps.preprocessing import plot_distribution  # Data-Understanding-Visualisierungen
+from gysi_ml.steps.preprocessing import drop_columns  # Manuelles Feature-Entfernen
 
 __all__ = [
     "dedup",
@@ -14,4 +15,5 @@ __all__ = [
     "time_features",
     "cast_dtype",
     "plot_distribution",
+    "drop_columns",
 ]

@@ -193,7 +193,7 @@ class PipelineExecutor:
         self,
         spec: dict,
         run_id: str,
-        spec_id: str,
+        spec_id: str | None,
         spec_version: str | None,
         session_id: str,
         started_at: str,
@@ -203,7 +203,7 @@ class PipelineExecutor:
         steps = spec.get("steps", [])
 
         # Resolve spec_version from DB if not provided (re-execution)
-        if spec_version is None:
+        if spec_version is None and spec_id is not None:
             conn = get_connection(db_path)
             try:
                 row = conn.execute(

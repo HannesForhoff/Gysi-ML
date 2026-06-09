@@ -17,6 +17,7 @@ _TYPE_TO_DOWNLOAD_FILENAME: dict[str, str] = {
     "split_test": "testdaten.csv",
     "feature_importance": "decision_tree_feature_importance.png",
     "ebm_global_explanation": "ebm_feature_importance.png",
+    "lr_coefficients": "lineare_regression_koeffizienten.png",
     "correlation_filter_result": "correlation_filter_ergebnis.csv",
     "time_features_result": "time_features_ergebnis.csv",
     "overfitting_plot": "overfitting_train_vs_test.png",

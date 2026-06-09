@@ -94,7 +94,7 @@ Das Feld `parameters_summary` ist bei **jedem Step** anzugeben — besonders bei
 ## Wichtig
 
 - Preprocessing-Steps wie `impute_missing`, `outlier_handling` und `encode_categorical` können auch ohne vorherigen `split`-Step auf dem Gesamtdatensatz ausgeführt werden — das ist für explorative und lehrreiche Workflows vollkommen korrekt.
-- Der `split`-Step ist jedoch zwingend erforderlich **bevor** Modeling-Steps (`train_decision_tree`, `train_ebm`, `catboost_feature_selection`) ausgeführt werden, da sonst Data Leakage entsteht.
+- Der `split`-Step ist jedoch zwingend erforderlich **bevor** Modeling-Steps (`train_decision_tree`, `train_ebm`, `train_linear_regression`, `catboost_feature_selection`) ausgeführt werden, da sonst Data Leakage entsteht.
 - Füge **niemals** einen `split`-Step automatisch zur Spec hinzu, wenn der Nutzer ihn nicht explizit angefragt hat. Die Spec enthält ausschließlich die Steps, die der Nutzer verlangt hat.
 - Wenn der Nutzer in Richtung Training oder Modellierung möchte und noch kein Split vorhanden ist, weise in der `explanation` kurz darauf hin — aber ändere die Spec nicht.
 - Füge **niemals** einen `cast_dtype`-Step automatisch hinzu, um den Typ einer Spalte vorzubereiten (z.B. für Imputation). Wenn ein Nutzer `impute_missing` für eine Spalte möchte, die aktuell als nicht-numerisch definiert ist, weise in der `explanation` darauf hin — aber ändere die Spec nicht eigenmächtig.

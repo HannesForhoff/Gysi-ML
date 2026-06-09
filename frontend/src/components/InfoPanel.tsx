@@ -28,6 +28,24 @@ export function InfoPanel({ specSummary, lastRun, artifacts, versionMetrics }: I
   // step_results werden per step_type gematcht, nicht per Index (Bug 1.13 Fix C)
   const stepResults: StepResult[] = lastRun?.step_results ?? []
 
+  // Nth-Occurrence-Matching: mehrere Steps desselben Typs (z.B. zwei impute_missing mit
+  // verschiedenen Strategien) erhalten jeweils die korrekte step_result, nicht immer die erste.
+  const specStepResults = useMemo(() => {
+    const countSeen: Record<string, number> = {}
+    return (specSummary?.steps ?? []).map(step => {
+      const seenBefore = countSeen[step.step_type] ?? 0
+      countSeen[step.step_type] = seenBefore + 1
+      let matchCount = 0
+      return stepResults.find(r => {
+        if (r.step_type === step.step_type) {
+          if (matchCount === seenBefore) return true
+          matchCount++
+        }
+        return false
+      }) ?? null
+    })
+  }, [specSummary, stepResults])
+
   // Artefakte nach Spec-Version gruppieren (neueste zuerst)
   const artifactGroups = useMemo(() => {
     const map = new Map<string, ArtifactRef[]>()
@@ -64,7 +82,7 @@ export function InfoPanel({ specSummary, lastRun, artifacts, versionMetrics }: I
         {specSummary ? (
           <ul className="infoPipelineSteps">
             {specSummary.steps.map((step, idx) => {
-              const sr = stepResults.find(r => r.step_type === step.step_type)
+              const sr = specStepResults[idx]
               return (
                 <li key={`${step.step_type}-${idx}`} className="infoPipelineStep">
                   <div className="infoPipelineStepHeader">

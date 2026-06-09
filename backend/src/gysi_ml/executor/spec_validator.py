@@ -7,6 +7,7 @@ REQUIRES_SPLIT: frozenset[str] = frozenset({
     # Modeling Steps (Epic 2) — zwingend nach Split wegen Data Leakage
     "train_decision_tree",
     "train_ebm",
+    "train_linear_regression",
     "catboost_feature_selection",
 })
 
