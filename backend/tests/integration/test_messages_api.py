@@ -59,6 +59,20 @@ def test_post_message_409_closed_session(client, session_id):
     assert body["code"] == "SESSION_CLOSED"
 
 
+def test_post_message_rollback_request_returns_manual_tree_hint(client, session_id):
+    """Rollback/Korrektur per Chat wird abgefangen und auf manuellen Tree-Rollback verwiesen."""
+    resp = client.post(
+        f"/v1/sessions/{session_id}/messages",
+        json={"text": "Geh bitte zu v1 zurück und berichtige die letzten Schritte"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["type"] == "assistant"
+    assert "Versionsbaum" in body["message"]
+    assert "keinen Rollback auslösen" in body["message"]
+    assert "nicht nachträglich berichtigen" in body["message"]
+
+
 def test_messages_in_session_detail(client, session_id):
     """POST Message → GET Session → messages-Array enthält user + assistant Messages."""
     client.post(f"/v1/sessions/{session_id}/messages", json={"text": "Nachricht"})
@@ -87,6 +101,18 @@ def test_assistant_message_persisted(client, session_id):
     # assistant content ist serialisiertes JSON
     assistant_content = json.loads(assistant_msgs[0]["content"])
     assert assistant_content["type"] == "error"
+
+
+def test_manual_tree_hint_message_persisted(client, session_id):
+    """Auch der Tree-Hinweis wird als Assistant-Message in der Session persistiert."""
+    client.post(f"/v1/sessions/{session_id}/messages", json={"text": "undo"})
+    resp = client.get(f"/v1/sessions/{session_id}")
+    messages = resp.json()["messages"]
+    assistant_msgs = [m for m in messages if m["role"] == "assistant"]
+    assert len(assistant_msgs) == 1
+    assistant_content = json.loads(assistant_msgs[0]["content"])
+    assert assistant_content["type"] == "assistant"
+    assert "Versionsbaum" in assistant_content["message"]
 
 
 def test_message_response_has_type_field(client, session_id):

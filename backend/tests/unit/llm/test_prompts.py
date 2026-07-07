@@ -62,7 +62,7 @@ def test_build_retry_prompt_is_string():
 
 
 def test_build_system_prompt_rollback_section_with_history():
-    """spec_history → Rollback-Abschnitt mit Versionstabelle im Prompt."""
+    """spec_history → Tree-Hinweis und Versionstabelle fuer manuellen Rollback im Prompt."""
     history = [
         {"version": "v1", "created_at": "2026-04-25 10:42:00", "change_summary": None},
         {"version": "v2", "created_at": "2026-04-25 10:48:00", "change_summary": "impute_missing hinzugefügt"},
@@ -72,7 +72,8 @@ def test_build_system_prompt_rollback_section_with_history():
     assert "v2" in prompt
     assert "Initialversion" in prompt
     assert "impute_missing hinzugefügt" in prompt
-    assert "target_version" in prompt
+    assert "Versionsbaum" in prompt or "Tree" in prompt
+    assert "Erzeuge NIEMALS `action: \"rollback\"`" in prompt
 
 
 def test_build_system_prompt_rollback_section_empty_without_history():
@@ -82,7 +83,8 @@ def test_build_system_prompt_rollback_section_empty_without_history():
 
 
 def test_build_system_prompt_rollback_section_no_hallucination_instruction():
-    """Rollback-Abschnitt enthält Hinweis gegen Halluzination von UUIDs."""
+    """Rollback-Abschnitt enthaelt Sperre fuer Chat-Rollback und klare Tree-Anweisung."""
     history = [{"version": "v1", "created_at": "2026-04-25 10:00:00", "change_summary": None}]
     prompt = build_system_prompt(_SAMPLE_CAPABILITIES, spec_history=history)
     assert "NIEMALS" in prompt or "Halluziniere" in prompt
+    assert "manuell über den Versionsbaum" in prompt or "manuell über den Versionsbaum / Tree" in prompt

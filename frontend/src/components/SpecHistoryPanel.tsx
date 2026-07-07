@@ -37,6 +37,9 @@ export function SpecHistoryPanel({
   return (
     <>
       <div className="historyHeader">Spec-Verlauf</div>
+      <div className="historyHint">
+        Rollback funktioniert nur hier manuell über den Versionsbaum, nicht per Chat.
+      </div>
       <VersionTreeGraph
         specHistory={specHistory}
         onRollback={onRollback}

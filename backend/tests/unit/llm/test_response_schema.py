@@ -132,12 +132,13 @@ def test_additional_properties_rejected():
 
 
 # ---------------------------------------------------------------------------
-# Tests für modify_spec Action (Story 4.2 / T8)
+# modify_spec wurde entfernt (Bugfix): Spec-Versionen dürfen nur über eine
+# echte Pipeline-Ausführung entstehen, nie über eine reine Spec-Beschriftung.
 # ---------------------------------------------------------------------------
 
 
-def test_modify_spec_action_is_valid():
-    """action: 'modify_spec' passiert Schema-Validierung."""
+def test_modify_spec_action_is_rejected():
+    """action: 'modify_spec' existiert nicht mehr → LLMResponseValidationError."""
     payload = json.dumps(
         {
             "action": "modify_spec",
@@ -145,8 +146,8 @@ def test_modify_spec_action_is_valid():
             "explanation": "Imputationsstrategie geändert.",
         }
     )
-    result = validate_llm_response(payload)
-    assert result["action"] == "modify_spec"
+    with pytest.raises(LLMResponseValidationError):
+        validate_llm_response(payload)
 
 
 # ---------------------------------------------------------------------------
@@ -185,22 +186,8 @@ def test_compare_runs_without_run_ids_is_valid():
     assert "run_id_a" not in result
 
 
-def test_modify_spec_with_base_spec_version():
-    """Optionales Feld base_spec_version erlaubt."""
-    payload = json.dumps(
-        {
-            "action": "modify_spec",
-            "spec": {"steps": [{"type": "dedup"}]},
-            "explanation": "Test",
-            "base_spec_version": "v1",
-        }
-    )
-    result = validate_llm_response(payload)
-    assert result["base_spec_version"] == "v1"
-
-
 def test_invalid_action_still_rejected():
-    """Ungültige Action (nicht execute/propose/modify_spec) schlägt fehl."""
+    """Ungültige Action (nicht execute/propose/compare_runs/rollback/abort_step_by_step/info) schlägt fehl."""
     payload = json.dumps(
         {
             "action": "delete_everything",

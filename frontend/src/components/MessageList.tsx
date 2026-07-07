@@ -69,6 +69,10 @@ const mdComponents = {
   ),
 }
 
+function GysiAvatar() {
+  return <img src="/icon.png" alt="Gysi" className="avatarImg" aria-hidden="true" />
+}
+
 export function MessageList({ messages, onConfirm, confirmDisabled, activePendingProposalId, isSending }: MessageListProps) {
   return (
     <ol className="messageList" aria-label="Chat messages">
@@ -81,13 +85,13 @@ export function MessageList({ messages, onConfirm, confirmDisabled, activePendin
             data-testid="chat-message"
           >
             <div className="messageRow">
-              <div className="avatar" aria-hidden="true">
-                {message.role === 'assistant'
-                  ? 'G'
-                  : message.role === 'user'
-                    ? 'U'
-                    : 'S'}
-              </div>
+              {message.role === 'assistant' ? (
+                <GysiAvatar />
+              ) : (
+                <div className="avatar" aria-hidden="true">
+                  {message.role === 'user' ? 'U' : 'S'}
+                </div>
+              )}
               <div className="bubble">
                 <div className="bubbleMeta">
                   <span className="messageRole">
@@ -134,7 +138,7 @@ export function MessageList({ messages, onConfirm, confirmDisabled, activePendin
             return (
               <li className="message" data-role="assistant" data-testid="feature-importance-table">
                 <div className="messageRow">
-                  <div className="avatar" aria-hidden="true">G</div>
+                  <GysiAvatar />
                   <div className="bubble">
                     <div className="bubbleMeta">
                       <span className="messageRole">Gysi</span>
@@ -163,7 +167,7 @@ export function MessageList({ messages, onConfirm, confirmDisabled, activePendin
             return (
               <li className="message" data-role="assistant" data-testid="correlation-table">
                 <div className="messageRow">
-                  <div className="avatar" aria-hidden="true">G</div>
+                  <GysiAvatar />
                   <div className="bubble">
                     <div className="bubbleMeta">
                       <span className="messageRole">Gysi</span>
@@ -188,7 +192,7 @@ export function MessageList({ messages, onConfirm, confirmDisabled, activePendin
               data-testid="post-run-explanation"
             >
               <div className="messageRow">
-                <div className="avatar" aria-hidden="true">G</div>
+                <GysiAvatar />
                 <div className="bubble">
                   <div className="bubbleMeta">
                     <span className="messageRole">Gysi</span>
@@ -208,7 +212,7 @@ export function MessageList({ messages, onConfirm, confirmDisabled, activePendin
       {isSending && (
         <li className="message" data-role="assistant" data-testid="typing-indicator">
           <div className="messageRow">
-            <div className="avatar" aria-hidden="true">G</div>
+            <GysiAvatar />
             <div className="bubble">
               <div className="typingIndicator" aria-label="Gysi rechnet...">
                 <span />

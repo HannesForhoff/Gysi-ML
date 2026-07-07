@@ -8,7 +8,6 @@ import type {
 import proposalFixture from '../fixtures/proposal.json'
 import resultFixture from '../fixtures/result.json'
 import errorFixture from '../fixtures/error.json'
-import specUpdatedFixture from '../fixtures/spec_updated.json'
 
 const MOCK_LATENCY_MS = import.meta.env.MODE === 'test' ? 0 : 250
 
@@ -19,8 +18,19 @@ function sleep(ms: number): Promise<void> {
 function pickFixture(userText: string): AssistantResponse {
   const text = userText.trim().toLowerCase()
 
-  if (text.includes('undo') || text.includes('rückgängig') || text.includes('revert')) {
-    return specUpdatedFixture as AssistantResponse
+  if (
+    text.includes('undo') ||
+    text.includes('rückgängig') ||
+    text.includes('revert') ||
+    text.includes('rollback') ||
+    text.includes('berichtigen') ||
+    text.includes('korrigieren')
+  ) {
+    return {
+      type: 'info',
+      message:
+        'Zu früheren Versionen kannst du nur manuell über den Versionsbaum im Tree zurückgehen. Der Chat kann keinen Rollback auslösen und bereits durchgeführte Schritte nicht nachträglich berichtigen.',
+    }
   }
   // NEU: Modifizierungs-Keywords → neuer Proposal (simuliert Modify-Flow)
   if (text.includes('ändern') || text.includes('modifizieren') || text.includes('modify')) {

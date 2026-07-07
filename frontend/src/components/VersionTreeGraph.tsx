@@ -222,7 +222,7 @@ export function VersionTreeGraph({
             >
               {isRollingBack && rollbackTargetId === openNode.spec_id
                 ? '…'
-                : `↩ Rollback zu ${openNode.version}`}
+                : `↩ Im Tree wiederherstellen: ${openNode.version}`}
             </button>
           )}
         </div>

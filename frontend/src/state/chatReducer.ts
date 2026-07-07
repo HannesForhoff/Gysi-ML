@@ -6,6 +6,7 @@ import type {
   ResultResponse,
   RunStatus,
   SpecSummary,
+  StepResult,
   VersionTree,
 } from '../types'
 
@@ -84,18 +85,32 @@ const WELCOME_MESSAGE: ChatMessage = {
   id: 'welcome',
   role: 'assistant',
   content:
-    'Hallo! Ich bin **Gysi**, dein ML-Assistent für den Bike-Sharing-Datensatz.\n\n' +
+    'Hallo! Ich bin **Gysi**, dein ML-Assistent für den Bike-Sharing-Datensatz. 🚲\n\n' +
     'Du brauchst keine Vorkenntnisse in Data Science oder Machine Learning — ' +
-    'beschreib einfach auf Deutsch, was du möchtest. Ich erkläre jeden Schritt und schlage vor, was als nächstes sinnvoll ist.\n\n' +
+    'beschreib einfach auf Deutsch, was du möchtest. Ich schlage konkrete Schritte vor, erkläre sie ' +
+    'und führe sie erst nach deiner Bestätigung deterministisch im Backend aus.\n\n' +
+    '**📊 Der Datensatz:** Tägliche Fahrrad-Verleihdaten (u. a. `season`, `weathersit`, `temp`, `hum`, ' +
+    '`windspeed`, `casual`, `registered`) mit `cnt` (Anzahl Ausleihen) als Zielgröße. Mit `/overview` siehst du ' +
+    'Spalten, Datentypen und fehlende Werte im Detail.\n\n' +
+    '**🎯 Ziel:** Schritt für Schritt eine nachvollziehbare Pipeline aufbauen — von der Datenbereinigung ' +
+    '(Preprocessing) über das Training eines Modells bis zur Erklärung der Ergebnisse:\n\n' +
+    '- **Preprocessing** — Duplikate entfernen, fehlende Werte imputieren, Encoding, Ausreißer behandeln, Zeitfeatures, Train/Test-Split ...\n' +
+    '- **Modellierung** — Decision Tree, lineare Regression, EBM oder CatBoost-Feature-Selection trainieren\n' +
+    '- **Auswertung** — Metriken, Plots und Runs vergleichen, bei Bedarf zu einer früheren Pipeline-Version zurückspringen\n\n' +
+    '**🖥️ So ist die Oberfläche aufgebaut:**\n\n' +
+    '- **Chat** (hier) — Unterhaltung mit Vorschlägen, Bestätigungen und Erklärungen\n' +
+    '- **Daten** — Tabellenansicht der Roh- bzw. aktuellen Trainings-/Testdaten inkl. Spaltenstatistiken\n' +
+    '- **Artefakte & Steps** — Ergebnisse, Metriken und Plots des letzten Runs sowie Details zu jedem Pipeline-Schritt\n' +
+    '- **Spec-Verlauf** (rechte Seitenleiste) — Versionsbaum deiner Pipeline; jede Änderung erzeugt eine neue Version, zu der du jederzeit zurückspringen kannst\n\n' +
+    '💡 Jede Anfrage führt genau **einen Schritt** aus. Ich schlage danach automatisch vor, was als nächstes sinnvoll ist.\n\n' +
+    '**Nützliche Befehle:**\n\n' +
+    '- `/help` — vollständige Dokumentation aller Schritte und Parameter (auch `/help preprocessing`, `/help modellierung`, ...)\n' +
+    '- `/overview` — Datensatz-Profil (Spalten, Typen, fehlende Werte)\n' +
+    '- `/status` — aktueller Stand der Pipeline und letzter Run\n\n' +
     '**Womit möchtest du starten?** Zum Beispiel:\n\n' +
     '- *„Zeig mir eine Übersicht der Daten"* — ich profiliere den Datensatz ohne ihn zu verändern\n' +
     '- *„Entferne doppelte Zeilen aus dem Datensatz"* — führt genau diesen einen Schritt aus\n' +
     '- *„Welche Spalten gibt es und was bedeuten sie?"* — ich erkläre den Datensatz\n\n' +
-    '💡 Jede Anfrage führt genau **einen Schritt** aus. Ich schlage danach automatisch vor, was als nächstes sinnvoll ist.\n\n' +
-    '**Nützliche Befehle:**\n\n' +
-    '- `/overview` — Datensatz-Profil (Spalten, Typen, fehlende Werte)\n' +
-    '- `/status` — aktueller Stand der Pipeline\n' +
-    '- `/help` — alle verfügbaren Schritte und Erklärungen\n\n' +
     'Klicke unten auf einen der Vorschläge oder schreib einfach los.',
   ts: new Date().toISOString(),
 }

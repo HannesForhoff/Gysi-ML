@@ -1,20 +1,18 @@
 import json
 import logging
+import re
 
-import jsonschema
 import pandas as pd
 
 from gysi_ml.config import get_settings
 from gysi_ml.utils.data_loader import load_bikes_dataset
 from gysi_ml.core.capabilities import get_capabilities
 from gysi_ml.executor.executor import PipelineExecutor
-from gysi_ml.executor.spec_validator import SpecOrderError, validate_spec_order
 from gysi_ml.llm.client import call_llm
 from gysi_ml.llm.exceptions import LLMConnectionError, LLMResponseValidationError
 from gysi_ml.llm.prompts import build_post_run_prompt, build_retry_prompt, build_system_prompt
 from gysi_ml.llm.response_schema import validate_llm_response
 from gysi_ml.persistence import message_repository, proposal_repository, run_repository, spec_repository, step_state_repository
-from gysi_ml.spec.schema import validate_spec
 
 log = logging.getLogger(__name__)
 
@@ -29,6 +27,30 @@ TRANSIENT_STEP_TYPES: frozenset[str] = frozenset({"plot_distribution"})
 _LEARNABLE_STEP_TYPES: frozenset[str] = frozenset({
     "impute_missing", "encode_categorical", "outlier_handling", "rare_category_bucketing"
 })
+
+MANUAL_TREE_ONLY_MESSAGE = (
+    "Zu früheren Versionen kannst du nur manuell über den Versionsbaum (Tree) zurückgehen. "
+    "Der Chat kann keinen Rollback auslösen und bereits durchgeführte Schritte nicht nachträglich "
+    "berichtigen. Wenn du einen früheren Stand wiederherstellen willst, wähle die gewünschte Version "
+    "im Tree und starte den manuellen Rollback dort."
+)
+
+_MANUAL_TREE_ONLY_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\brollback\b"),
+    re.compile(r"\bundo\b"),
+    re.compile(r"\b(rückgängig|rueckgaengig)\b"),
+    re.compile(r"\b(frühere|fruehere|vorherige|ältere|aeltere|alte)\s+version(?:en)?\b"),
+    re.compile(r"\b(zurück|zurueck)\b.*\bversion(?:en)?\b"),
+    re.compile(r"\b(gehe|geh)\b.*\b(zurück|zurueck)\b"),
+    re.compile(r"\bv\d+\b.*\b(wiederherstellen|rollback|zurück|zurueck)\b"),
+    re.compile(r"\b(berichtigen|berichtige|berichtigt|korrigieren|korrigiere|korrigiert)\b.*\b(schritt|schritte|pipeline|version)\b"),
+    re.compile(r"\b(schritt|schritte|pipeline|version)\b.*\b(berichtigen|korrigieren|korrigiere|rückgängig|rueckgaengig|undo)\b"),
+)
+
+
+def _is_manual_tree_only_request(text: str) -> bool:
+    normalized = " ".join(text.casefold().split())
+    return any(pattern.search(normalized) for pattern in _MANUAL_TREE_ONLY_PATTERNS)
 
 
 def _get_suggested_next_steps(spec: dict | None) -> list[str]:
@@ -143,7 +165,11 @@ def _merge_specs(current_spec: dict | None, new_spec: dict) -> dict:
                         + (new_columns if isinstance(new_columns, list) else [])
                     ))
                 merged_params = {**existing.get("params", {}), "columns": merged_columns}
-                merged[key_to_idx[key]] = {**existing, "params": merged_params}
+                # Alle Top-Level-Felder des neuen Steps (v.a. "enabled") müssen gewinnen —
+                # sonst überlebt z.B. "enabled": false (Deaktivierung) den Merge nicht, weil
+                # nur "params" aktualisiert würde und "existing" mit seinem alten "enabled"
+                # (meist True) die Basis bliebe (Bug: Deaktivierung wirkungslos).
+                merged[key_to_idx[key]] = {**existing, **new_step, "params": merged_params}
             else:
                 # Kein Spalten-Merge möglich → bestehenden Step ersetzen
                 merged[key_to_idx[key]] = new_step
@@ -274,6 +300,12 @@ def handle_message(
     Returns:
         dict mit Pflichtfeld 'type' ('proposal', 'result', 'error')
     """
+    if _is_manual_tree_only_request(text):
+        return {
+            "type": "assistant",
+            "message": MANUAL_TREE_ONLY_MESSAGE,
+        }
+
     settings = get_settings()
     effective_api_key = api_key if api_key is not None else settings.openai_api_key
     effective_model = llm_model if llm_model is not None else settings.llm_model
@@ -366,30 +398,9 @@ def handle_message(
         }
 
     if action == "rollback":
-        target_spec_id = parsed.get("target_spec_id")
-        target_version = parsed.get("target_version")
-
-        if target_version:
-            resolved_id = spec_repository.get_spec_id_by_version(
-                session_id=session_id, version=target_version, db_path=db_path
-            )
-            if not resolved_id:
-                return {"type": "error", "message": f"Version '{target_version}' nicht gefunden."}
-            target_spec_id = resolved_id
-
-        if not target_spec_id:
-            return {"type": "error", "message": "Rollback: target_version oder target_spec_id fehlt."}
-
-        new_spec = spec_repository.rollback_to(
-            session_id=session_id, target_spec_id=target_spec_id, db_path=db_path
-        )
-        if new_spec is None:
-            return {"type": "error", "message": f"Spec '{target_spec_id}' nicht gefunden."}
         return {
-            "type": "rollback",
-            "new_spec_id": new_spec["spec_id"],
-            "new_version": new_spec["version"],
-            "change_summary": new_spec["change_summary"],
+            "type": "assistant",
+            "message": MANUAL_TREE_ONLY_MESSAGE,
         }
 
     if action == "compare_runs":
@@ -426,29 +437,6 @@ def handle_message(
                 {"run_id": run_id_b, "status": run_b["status"], "metrics": metrics_b},
             ],
             "better_run_id": better_run_id,
-            "explanation": explanation,
-        }
-
-    if action == "modify_spec":
-        # Neue Spec validieren
-        try:
-            validate_spec(spec)
-        except jsonschema.ValidationError as exc:
-            return {"type": "error", "message": f"Ungültige Spec: {exc.message}"}
-        # Spec-Reihenfolge validieren
-        try:
-            validate_spec_order(spec.get("steps", []))
-        except SpecOrderError as exc:
-            return {"type": "error", "message": str(exc)}
-        # Neue Spec-Version anlegen
-        spec_entry = spec_repository.create_spec_version(
-            session_id=session_id, spec=spec, db_path=db_path
-        )
-        return {
-            "type": "spec_updated",
-            "spec_id": spec_entry["spec_id"],
-            "version": spec_entry["version"],
-            "spec": spec_entry["spec"],
             "explanation": explanation,
         }
 

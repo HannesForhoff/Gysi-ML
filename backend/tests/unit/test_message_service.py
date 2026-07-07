@@ -610,10 +610,12 @@ def test_compare_runs_no_metrics_returns_null_better(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# Tests für modify_spec (Story 4.2)
+# Tests: modify_spec wurde entfernt (Bugfix) — jede Spec-Änderung muss über
+# eine echte Pipeline-Ausführung (execute) laufen, niemals über eine reine
+# Spec-Beschriftung ohne Neuberechnung der Daten.
 # ---------------------------------------------------------------------------
 
-_VALID_MODIFY_SPEC_RESPONSE = json.dumps(
+_MODIFY_SPEC_RESPONSE = json.dumps(
     {
         "action": "modify_spec",
         "spec": {"steps": [{"type": "dedup", "params": {}}]},
@@ -621,17 +623,11 @@ _VALID_MODIFY_SPEC_RESPONSE = json.dumps(
     }
 )
 
-_INVALID_MODIFY_SPEC_RESPONSE = json.dumps(
-    {
-        "action": "modify_spec",
-        "spec": {"steps": [{"type": "dedup", "unknown_field": True}]},
-        "explanation": "Kaputte Spec.",
-    }
-)
 
-
-def test_modify_spec_returns_spec_updated(monkeypatch, tmp_path):
-    """modify_spec → type='spec_updated' mit spec_id, version, spec."""
+def test_modify_spec_action_no_longer_supported(monkeypatch, tmp_path):
+    """LLM-Antwort mit action='modify_spec' ist ungültig (Enum entfernt) →
+    Retry schlägt ebenfalls fehl → type='error', KEINE Spec-Version wird angelegt.
+    """
     from gysi_ml.persistence.schema import create_all_tables
 
     db_file = str(tmp_path / "test.db")
@@ -650,73 +646,18 @@ def test_modify_spec_returns_spec_updated(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(
         "gysi_ml.services.message_service.call_llm",
-        lambda **kw: _VALID_MODIFY_SPEC_RESPONSE,
+        lambda **kw: _MODIFY_SPEC_RESPONSE,
     )
 
-    result = handle_message(session_id="s1", text="Ändere Strategie", db_path=db_file)
-
-    assert result["type"] == "spec_updated"
-    assert "spec_id" in result
-    assert result["version"] == "v1"
-    assert result["spec"] == {"steps": [{"type": "dedup", "params": {}}]}
-    assert "explanation" in result
-
-
-def test_modify_spec_invalid_spec_returns_error(monkeypatch):
-    """modify_spec mit ungültiger Spec → type='error'."""
-    monkeypatch.setattr(
-        "gysi_ml.services.message_service.get_settings", lambda: _settings()
-    )
-    monkeypatch.setattr(
-        "gysi_ml.services.message_service.get_capabilities",
-        lambda: {"steps": []},
-    )
-    monkeypatch.setattr(
-        "gysi_ml.services.message_service.message_repository.get_messages_for_session",
-        lambda **kw: [],
-    )
-    monkeypatch.setattr(
-        "gysi_ml.services.message_service.call_llm",
-        lambda **kw: _INVALID_MODIFY_SPEC_RESPONSE,
-    )
-
-    result = handle_message(session_id="s1", text="Kaputte Spec")
+    result = handle_message(session_id="s1", text="Deaktiviere den letzten Step", db_path=db_file)
 
     assert result["type"] == "error"
-    assert "Ungültige Spec" in result["message"]
 
+    # Keine Spec-Version wurde angelegt — die "keine aktiven Steps"/Datendrift-
+    # Inkonsistenz kann so nicht mehr entstehen.
+    from gysi_ml.persistence import spec_repository
+    assert spec_repository.get_latest_spec(session_id="s1", db_path=db_file) is None
 
-def test_modify_spec_invalid_order_returns_error(monkeypatch):
-    """modify_spec mit ungültiger Step-Reihenfolge → type='error'."""
-    bad_order = json.dumps(
-        {
-            "action": "modify_spec",
-            "spec": {"steps": [
-                {"type": "train_decision_tree", "params": {}},
-                {"type": "split", "params": {"test_size": 0.2}},
-            ]},
-            "explanation": "Falsche Reihenfolge.",
-        }
-    )
-    monkeypatch.setattr(
-        "gysi_ml.services.message_service.get_settings", lambda: _settings()
-    )
-    monkeypatch.setattr(
-        "gysi_ml.services.message_service.get_capabilities",
-        lambda: {"steps": []},
-    )
-    monkeypatch.setattr(
-        "gysi_ml.services.message_service.message_repository.get_messages_for_session",
-        lambda **kw: [],
-    )
-    monkeypatch.setattr(
-        "gysi_ml.services.message_service.call_llm",
-        lambda **kw: bad_order,
-    )
-
-    result = handle_message(session_id="s1", text="Bad order")
-
-    assert result["type"] == "error"
 
 
 # ---------------------------------------------------------------------------
@@ -871,7 +812,7 @@ def test_compare_runs_run_b_not_found_returns_error(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# Tests für Rollback via Chat / LLM (Bug 1.15)
+# Tests fuer manuellen Rollback-only via Chat / LLM
 # ---------------------------------------------------------------------------
 
 _VALID_ROLLBACK_WITH_VERSION_RESPONSE = json.dumps(
@@ -902,7 +843,7 @@ _ROLLBACK_MISSING_BOTH_RESPONSE = json.dumps(
 
 
 def _common_rollback_patches(monkeypatch):
-    """Setzt Standard-Patches für Rollback-Tests."""
+    """Setzt Standard-Patches fuer Rollback-/Tree-Only-Tests."""
     monkeypatch.setattr(
         "gysi_ml.services.message_service.get_settings", lambda: _settings()
     )
@@ -920,107 +861,52 @@ def _common_rollback_patches(monkeypatch):
     )
 
 
-def test_rollback_with_target_version_resolves_to_spec_id(monkeypatch):
-    """target_version wird über get_spec_id_by_version aufgelöst → rollback_to korrekt aufgerufen."""
+def test_manual_rollback_request_bypasses_llm(monkeypatch):
+    """Rollback-Anfragen werden vor dem LLM abgefangen und auf den Tree verwiesen."""
     _common_rollback_patches(monkeypatch)
     monkeypatch.setattr(
         "gysi_ml.services.message_service.call_llm",
-        lambda **kw: _VALID_ROLLBACK_WITH_VERSION_RESPONSE,
-    )
-    monkeypatch.setattr(
-        "gysi_ml.services.message_service.spec_repository.get_spec_id_by_version",
-        lambda **kw: "resolved-spec-id-v2",
-    )
-    monkeypatch.setattr(
-        "gysi_ml.services.message_service.spec_repository.rollback_to",
-        lambda **kw: {
-            "spec_id": "new-spec-id",
-            "version": "v3",
-            "change_summary": "Rollback auf v2",
-        },
+        lambda **kw: (_ for _ in ()).throw(AssertionError("LLM darf fuer Rollback-Anfragen nicht aufgerufen werden")),
     )
 
     result = handle_message(session_id="s1", text="Mach Rollback auf v2")
 
-    assert result["type"] == "rollback"
-    assert result["new_version"] == "v3"
-    assert "Rollback" in result["change_summary"]
+    assert result["type"] == "assistant"
+    assert "Versionsbaum" in result["message"]
+    assert "nicht nachträglich berichtigen" in result["message"]
 
 
-def test_rollback_with_target_version_not_found_returns_error(monkeypatch):
-    """target_version existiert nicht in Session → type='error'."""
+def test_past_step_correction_request_bypasses_llm(monkeypatch):
+    """Auch 'Schritt berichtigen' wird strikt auf manuellen Rollback im Tree verwiesen."""
+    _common_rollback_patches(monkeypatch)
+    monkeypatch.setattr(
+        "gysi_ml.services.message_service.call_llm",
+        lambda **kw: (_ for _ in ()).throw(AssertionError("LLM darf fuer Korrektur-Anfragen nicht aufgerufen werden")),
+    )
+
+    result = handle_message(session_id="s1", text="Kannst du den letzten Schritt berichtigen?")
+
+    assert result["type"] == "assistant"
+    assert "Versionsbaum" in result["message"]
+    assert "keinen Rollback auslösen" in result["message"]
+
+
+def test_rollback_action_from_llm_is_blocked_server_side(monkeypatch):
+    """Falls das LLM trotzdem rollback liefert, blockt der Server die Ausfuehrung."""
     _common_rollback_patches(monkeypatch)
     monkeypatch.setattr(
         "gysi_ml.services.message_service.call_llm",
         lambda **kw: _VALID_ROLLBACK_WITH_VERSION_RESPONSE,
     )
     monkeypatch.setattr(
-        "gysi_ml.services.message_service.spec_repository.get_spec_id_by_version",
-        lambda **kw: None,
-    )
-
-    result = handle_message(session_id="s1", text="Rollback auf v2")
-
-    assert result["type"] == "error"
-    assert "v2" in result["message"]
-
-
-def test_rollback_with_spec_id_backward_compat(monkeypatch):
-    """target_spec_id ohne target_version → backward-kompatibel, rollback_to korrekt aufgerufen."""
-    _common_rollback_patches(monkeypatch)
-    monkeypatch.setattr(
-        "gysi_ml.services.message_service.call_llm",
-        lambda **kw: _VALID_ROLLBACK_WITH_SPEC_ID_RESPONSE,
-    )
-    monkeypatch.setattr(
         "gysi_ml.services.message_service.spec_repository.rollback_to",
-        lambda **kw: {
-            "spec_id": "new-spec-id",
-            "version": "v2",
-            "change_summary": "Rollback auf v1",
-        },
+        lambda **kw: (_ for _ in ()).throw(AssertionError("rollback_to darf vom Chat nicht mehr aufgerufen werden")),
     )
 
-    result = handle_message(session_id="s1", text="Rollback auf spec-id-v1")
+    result = handle_message(session_id="s1", text="Zeig mir etwas zur Historie")
 
-    assert result["type"] == "rollback"
-    assert result["new_version"] == "v2"
-
-
-def test_rollback_missing_both_version_and_spec_id_returns_error(monkeypatch):
-    """Weder target_version noch target_spec_id → type='error'."""
-    _common_rollback_patches(monkeypatch)
-    monkeypatch.setattr(
-        "gysi_ml.services.message_service.call_llm",
-        lambda **kw: _ROLLBACK_MISSING_BOTH_RESPONSE,
-    )
-
-    result = handle_message(session_id="s1", text="Rollback")
-
-    assert result["type"] == "error"
-    assert "target_version" in result["message"] or "target_spec_id" in result["message"]
-
-
-def test_rollback_spec_id_not_found_after_version_resolution(monkeypatch):
-    """rollback_to gibt None zurück (ungültige spec_id nach Auflösung) → type='error'."""
-    _common_rollback_patches(monkeypatch)
-    monkeypatch.setattr(
-        "gysi_ml.services.message_service.call_llm",
-        lambda **kw: _VALID_ROLLBACK_WITH_VERSION_RESPONSE,
-    )
-    monkeypatch.setattr(
-        "gysi_ml.services.message_service.spec_repository.get_spec_id_by_version",
-        lambda **kw: "some-id",
-    )
-    monkeypatch.setattr(
-        "gysi_ml.services.message_service.spec_repository.rollback_to",
-        lambda **kw: None,
-    )
-
-    result = handle_message(session_id="s1", text="Rollback auf v2")
-
-    assert result["type"] == "error"
-    assert "some-id" in result["message"]
+    assert result["type"] == "assistant"
+    assert "Versionsbaum" in result["message"]
 
 
 # ---------------------------------------------------------------------------

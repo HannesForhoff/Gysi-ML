@@ -1,4 +1,4 @@
-import { fireEvent, render } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { VersionTree } from '../types'
 import { VersionTreeGraph } from './VersionTreeGraph'
@@ -95,6 +95,7 @@ describe('VersionTreeGraph', () => {
     // Inaktiven Node (id-2) anklicken – Rollback-Button erscheint
     fireEvent.click(circles[1])
     expect(queryAllByRole('button')).toHaveLength(1)
+    expect(screen.getByRole('button')).toHaveTextContent('Im Tree wiederherstellen: v2')
 
     // Aktiven Node (id-1) anklicken – kein Rollback-Button
     fireEvent.click(circles[0])

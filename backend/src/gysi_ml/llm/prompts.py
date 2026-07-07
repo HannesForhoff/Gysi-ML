@@ -39,8 +39,12 @@ Das Feld `parameters_summary` ist bei **jedem Step** anzugeben — besonders bei
 - **"execute"**: Verwende dies wenn der Nutzer eine klare, eindeutige Ausführung anfordert und alle Parameter ableitbar sind.
   Beispiele:
   - "Entferne Duplikate und imputiere fehlende Werte mit Median" → execute
-  - "Imputiere fehlende Werte in windspeed mit Median" → execute  ← direkte Ausführung, KEIN modify_spec!
-  Abgrenzung: Wenn der Nutzer eine Spalte oder Aktion direkt ausführen will → execute, nicht modify_spec.
+  - "Imputiere fehlende Werte in windspeed mit Median" → execute
+  - "Setze Imputationsstrategie auf mean" → execute (ersetzt den bestehenden Step und führt ihn neu aus)
+  - "Deaktiviere den Outlier-Handling-Step" → execute mit dem betroffenen Step und `"enabled": false`
+  Es gibt KEINE Aktion, die eine Spec-Version nur "beschriftet" ohne die Pipeline wirklich neu zu berechnen.
+  JEDE Änderung an einem Step (Parameter, Aktivierung/Deaktivierung, neue Steps) läuft über `execute` und wird
+  dadurch sofort real ausgeführt — der Datenstand entspricht danach IMMER exakt der neuen Spec.
 - **Sonderregel `catboost_feature_selection`**: Die CatBoost Feature-Selektion läuft IMMER zweistufig:
 
   **Stufe 1 — Analyse** (erster Aufruf):
@@ -126,23 +130,22 @@ Wenn der Nutzer eine bestehende Spec-Version erneut ausführen möchte
 - Das `spec`-Feld enthält eine leere Spec: `{{"steps": []}}`
 - Das System lädt die Spec automatisch aus der Datenbank
 
-## Spec-Modifikation
+## Step deaktivieren oder Parameter ändern
 
-Wenn der Nutzer eine bestehende Pipeline-Spec modifizieren möchte
-(Parameter ändern, Step deaktivieren, Step-Reihenfolge anpassen):
-- Setze `action: "modify_spec"`
-- Das `spec`-Feld enthält die vollständige neue Spec (nicht nur die Änderung!)
-- Das `base_spec_version`-Feld (optional) enthält die Version der Ausgangs-Spec (z.B. "v1")
-- Deaktiviere Steps mit `"enabled": false` — nicht mit Löschen des Steps!
-
-**Abgrenzung zu `execute`**: `modify_spec` speichert die neue Spec nur ohne sie auszuführen.
-Wenn der Nutzer etwas "ausführen", "anwenden", "imputieren", "bereinigen" etc. will → `execute`, NICHT `modify_spec`.
-
-Beispiele:
-- "Setze Imputationsstrategie auf mean" → modify_spec (reine Spec-Änderung)
-- "Deaktiviere den Outlier-Handling-Step" → modify_spec (Step mit "enabled": false)
-- "Füge Correlation-Filter hinzu" → modify_spec (neuer Step in der Spec)
-- "Imputiere fehlende Werte in windspeed mit mean" → execute (direkte Ausführung!)
+Wenn der Nutzer einen bereits vorhandenen Step deaktivieren möchte ("Deaktiviere den letzten Step",
+"Schalte die Imputation aus") oder dessen Parameter ändern möchte ("Setze Imputationsstrategie auf mean"):
+- Setze `action: "execute"`
+- Gib **nur den betroffenen Step** an (Typ + ggf. gleiche/angepasste Parameter), mit `"enabled": false` zum
+  Deaktivieren bzw. den neuen Parametern zum Ändern.
+- Das System ersetzt automatisch den bestehenden Step mit gleichem Schlüssel in der akkumulierten Spec
+  und führt die GESAMTE Pipeline sofort neu aus (Rohdaten → alle Steps in Reihenfolge). Es entsteht dadurch
+  immer eine neue Spec-Version, die exakt dem tatsächlich berechneten Datenstand entspricht.
+- Es gibt **keinen** Weg, einen Step nur "auf dem Papier" zu deaktivieren oder zu verändern, ohne dass die
+  Pipeline real neu berechnet wird. Erfinde keine solche Aktion.
+- **Wichtig bei `impute_missing`**: Da mehrere `impute_missing`-Steps mit unterschiedlicher `strategy`
+  gleichzeitig existieren können (siehe Sonderregel oben), musst du beim Deaktivieren/Ändern die exakt
+  gleiche `strategy` aus der `current_spec` angeben — sonst legt das System einen neuen, zusätzlichen
+  Step an statt den gemeinten zu ersetzen, und der alte Step bleibt aktiv.
 
 ## Run-Vergleich
 
@@ -154,15 +157,18 @@ Wenn der Nutzer zwei Run-IDs vergleichen möchte:
 Beispiel: "Vergleiche Run abc123 mit Run def456" →
 {{"action": "compare_runs", "run_id_a": "abc123", "run_id_b": "def456", "spec": {{"steps": []}}, "explanation": "..."}}
 
-## Rollback
+## Versionen und manueller Rollback
 
 Wenn der Nutzer eine frühere Pipeline-Version wiederherstellen möchte
-(z.B. "Gehe zurück zu v3", "Rollback auf Version 2", "Stelle v1 wieder her"):
-- Setze `action: "rollback"`
-- Setze `target_version: "<version>"` (z.B. "v3") — aus der Versionsliste unten
+(z.B. "Gehe zurück zu v3", "Rollback auf Version 2", "Stelle v1 wieder her")
+oder bereits ausgeführte Schritte "berichtigen" / "korrigieren" möchte:
+- Setze `action: "info"`
 - Das `spec`-Feld enthält eine leere Spec: `{{"steps": []}}`
-- Nutze NIEMALS `target_spec_id` direkt — das System löst die Version intern auf
-- Halluziniere keine Versionsnummern — nur Versionen aus der Liste sind gültig{rollback_section}{df_stats_section}{current_spec_section}"""
+- Erkläre klar, dass das NUR manuell über den Versionsbaum / Tree funktioniert
+- Erkläre klar, dass der Chat keinen Rollback auslösen und bereits ausgeführte Schritte nicht nachträglich berichtigen kann
+- Verweise darauf, dass der Nutzer die Zielversion im Tree auswählen und dort den manuellen Rollback auslösen muss
+- Erzeuge NIEMALS `action: "rollback"` für Chat-Anfragen
+- Halluziniere keine Versionsnummern — die Versionsliste unten dient nur zur Orientierung im Tree{rollback_section}{df_stats_section}{current_spec_section}"""
 
 
 def build_system_prompt(
@@ -194,7 +200,7 @@ def build_system_prompt(
             for entry in spec_history
         )
         rollback_section = (
-            "\n\n### Verfügbare Spec-Versionen (für Rollback)\n\n"
+            "\n\n### Verfügbare Spec-Versionen (nur zur Orientierung im Tree)\n\n"
             "| Version | Erstellt | Zusammenfassung |\n"
             "|---------|----------|-----------------|\n"
             + rows
@@ -320,6 +326,25 @@ def build_post_run_prompt(
     executed_learnable = {
         sr.get("step_type") for sr in step_results if sr.get("step_type") in _LEARNABLE_STEP_TYPES
     }
+
+    # Sonderfall: neue/geänderte Steps wurden deaktiviert (enabled: false) → sie liefen NICHT,
+    # es gibt daher auch keine Metadaten dafür. Ohne expliziten Hinweis neigt das LLM dazu,
+    # trotzdem so zu formulieren als wäre der Step ausgeführt worden (Halluzination).
+    executed_types = {sr.get("step_type") for sr in step_results}
+    disabled_steps = [
+        s for s in spec.get("steps", [])
+        if s.get("enabled") is False and s.get("type") not in executed_types
+    ]
+    if disabled_steps:
+        names = ", ".join(s.get("type", "") for s in disabled_steps)
+        return (
+            f"Der/die folgende(n) Step(s) wurde/n auf 'enabled: false' gesetzt und deshalb NICHT "
+            f"ausgeführt: {names}. Es gibt dafür keine Ergebnis-Metadaten.\n\n"
+            "Erkläre dem Nutzer in 1-3 Sätzen auf Deutsch, dass dieser Step jetzt deaktiviert ist und "
+            "bei der Ausführung übersprungen wird. Nenne KEINE Zahlen oder Ergebnisse für diesen Step "
+            "(z.B. keine 'X Werte ersetzt') — er wurde nicht ausgeführt. "
+            "Kein Freitext-Header. Direkt mit der Erklärung starten."
+        )
 
     leakage_note = ""
     if executed_learnable and split_idx is not None:

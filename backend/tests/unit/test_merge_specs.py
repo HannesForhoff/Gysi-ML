@@ -208,6 +208,27 @@ def test_impute_existing_no_columns_new_with_columns_replaces():
     assert result["steps"][0]["params"]["columns"] == ["cnt"]
 
 
+def test_impute_disable_with_same_columns_keeps_enabled_false():
+    """Regression: Deaktivieren eines impute_missing-Steps mit identischen Spalten
+    darf nicht in den Spalten-Merge-Zweig fallen und dabei 'enabled: false' verlieren.
+
+    Bug: Wenn new_step.columns mit existing.columns überlappt, nahm der Merge den
+    Spalten-Merge-Pfad und baute das Ergebnis nur aus 'existing' + gemergten Params —
+    das 'enabled: false' des neuen (deaktivierenden) Steps ging dabei verloren, der
+    Step blieb aktiv und wurde bei der Ausführung weiterhin real angewendet.
+    """
+    current = _spec(_step("impute_missing", strategy="median", columns=["windspeed"]))
+    new = _spec({
+        "type": "impute_missing",
+        "params": {"strategy": "median", "columns": ["windspeed"]},
+        "enabled": False,
+    })
+    result = _merge_specs(current, new)
+    assert len(result["steps"]) == 1
+    assert result["steps"][0].get("enabled") is False
+    assert result["steps"][0]["params"]["columns"] == ["windspeed"]
+
+
 # ---------------------------------------------------------------------------
 # Spalten-Merge: cast_dtype mit dict-Columns → dict-Merge (kein TypeError)
 # ---------------------------------------------------------------------------
