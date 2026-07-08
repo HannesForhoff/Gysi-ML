@@ -20,6 +20,7 @@ dependencies = [
     "jsonschema>=4.0",
     "scikit-learn>=1.0",
     "matplotlib>=3.8",
+    "scipy>=1.10",
     "interpret>=0.7.7",
     "catboost>=1.2",
 ]

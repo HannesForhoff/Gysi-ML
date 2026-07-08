@@ -28,6 +28,8 @@ class DecisionTreeStep(BaseStep):
         self._feature_names: list = []
         self._df_train: pd.DataFrame | None = None
         self._df_test: pd.DataFrame | None = None
+        self._y_test: np.ndarray | None = None
+        self._y_pred: np.ndarray | None = None
 
     def fit(self, df_train: pd.DataFrame) -> None:
         X_train = df_train.select_dtypes(include="number").drop(
@@ -78,6 +80,8 @@ class DecisionTreeStep(BaseStep):
         }
         self._df_train = df_train
         self._df_test = df_test
+        self._y_test = np.asarray(y_test, dtype=float)
+        self._y_pred = np.asarray(y_pred, dtype=float)
         return df_train, df_test
 
     def get_metadata(self) -> dict:
@@ -132,6 +136,18 @@ class DecisionTreeStep(BaseStep):
                     param_name="max_depth",
                     param_values=depths,
                     param_label="Baumtiefe (max_depth)",
+                )
+            )
+
+        if self._y_test is not None and self._y_pred is not None:
+            from gysi_ml.steps.modeling._eval_plots import generate_regression_eval_plots
+            artifacts.extend(
+                generate_regression_eval_plots(
+                    y_true=self._y_test,
+                    y_pred=self._y_pred,
+                    artifacts_path=artifacts_path,
+                    run_id=run_id,
+                    model_name="Decision Tree",
                 )
             )
 

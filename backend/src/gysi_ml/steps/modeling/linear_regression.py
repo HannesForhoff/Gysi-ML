@@ -22,6 +22,8 @@ class LinearRegressionStep(BaseStep):
         self.model: LinearRegression | None = None
         self._metrics: dict = {}
         self._feature_names: list = []
+        self._y_test: np.ndarray | None = None
+        self._y_pred: np.ndarray | None = None
 
     def fit(self, df_train: pd.DataFrame) -> None:
         X_train = df_train.select_dtypes(include="number").drop(
@@ -67,6 +69,8 @@ class LinearRegressionStep(BaseStep):
             "rmse": rmse, "mae": mae, "r2": r2,
             "train_rmse": train_rmse, "train_mae": train_mae, "train_r2": train_r2,
         }
+        self._y_test = np.asarray(y_test, dtype=float)
+        self._y_pred = np.asarray(y_pred, dtype=float)
         return df_train, df_test
 
     def get_metadata(self) -> dict:
@@ -105,5 +109,17 @@ class LinearRegressionStep(BaseStep):
         fig.savefig(coef_path, bbox_inches="tight", dpi=150)
         plt.close(fig)
         artifacts.append({"type": "lr_coefficients", "file_path": coef_path})
+
+        if self._y_test is not None and self._y_pred is not None:
+            from gysi_ml.steps.modeling._eval_plots import generate_regression_eval_plots
+            artifacts.extend(
+                generate_regression_eval_plots(
+                    y_true=self._y_test,
+                    y_pred=self._y_pred,
+                    artifacts_path=artifacts_path,
+                    run_id=run_id,
+                    model_name="Lineare Regression",
+                )
+            )
 
         return artifacts
