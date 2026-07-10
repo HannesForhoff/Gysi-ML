@@ -16,6 +16,13 @@ const baseProposal: ProposalResponse = {
   ],
 }
 
+const singleStepProposal: ProposalResponse = {
+  type: 'proposal',
+  proposal_id: 'single-step-proposal',
+  message: 'Einzelschritt',
+  steps: [{ step_type: 'load_csv', parameters_summary: 'source=bike.csv' }],
+}
+
 describe('ProposalCard', () => {
   it('rendert Label „Vorschlag (noch nicht ausgeführt)"', () => {
     render(<ProposalCard proposal={baseProposal} onConfirm={vi.fn()} />)
@@ -46,22 +53,27 @@ describe('ProposalCard', () => {
     expect(imputeItem!.querySelectorAll('.proposalStepParams')).toHaveLength(0)
   })
 
-  it('rendert Button „Bestätigen & Ausführen"', () => {
-    render(<ProposalCard proposal={baseProposal} onConfirm={vi.fn()} />)
+  it('rendert Button „Bestätigen & Ausführen" nur bei genau einem bestätigbaren Step', () => {
+    render(<ProposalCard proposal={singleStepProposal} onConfirm={vi.fn()} />)
     expect(
       screen.getByRole('button', { name: /Bestätigen & Ausführen/i }),
     ).toBeInTheDocument()
   })
 
+  it('rendert keinen Confirm-Button bei mehreren bestätigbaren Steps', () => {
+    render(<ProposalCard proposal={baseProposal} onConfirm={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: /Bestätigen/i })).not.toBeInTheDocument()
+  })
+
   it('Button-Click ruft onConfirm mit proposal_id auf', async () => {
     const onConfirm = vi.fn()
     const user = userEvent.setup()
-    render(<ProposalCard proposal={baseProposal} onConfirm={onConfirm} />)
+    render(<ProposalCard proposal={singleStepProposal} onConfirm={onConfirm} />)
 
     await user.click(screen.getByRole('button', { name: /Bestätigen/i }))
 
     expect(onConfirm).toHaveBeenCalledOnce()
-    expect(onConfirm).toHaveBeenCalledWith('test-proposal-42')
+    expect(onConfirm).toHaveBeenCalledWith('single-step-proposal')
   })
 
   it('Button-Click ruft onConfirm mit leerem String wenn proposal_id undefined', async () => {
@@ -70,7 +82,7 @@ describe('ProposalCard', () => {
     const proposalWithoutId: ProposalResponse = {
       type: 'proposal',
       message: 'Kein ID',
-      steps: [],
+      steps: [{ step_type: 'load_csv' }],
     }
     render(<ProposalCard proposal={proposalWithoutId} onConfirm={onConfirm} />)
 
@@ -106,7 +118,7 @@ describe('ProposalCard', () => {
   it('Button ist klickbar wenn disabled falsy (undefined)', async () => {
     const onConfirm = vi.fn()
     const user = userEvent.setup()
-    render(<ProposalCard proposal={baseProposal} onConfirm={onConfirm} />)
+    render(<ProposalCard proposal={singleStepProposal} onConfirm={onConfirm} />)
 
     const btn = screen.getByRole('button', { name: /Bestätigen/i })
     expect(btn).not.toBeDisabled()
@@ -116,14 +128,14 @@ describe('ProposalCard', () => {
   })
 
   it('Button hat disabled-Attribut wenn disabled=true', () => {
-    render(<ProposalCard proposal={baseProposal} onConfirm={vi.fn()} disabled={true} />)
+    render(<ProposalCard proposal={singleStepProposal} onConfirm={vi.fn()} disabled={true} />)
     expect(screen.getByRole('button', { name: /Bestätigen/i })).toBeDisabled()
   })
 
   it('onConfirm wird bei disabled=true nicht aufgerufen', async () => {
     const onConfirm = vi.fn()
     const user = userEvent.setup()
-    render(<ProposalCard proposal={baseProposal} onConfirm={onConfirm} disabled={true} />)
+    render(<ProposalCard proposal={singleStepProposal} onConfirm={onConfirm} disabled={true} />)
 
     await user.click(screen.getByRole('button', { name: /Bestätigen/i }))
     expect(onConfirm).not.toHaveBeenCalled()
@@ -183,6 +195,25 @@ describe('ProposalCard — isActive=true (Standard / Regression)', () => {
 
   it('zeigt den Confirm-Button', () => {
     render(<ProposalCard {...activeProps} />)
+    expect(screen.getByRole('button', { name: /bestätigen/i })).toBeInTheDocument()
+  })
+
+  it('zeigt Confirm-Button auch wenn mehrere Steps existieren, aber nur einer enabled ist', () => {
+    render(
+      <ProposalCard
+        proposal={{
+          type: 'proposal',
+          proposal_id: 'mixed-proposal',
+          message: 'Gemischt',
+          steps: [
+            { step_type: 'load_csv', enabled: true },
+            { step_type: 'impute_missing', enabled: false },
+          ],
+        }}
+        onConfirm={vi.fn()}
+      />,
+    )
+
     expect(screen.getByRole('button', { name: /bestätigen/i })).toBeInTheDocument()
   })
 

@@ -1,5 +1,6 @@
 import type { ProposalResponse } from '../types'
 import { getStepLabel, STEP_LABELS } from '../utils/stepMeta'
+import { canDirectlyConfirmProposal } from '../utils/proposalSteps'
 
 type ProposalCardProps = {
   proposal: ProposalResponse
@@ -9,6 +10,8 @@ type ProposalCardProps = {
 }
 
 export function ProposalCard({ proposal, onConfirm, disabled, isActive = true }: ProposalCardProps) {
+  const showConfirmButton = isActive && canDirectlyConfirmProposal(proposal)
+
   return (
     <div className={`proposalCard${!isActive ? ' proposalCard--superseded' : ''}`}>
       <div className="proposalLabel">
@@ -46,7 +49,7 @@ export function ProposalCard({ proposal, onConfirm, disabled, isActive = true }:
           </li>
         ))}
       </ul>
-      {isActive && (
+      {showConfirmButton && (
         <button
           type="button"
           className="proposalConfirmButton"

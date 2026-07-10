@@ -14,6 +14,7 @@ import { useHealthPolling } from './hooks/useHealthPolling'
 import { useRunPolling } from './hooks/useRunPolling'
 import { chatReducer, createInitialChatState } from './state/chatReducer'
 import type { AssistantResponse, ChatMessage } from './types'
+import { canDirectlyConfirmProposal } from './utils/proposalSteps'
 
 function createId(): string {
   const cryptoObj = globalThis.crypto
@@ -176,9 +177,26 @@ function App() {
     return []
   }, [state.messages])
 
+  const activePendingProposal = useMemo(() => {
+    if (!state.pendingProposalId) return null
+
+    for (let i = state.messages.length - 1; i >= 0; i -= 1) {
+      const response = state.messages[i].response
+      if (response?.type === 'proposal' && response.proposal_id === state.pendingProposalId) {
+        return response
+      }
+    }
+
+    return null
+  }, [state.messages, state.pendingProposalId])
+
+  const canConfirmPendingProposal =
+    activePendingProposal !== null && canDirectlyConfirmProposal(activePendingProposal)
+
   const handleConfirm = useCallback(
     async (proposalId: string) => {
       if (state.isConfirming || state.ui.type !== 'proposal_pending') return
+      if (!canConfirmPendingProposal) return
 
       if (!state.sessionId) {
         dispatch({ type: 'CONFIRM_FAILED', errorMessage: 'Keine Session-ID vorhanden.' })
@@ -211,7 +229,7 @@ function App() {
         dispatch({ type: 'CONFIRM_FAILED', errorMessage })
       }
     },
-    [state.isConfirming, state.ui.type, state.sessionId],
+    [canConfirmPendingProposal, state.isConfirming, state.sessionId, state.ui.type],
   )
 
   const handleTabChange = useCallback(
@@ -358,7 +376,11 @@ function App() {
           <MessageList
             messages={state.messages}
             onConfirm={handleConfirm}
-            confirmDisabled={state.isConfirming || state.ui.type !== 'proposal_pending'}
+            confirmDisabled={
+              state.isConfirming ||
+              state.ui.type !== 'proposal_pending' ||
+              !canConfirmPendingProposal
+            }
             activePendingProposalId={state.pendingProposalId}
             isSending={isSending}
           />

@@ -44,6 +44,15 @@ function createDefaultAssistantResponse(userText: string): AssistantResponse {
     }
   }
 
+  if (text.includes('einzelschritt') || text.includes('single-step')) {
+    return {
+      type: 'proposal',
+      proposal_id: 'mock-single-step-proposal',
+      message: 'Vorschlag (Mock): Ein einzelner Schritt ist bereit.',
+      steps: [{ step_type: 'load_csv', parameters_summary: 'source=data/raw/bike.csv' }],
+    }
+  }
+
   if (text.includes('error') || text.includes('fehler') || text.includes('fail')) {
     return {
       type: 'error',
@@ -258,7 +267,7 @@ describe('gysi-ml frontend (Story 1.1 smoke tests)', () => {
     expect(screen.getByText('train_test_split')).toBeInTheDocument()
   })
 
-  it('Proposal Mock — Confirm-Button vorhanden', async () => {
+  it('Proposal Mock — kein Confirm-Button bei mehreren Steps', async () => {
     vi.resetModules()
     mockFrontendEnv()
     mockDefaultTransport()
@@ -272,9 +281,7 @@ describe('gysi-ml frontend (Story 1.1 smoke tests)', () => {
 
     await screen.findByText(/Vorschlag \(noch nicht ausgeführt\)/)
 
-    expect(
-      screen.getByRole('button', { name: /Bestätigen/i }),
-    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Bestätigen/i })).not.toBeInTheDocument()
   })
 
   it('Nicht-Proposal bleibt plain Text (keine Regression)', async () => {
@@ -295,7 +302,7 @@ describe('gysi-ml frontend (Story 1.1 smoke tests)', () => {
     expect(document.querySelector('.proposalCard')).toBeNull()
   })
 
-  it('Confirm-Flow Mock: Klick auf Bestätigen wechselt State auf run_polling', async () => {
+  it('Confirm-Flow Mock: Klick auf Bestätigen wechselt bei Einzelschritt auf run_polling', async () => {
     vi.resetModules()
     mockFrontendEnv()
     mockDefaultTransport()
@@ -306,8 +313,8 @@ describe('gysi-ml frontend (Story 1.1 smoke tests)', () => {
 
     const textarea = screen.getByLabelText('Composer')
 
-    // Proposal auslösen
-    await user.type(textarea, 'proposal{enter}')
+    // Einzelschritt-Proposal auslösen
+    await user.type(textarea, 'einzelschritt{enter}')
     await screen.findByText(/Vorschlag \(noch nicht ausgeführt\)/)
 
     // Button ist klickbar im proposal_pending-State
