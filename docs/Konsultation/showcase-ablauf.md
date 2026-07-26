@@ -94,7 +94,7 @@ Versionsbaum bleibt leer.
 
 ---
 
-### 2.1 – Duplikate entfernen → **v1**
+### (2.1 – Duplikate entfernen → **v1**)
 
 ```
 Entferne alle doppelten Zeilen aus dem Datensatz
@@ -124,7 +124,7 @@ Zeig mir die Verteilung von cnt gruppiert nach season
 
 ---
 
-### 2.3 – Zeitfeatures ableiten → **v2**
+### (2.3 – Zeitfeatures ableiten → **v2**)
 
 ```
 Leite Wochentag und Monat aus der Datumsspalte dteday ab
@@ -135,22 +135,6 @@ Leite Wochentag und Monat aus der Datumsspalte dteday ab
 **Was zeigen:**
 - **Daten-Tab:** Neue Spalten `weekday` und `month` erscheinen
 - Versionsbaum: **v2**
-
----
-
-### 2.4 – Redundante Spalten löschen → **v3**
-
-```
-Entferne jetzt dteday und mnth, da wir ihre Informationen als separate Feature-Spalten haben
-```
-
-**Was passiert:** Die Spalten `dteday` (ursprüngliche Datumsspalte) und `mnth` (Monatszahl —
-jetzt durch das abgeleitete `month` ersetzt) werden entfernt.
-
-**Was zeigen:**
-- **Daten-Tab:** `dteday` und `mnth` verschwunden
-- Spaltenstatistik-Header aktualisiert sich
-- Versionsbaum: **v3**
 
 ---
 
