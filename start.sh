@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Startet Backend und Frontend gleichzeitig.
+# Startet Backend und Frontend gleichzeitig../
 # Beenden mit Ctrl+C — beide Prozesse werden automatisch beendet.
 
 set -e
